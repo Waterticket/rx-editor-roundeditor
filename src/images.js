@@ -1,5 +1,11 @@
 import { Fragment, Slice } from 'prosemirror-model';
 import { uploadImageFiles } from './rhymix/upload.js';
+import {
+    addUploadPlaceholder,
+    findUploadPlaceholder,
+    removeUploadPlaceholder,
+    removeUploadPlaceholderFrom,
+} from './uploadPlaceholders.js';
 
 export function imageFiles(list) {
     return Array.from(list || []).filter(file => String(file.type || '').startsWith('image/'));
@@ -31,7 +37,7 @@ function textblockPosition(doc, position) {
     return null;
 }
 
-export function insertUploadedImages(bridge, uploads, { position = null, align = null } = {}) {
+export function insertUploadedImages(bridge, uploads, { position = null, align = null, placeholderId = null } = {}) {
     if (!uploads.length) return false;
     const { state } = bridge.view;
     const measuredWidth = bridge.view.dom.clientWidth;
@@ -39,7 +45,8 @@ export function insertUploadedImages(bridge, uploads, { position = null, align =
     const nodes = uploads.map(upload => state.schema.nodes.image.create(imageAttrsFromUpload(upload, maxWidth)));
     const slice = new Slice(Fragment.fromArray(nodes), 0, 0);
     let transaction = state.tr;
-    const insertionPosition = position === null ? state.selection.from : position;
+    const placeholderPosition = placeholderId ? findUploadPlaceholder(state, placeholderId) : null;
+    const insertionPosition = placeholderPosition ?? (position === null ? state.selection.from : position);
     const paragraphPosition = textblockPosition(state.doc, insertionPosition);
     if (position === null) transaction = transaction.replaceSelection(slice);
     else transaction = transaction.replaceRange(insertionPosition, insertionPosition, slice);
@@ -49,15 +56,25 @@ export function insertUploadedImages(bridge, uploads, { position = null, align =
             transaction = transaction.setNodeMarkup(paragraphPosition, null, { ...paragraph.attrs, align });
         }
     }
+    if (placeholderId) transaction = removeUploadPlaceholderFrom(transaction, placeholderId);
     bridge.view.dispatch(transaction.scrollIntoView());
     bridge.view.focus();
     return true;
 }
 
 function uploadFromEvent(bridge, files, position = null) {
+    const placeholderId = addUploadPlaceholder(
+        bridge.view,
+        'image',
+        bridge.config.labels?.imageUploading || 'Uploading image…',
+        position ?? bridge.view.state.selection.from
+    );
     uploadImageFiles(bridge, files.map(file => ({ file })))
-        .then(uploads => insertUploadedImages(bridge, uploads, { position }))
-        .catch(error => window.alert?.(error.message));
+        .then(uploads => insertUploadedImages(bridge, uploads, { position, placeholderId }))
+        .catch(error => {
+            removeUploadPlaceholder(bridge.view, placeholderId);
+            window.alert?.(error.message);
+        });
 }
 
 export function handleImagePaste(bridge, event) {

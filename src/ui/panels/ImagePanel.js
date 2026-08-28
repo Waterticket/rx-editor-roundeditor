@@ -1,5 +1,6 @@
 import { imageFiles, insertUploadedImages } from '../../images.js';
 import { uploadImageFiles } from '../../rhymix/upload.js';
+import { addUploadPlaceholder, removeUploadPlaceholder } from '../../uploadPlaceholders.js';
 
 function measureImage(url) {
     if (!url) return Promise.resolve(null);
@@ -147,14 +148,16 @@ export function createImagePanel({ bridge, labels, onClose }) {
         busy = true;
         error.hidden = true;
         insert.disabled = true;
+        const placeholderId = addUploadPlaceholder(bridge.view, 'image', labels.imageUploading);
         try {
             const uploads = await uploadImageFiles(bridge, items, (index, progress) => {
                 const card = thumbnails.children[index];
                 if (card) card.style.setProperty('--roundeditor-upload-progress', `${Math.round(progress * 100)}%`);
             });
-            insertUploadedImages(bridge, uploads, { align: align.value || null });
+            insertUploadedImages(bridge, uploads, { align: align.value || null, placeholderId });
             onClose();
         } catch (uploadError) {
+            removeUploadPlaceholder(bridge.view, placeholderId);
             error.textContent = uploadError.message;
             error.hidden = false;
             busy = false;

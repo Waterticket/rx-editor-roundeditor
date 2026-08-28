@@ -2,6 +2,7 @@ import {
     lift,
     selectAll,
     setBlockType,
+    splitBlock,
     toggleMark,
     wrapIn,
 } from 'prosemirror-commands';
@@ -10,6 +11,7 @@ import {
     sinkListItem,
     wrapInList,
 } from 'prosemirror-schema-list';
+import { NodeSelection, TextSelection } from 'prosemirror-state';
 
 export const FONT_SIZES = [8, 9, 10, 11, 12, 14, 18, 24, 30, 36, 48, 60, 72, 96];
 export const LINE_HEIGHTS = ['1', '1.2', '1.4', '1.6', '1.8', '2'];
@@ -24,6 +26,33 @@ export function run(view, command) {
     const result = command(view.state, view.dispatch, view);
     if (result) view.focus();
     return result;
+}
+
+export function exitInlineNode(direction) {
+    return (state, dispatch) => {
+        const { selection } = state;
+        if (!(selection instanceof NodeSelection) || !selection.node.isInline) return false;
+        const position = direction > 0 ? selection.to : selection.from;
+        if (dispatch) dispatch(state.tr.setSelection(TextSelection.create(state.doc, position)).scrollIntoView());
+        return true;
+    };
+}
+
+export function splitAfterInlineNode(state, dispatch, view) {
+    const { selection } = state;
+    let position = null;
+    if (selection instanceof NodeSelection && selection.node.isInline) {
+        position = selection.to;
+    } else if (selection instanceof TextSelection && selection.empty) {
+        const previous = selection.$from.nodeBefore;
+        if (previous?.isInline && previous.isAtom) position = selection.from;
+    }
+    if (position === null) return false;
+    const $position = state.doc.resolve(position);
+    if (!$position.parent.isTextblock) return false;
+    if (!dispatch) return true;
+    const positioned = state.apply(state.tr.setSelection(TextSelection.create(state.doc, position)));
+    return splitBlock(positioned, dispatch, view);
 }
 
 export function markActive(state, type) {

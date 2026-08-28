@@ -37,13 +37,14 @@ import {
 import { createLinkPanel } from './panels/LinkPanel.js';
 import { createImagePanel } from './panels/ImagePanel.js';
 import { createTablePanel } from './panels/TablePanel.js';
+import { createVideoPanel } from './panels/VideoPanel.js';
 
 const FALLBACK_LABELS = {
     toolbar: 'Editor toolbar', more: 'More', close: 'Close', bold: 'Bold', italic: 'Italic',
     underline: 'Underline', strike: 'Strikethrough', fontSize: 'Font size', lineHeight: 'Line height',
     fontFamily: 'Font family',
     textColor: 'Text color', backgroundColor: 'Background color', clearFormatting: 'Clear formatting',
-    image: 'Image', video: 'Video (available in Phase 4)', link: 'Link',
+    image: 'Image', video: 'Video', link: 'Link',
     table: 'Table', specialCharacters: 'Special characters', paragraph: 'Paragraph tools',
     alignLeft: 'Align left', alignCenter: 'Align center', alignRight: 'Align right',
     alignJustify: 'Justify', orderedList: 'Numbered list', bulletList: 'Bulleted list',
@@ -62,6 +63,12 @@ const FALLBACK_LABELS = {
     imageDropzone: 'Choose images or drop them here', imageOnly: 'Please select image files only.',
     imageAlign: 'Alignment', imageDelete: 'Delete image', imageSize: 'Image size', imageLink: 'Image link',
     imageAlt: 'Alternative text', imageWidth: 'Width', imageHeight: 'Height',
+    videoDropzone: 'Choose an MP4, WebM, or MOV file (up to 50 MB)',
+    videoOnly: 'Please select an MP4, WebM, or MOV file.', videoTooLarge: 'Video files may not exceed 50 MB.',
+    videoDelete: 'Delete video', videoSize: 'Video size', videoAutoplay: 'Autoplay',
+    videoControls: 'Show controls', videoWidth: 'Width', videoHeight: 'Height',
+    sizeReset: 'Remove explicit size',
+    imageUploading: 'Uploading image…', videoUploading: 'Uploading video…',
 };
 
 const ICONS = {
@@ -69,7 +76,11 @@ const ICONS = {
     fontSize: '↕', lineHeight: '≡', textColor: 'A', backgroundColor: '▣', clearFormatting: 'Tx',
     fontFamily: 'F',
     image: '▧', video: '▶', link: '🔗', table: '▦', specialCharacters: 'Ω', paragraph: '¶',
-    alignLeft: '≡', alignCenter: '≡', alignRight: '≡', alignJustify: '☰', orderedList: '1.',
+    alignLeft: '<span class="roundeditor__align-icon roundeditor__align-icon--left"><i></i><i></i><i></i></span>',
+    alignCenter: '<span class="roundeditor__align-icon roundeditor__align-icon--center"><i></i><i></i><i></i></span>',
+    alignRight: '<span class="roundeditor__align-icon roundeditor__align-icon--right"><i></i><i></i><i></i></span>',
+    alignJustify: '<span class="roundeditor__align-icon roundeditor__align-icon--justify"><i></i><i></i><i></i></span>',
+    orderedList: '1.',
     bulletList: '•', outdent: '⇤', indent: '⇥', quote: '❝', horizontalRule: '―', sticker: '☺',
     undo: '↶', redo: '↷', selectAll: '▣', source: '&lt;/&gt;', fullscreen: '⛶', help: '?', more: '⋯',
 };
@@ -138,7 +149,10 @@ export class Toolbar {
         text.appendChild(this.moreButton('text'));
 
         const rich = this.addGroup('rich');
-        rich.append(button('image', this.labels, { disabled: !this.bridge.config.allowUpload }), button('video', this.labels, { disabled: true }));
+        rich.append(
+            button('image', this.labels, { disabled: !this.bridge.config.allowUpload }),
+            button('video', this.labels, { disabled: !this.bridge.config.allowUpload })
+        );
         rich.appendChild(button('link', this.labels));
         rich.appendChild(this.moreButton('rich'));
 
@@ -240,7 +254,8 @@ export class Toolbar {
     }
 
     closePanel() {
-        this.panel.querySelector('.roundeditor__image-panel')?.dispatchEvent(new window.Event('roundeditor:close'));
+        this.panel.querySelector('.roundeditor__image-panel, .roundeditor__video-panel')
+            ?.dispatchEvent(new window.Event('roundeditor:close'));
         this.panelName = null;
         this.panel.hidden = true;
         this.panel.replaceChildren();
@@ -318,6 +333,13 @@ export class Toolbar {
                 onClose: () => this.closePanel(),
             });
             this.openPanel(name, this.labels.image, panel);
+        } else if (name === 'video') {
+            const panel = createVideoPanel({
+                bridge: this.bridge,
+                labels: this.labels,
+                onClose: () => this.closePanel(),
+            });
+            this.openPanel(name, this.labels.video, panel);
         } else if (name === 'fontSize') {
             const choices = this.choices(name, FONT_SIZES, value => `${value}px`, value => (
                 run(view, setTextStyle(schema.marks.fontSize, `${value}px`))

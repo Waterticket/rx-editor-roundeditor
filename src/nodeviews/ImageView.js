@@ -6,6 +6,7 @@ const FALLBACK_LABELS = {
     imageDelete: 'Delete image', imageSize: 'Image size', imageLink: 'Image link', imageAlt: 'Alternative text',
     imageWidth: 'Width', imageHeight: 'Height', url: 'URL', apply: 'Apply', alignLeft: 'Align left',
     alignCenter: 'Align center', alignRight: 'Align right',
+    sizeReset: 'Remove explicit size',
 };
 
 function safeHref(value) {
@@ -25,6 +26,7 @@ export class ImageView extends MediaNodeView {
             values: () => this.values(),
             onDelete: () => this.remove(),
             onSize: (width, height) => this.resizeFromForm(width, height),
+            onResetSize: () => this.resetSize(),
             onLink: href => this.setLink(href),
             onAlt: alt => this.setAlt(alt),
             onAlign: align => this.setAlign(align),
@@ -88,9 +90,15 @@ export class ImageView extends MediaNodeView {
         const ratio = current.width && current.height ? current.width / current.height : 1;
         let nextWidth = width || current.width || 320;
         let nextHeight = height || current.height || nextWidth / ratio;
-        if (width && current.width && width !== current.width) nextHeight = width / ratio;
-        else if (height && current.height && height !== current.height) nextWidth = height * ratio;
+        const widthChanged = width && width !== current.width;
+        const heightChanged = height && height !== current.height;
+        if (widthChanged && !heightChanged) nextHeight = width / ratio;
+        else if (heightChanged && !widthChanged) nextWidth = height * ratio;
         this.updateSize(nextWidth, nextHeight);
+    }
+
+    resetSize() {
+        this.updateAttrs({ width: null, height: null, displayWidth: null, displayHeight: null });
     }
 
     updateAttrs(attrs, marks = this.node.marks) {

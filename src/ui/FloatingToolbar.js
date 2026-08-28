@@ -8,6 +8,15 @@ function actionButton(action, label, text = label) {
     return button;
 }
 
+function alignmentButton(action, label) {
+    const button = actionButton(action, label, '');
+    const icon = document.createElement('span');
+    icon.className = `roundeditor__align-icon roundeditor__align-icon--${action}`;
+    icon.append(document.createElement('i'), document.createElement('i'), document.createElement('i'));
+    button.appendChild(icon);
+    return button;
+}
+
 function field(label, name, type = 'text') {
     const wrapper = document.createElement('label');
     wrapper.className = 'roundeditor__media-field';
@@ -21,10 +30,10 @@ function field(label, name, type = 'text') {
 }
 
 export class FloatingToolbar {
-    constructor({ labels, values, onDelete, onSize, onLink, onAlt, onAlign }) {
+    constructor({ labels, values, onDelete, onSize, onResetSize, onLink, onAlt, onAlign }) {
         this.labels = labels;
         this.values = values;
-        this.handlers = { onDelete, onSize, onLink, onAlt, onAlign };
+        this.handlers = { onDelete, onSize, onResetSize, onLink, onAlt, onAlign };
         this.element = document.createElement('div');
         this.element.className = 'roundeditor__media-toolbar';
         this.element.hidden = true;
@@ -36,9 +45,9 @@ export class FloatingToolbar {
             actionButton('size', labels.imageSize, '↔'),
             actionButton('link', labels.imageLink, '🔗'),
             actionButton('alt', labels.imageAlt, 'ALT'),
-            actionButton('left', labels.alignLeft, '≡'),
-            actionButton('center', labels.alignCenter, '≡'),
-            actionButton('right', labels.alignRight, '≡')
+            alignmentButton('left', labels.alignLeft),
+            alignmentButton('center', labels.alignCenter),
+            alignmentButton('right', labels.alignRight)
         );
         this.formHost = document.createElement('div');
         this.formHost.className = 'roundeditor__media-toolbar-form';
@@ -80,6 +89,14 @@ export class FloatingToolbar {
                 this.handlers.onSize(Number(width.input.value), Number(height.input.value));
                 this.formHost.replaceChildren();
             });
+            const reset = document.createElement('button');
+            reset.type = 'button';
+            reset.textContent = this.labels.sizeReset;
+            reset.addEventListener('click', () => {
+                this.handlers.onResetSize();
+                this.formHost.replaceChildren();
+            });
+            form.appendChild(reset);
         } else if (action === 'link') {
             const href = field(this.labels.url, 'href', 'url');
             href.input.value = values.href || '';
@@ -106,5 +123,100 @@ export class FloatingToolbar {
         form.appendChild(apply);
         this.formHost.replaceChildren(form);
         form.querySelector('input')?.focus();
+    }
+}
+
+export class VideoFloatingToolbar {
+    constructor({ labels, values, onDelete, onSize, onResetSize, onToggleAutoplay, onToggleControls, onAlign }) {
+        this.labels = labels;
+        this.values = values;
+        this.handlers = { onDelete, onSize, onResetSize, onToggleAutoplay, onToggleControls, onAlign };
+        this.element = document.createElement('div');
+        this.element.className = 'roundeditor__media-toolbar';
+        this.element.hidden = true;
+        this.element.contentEditable = 'false';
+        this.row = document.createElement('div');
+        this.row.className = 'roundeditor__media-toolbar-row';
+        this.row.append(
+            actionButton('delete', labels.videoDelete, '×'),
+            actionButton('size', labels.videoSize, '↔'),
+            actionButton('autoplay', labels.videoAutoplay, '▶'),
+            actionButton('controls', labels.videoControls, '▰'),
+            alignmentButton('left', labels.alignLeft),
+            alignmentButton('center', labels.alignCenter),
+            alignmentButton('right', labels.alignRight)
+        );
+        this.formHost = document.createElement('div');
+        this.formHost.className = 'roundeditor__media-toolbar-form';
+        this.element.append(this.row, this.formHost);
+        this.element.addEventListener('click', event => this.execute(event));
+    }
+
+    show() {
+        this.element.hidden = false;
+        this.refresh();
+    }
+
+    hide() {
+        this.element.hidden = true;
+        this.formHost.replaceChildren();
+    }
+
+    refresh() {
+        const values = this.values();
+        this.row.querySelector('[data-media-action="autoplay"]')?.setAttribute('aria-pressed', String(values.autoplay));
+        this.row.querySelector('[data-media-action="controls"]')?.setAttribute('aria-pressed', String(values.controls));
+        for (const align of ['left', 'center', 'right']) {
+            this.row.querySelector(`[data-media-action="${align}"]`)?.setAttribute(
+                'aria-pressed',
+                String((values.align || 'left') === align)
+            );
+        }
+    }
+
+    execute(event) {
+        const action = event.target.closest('[data-media-action]')?.dataset.mediaAction;
+        if (!action) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (action === 'delete') this.handlers.onDelete();
+        else if (action === 'autoplay') this.handlers.onToggleAutoplay();
+        else if (action === 'controls') this.handlers.onToggleControls();
+        else if (['left', 'center', 'right'].includes(action)) this.handlers.onAlign(action);
+        else this.openSizeForm();
+        this.refresh();
+    }
+
+    openSizeForm() {
+        const values = this.values();
+        const form = document.createElement('form');
+        const width = field(this.labels.videoWidth, 'width', 'number');
+        const height = field(this.labels.videoHeight, 'height', 'number');
+        for (const item of [width, height]) {
+            item.input.min = '24';
+            item.input.inputMode = 'numeric';
+        }
+        width.input.value = values.width || '';
+        height.input.value = values.height || '';
+        form.append(width.wrapper, height.wrapper);
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            this.handlers.onSize(Number(width.input.value), Number(height.input.value));
+            this.formHost.replaceChildren();
+        });
+        const reset = document.createElement('button');
+        reset.type = 'button';
+        reset.textContent = this.labels.sizeReset;
+        reset.addEventListener('click', () => {
+            this.handlers.onResetSize();
+            this.formHost.replaceChildren();
+        });
+        form.appendChild(reset);
+        const apply = document.createElement('button');
+        apply.type = 'submit';
+        apply.textContent = this.labels.apply;
+        form.appendChild(apply);
+        this.formHost.replaceChildren(form);
+        width.input.focus();
     }
 }

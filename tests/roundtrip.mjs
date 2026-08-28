@@ -56,4 +56,10 @@ const reparsedStyledDocument = parseDocument(serializeDocument(styledDocument, s
 assert.equal(reparsedStyledDocument.firstChild.firstChild.marks.some(mark => mark.type === schema.marks.fontSize), true);
 assert.equal(reparsedStyledDocument.firstChild.firstChild.marks.some(mark => mark.type === schema.marks.fontColor), true);
 
+const blankLines = parseDocument('<p>위</p><p></p><p></p><p>아래</p>');
+const serializedBlankLines = serializeDocument(blankLines, schema);
+assert.equal(serializedBlankLines, '<p>위</p><p>\u00a0</p><p>\u00a0</p><p>아래</p>');
+assert.deepEqual(parseDocument(serializedBlankLines).toJSON(), blankLines.toJSON());
+assert.equal(cleanBatch([serializedBlankLines])[0], serializedBlankLines);
+
 console.log(`roundeditor round-trip contract passed (${fixtures.length} golden cases)`);

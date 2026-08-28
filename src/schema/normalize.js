@@ -140,6 +140,11 @@ function splitParagraphAtBlocks(paragraph) {
     paragraph.remove();
 }
 
+function removeEmptyParagraphFiller(paragraph) {
+    if (paragraph.childNodes.length !== 1 || paragraph.firstChild.nodeType !== Node.TEXT_NODE) return;
+    if (paragraph.firstChild.nodeValue === '\u00a0') paragraph.replaceChildren();
+}
+
 function wrapInlineRuns(container, createEmpty = false) {
     let paragraph = null;
     let foundContent = false;
@@ -168,6 +173,7 @@ export function normalizeForParse(html) {
     template.innerHTML = String(html || '');
 
     for (const element of Array.from(template.content.children)) visitElement(element);
+    for (const paragraph of Array.from(template.content.querySelectorAll('p'))) removeEmptyParagraphFiller(paragraph);
     for (const paragraph of Array.from(template.content.querySelectorAll('p'))) splitParagraphAtBlocks(paragraph);
     for (const container of Array.from(template.content.querySelectorAll('li,td,th,blockquote'))) {
         wrapInlineRuns(container, true);

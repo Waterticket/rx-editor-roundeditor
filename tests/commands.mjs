@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 import { history, undo } from 'prosemirror-history';
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 
 const dom = new JSDOM('<!doctype html><html><body></body></html>');
 Object.defineProperties(globalThis, {
@@ -14,12 +14,14 @@ const { parseDocument, schema, serializeDocument } = await import('../src/schema
 const {
     changeIndent,
     clearFormatting,
+    exitInlineNode,
     insertHorizontalRule,
     insertTable,
     setLink,
     setParagraphFormat,
     setTextStyle,
     setTextblockAttrs,
+    splitAfterInlineNode,
     toggleBlockquote,
     toggleList,
     toggleTextMark,
@@ -93,5 +95,18 @@ const historyEditor = editor('<p>Hello</p>', true);
 historyEditor.run(toggleTextMark(schema.marks.strong));
 assert.equal(undo(historyEditor.state, transaction => historyEditor.dispatch(transaction)), true);
 assert.equal(historyEditor.html(), '<p>Hello</p>');
+
+const imageExit = editor('<p><img src="/right.png" alt="" /></p>');
+imageExit.dispatch(imageExit.state.tr.setSelection(NodeSelection.create(imageExit.state.doc, 1)));
+assert.equal(imageExit.run(exitInlineNode(1)), true);
+assert.equal(imageExit.state.selection instanceof TextSelection, true);
+assert.equal(imageExit.state.selection.from, 2);
+
+const imageEnter = editor('<p><img src="/right.png" alt="" /></p>');
+imageEnter.dispatch(imageEnter.state.tr.setSelection(NodeSelection.create(imageEnter.state.doc, 1)));
+assert.equal(imageEnter.run(splitAfterInlineNode), true);
+imageEnter.dispatch(imageEnter.state.tr.insertText('입력됨'));
+assert.equal(imageEnter.html(), '<p><img src="/right.png" alt="" /></p><p>입력됨</p>');
+assert.doesNotMatch(imageEnter.html(), /contenteditable/);
 
 console.log('roundeditor Phase 2 commands passed');

@@ -38,6 +38,15 @@ function mediaBooleanAttrs(node, names) {
     return Object.fromEntries(names.map(name => [name, node.attrs[name]]));
 }
 
+function videoAlignment(element) {
+    const marginLeft = element.style.getPropertyValue('margin-left') || null;
+    const marginRight = element.style.getPropertyValue('margin-right') || null;
+    if (marginLeft === 'auto' && marginRight === 'auto') return 'center';
+    if (marginLeft === 'auto') return 'right';
+    if (marginRight === 'auto') return 'left';
+    return null;
+}
+
 const tableSpecs = tableNodes({
     tableGroup: 'block',
     cellContent: 'block+',
@@ -259,12 +268,19 @@ export const nodes = {
             poster: { default: null },
             width: { default: null },
             height: { default: null },
+            displayWidth: { default: null },
+            displayHeight: { default: null },
             fileSrl: { default: null },
+            preload: { default: null },
             controls: { default: false },
             muted: { default: false },
             autoplay: { default: false },
             loop: { default: false },
             playsinline: { default: false },
+            align: { default: null },
+            display: { default: null },
+            marginLeft: { default: null },
+            marginRight: { default: null },
             extra: { default: null },
         },
         parseDOM: [{
@@ -274,24 +290,38 @@ export const nodes = {
                 poster: element.getAttribute('poster'),
                 width: element.getAttribute('width'),
                 height: element.getAttribute('height'),
+                displayWidth: element.style.getPropertyValue('width') || null,
+                displayHeight: element.style.getPropertyValue('height') || null,
                 fileSrl: element.getAttribute('data-file-srl'),
+                preload: element.getAttribute('preload'),
                 controls: element.hasAttribute('controls'),
                 muted: element.hasAttribute('muted'),
                 autoplay: element.hasAttribute('autoplay'),
                 loop: element.hasAttribute('loop'),
                 playsinline: element.hasAttribute('playsinline'),
+                align: videoAlignment(element),
+                display: element.style.getPropertyValue('display') || null,
+                marginLeft: element.style.getPropertyValue('margin-left') || null,
+                marginRight: element.style.getPropertyValue('margin-right') || null,
                 extra: extraAttrs(element, [
                     'src', 'poster', 'width', 'height', 'data-file-srl',
-                    'controls', 'muted', 'autoplay', 'loop', 'playsinline',
+                    'preload', 'controls', 'muted', 'autoplay', 'loop', 'playsinline',
                 ]),
             }),
         }],
-        toDOM: node => ['video', domAttributes(node.attrs.extra, {
+        toDOM: node => ['video', mergeStyle(node.attrs.extra, {
+            width: node.attrs.displayWidth,
+            height: node.attrs.displayHeight,
+            display: node.attrs.display,
+            'margin-left': node.attrs.marginLeft,
+            'margin-right': node.attrs.marginRight,
+        }, {
             src: node.attrs.src,
             poster: node.attrs.poster,
             width: node.attrs.width,
             height: node.attrs.height,
             'data-file-srl': node.attrs.fileSrl,
+            preload: node.attrs.preload,
             ...mediaBooleanAttrs(node, ['controls', 'muted', 'autoplay', 'loop', 'playsinline']),
         })],
     },

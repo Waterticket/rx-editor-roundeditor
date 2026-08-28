@@ -74,6 +74,12 @@ function unwrapInternalNodes(container) {
     }
 }
 
+function fillEmptyParagraphs(container) {
+    for (const paragraph of Array.from(container.querySelectorAll('p'))) {
+        if (!paragraph.childNodes.length) paragraph.appendChild(document.createTextNode('\u00a0'));
+    }
+}
+
 function useXhtmlVoidTags(html) {
     const names = Array.from(VOID_TAGS).join('|');
     return html.replace(new RegExp(`<(${names})(\\s[^<>]*?)?>`, 'gi'), match => (
@@ -91,5 +97,6 @@ export function serializeDocument(doc, schema) {
     restoreSourceStyles(container);
     mergeNestedStyleSpans(container);
     unwrapInternalNodes(container);
+    fillEmptyParagraphs(container);
     return useFilterStableEntities(useXhtmlVoidTags(container.innerHTML));
 }

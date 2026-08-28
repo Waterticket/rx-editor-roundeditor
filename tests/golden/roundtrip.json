@@ -60,6 +60,11 @@
     "expected": "<video src=\"./files/x.mp4\" style=\"width:200px;\" autoplay=\"\" muted=\"\" loop=\"\" playsinline=\"\"></video>"
   },
   {
+    "name": "block video widget",
+    "input": "<video src=\"./files/x.mp4\" poster=\"./files/x.jpg\" width=\"320\" height=\"180\" style=\"width:320px;height:180px;display:block;margin-left:auto;margin-right:auto\" controls preload=\"none\" data-file-srl=\"77\"></video>",
+    "expected": "<video src=\"./files/x.mp4\" poster=\"./files/x.jpg\" width=\"320\" height=\"180\" style=\"width:320px;height:180px;display:block;margin-left:auto;margin-right:auto;\" controls=\"\" preload=\"none\" data-file-srl=\"77\"></video>"
+  },
+  {
     "name": "inline video is lifted",
     "input": "<p>a <video src=\"./files/x.mp4\"></video> b</p>",
     "expected": "<p>a </p><video src=\"./files/x.mp4\"></video> b"

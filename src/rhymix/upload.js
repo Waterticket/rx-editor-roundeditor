@@ -6,6 +6,17 @@ export function normalizeRhymixUrl(value) {
     return String(value || '').replaceAll('&amp;', '&').replaceAll('&#039;', "'");
 }
 
+export function normalizeRhymixAssetUrl(value) {
+    const url = normalizeRhymixUrl(value);
+    if (!url.startsWith('./')) return url;
+    try {
+        const base = new URL(window.default_url || '/', window.location.href).pathname.replace(/\/?$/, '/');
+        return `${base}${url.slice(2)}`;
+    } catch (error) {
+        return url.slice(1);
+    }
+}
+
 export function refreshUploader(sequence, response, attempt = 0) {
     if (!window.jQuery) return;
     const container = window.jQuery(`#xefu-container-${sequence}`);
@@ -36,16 +47,17 @@ export function uploadFile(bridge, file, onProgress = () => {}) {
             }
             const errorCode = Number(response?.error || 0);
             if (request.status < 200 || request.status >= 300 || errorCode !== 0 || !response?.download_url) {
-                reject(new Error(response?.message || `이미지 업로드에 실패했습니다. (${request.status})`));
+                reject(new Error(response?.message || `파일 업로드에 실패했습니다. (${request.status})`));
                 return;
             }
             response.download_url = normalizeRhymixUrl(response.download_url);
             response.source_filename = normalizeRhymixUrl(response.source_filename);
+            response.thumbnail_filename = normalizeRhymixAssetUrl(response.thumbnail_filename);
             refreshUploader(bridge.sequence, response);
             resolve(response);
         });
-        request.addEventListener('error', () => reject(new Error('이미지 업로드 중 네트워크 오류가 발생했습니다.')));
-        request.addEventListener('abort', () => reject(new Error('이미지 업로드가 취소되었습니다.')));
+        request.addEventListener('error', () => reject(new Error('파일 업로드 중 네트워크 오류가 발생했습니다.')));
+        request.addEventListener('abort', () => reject(new Error('파일 업로드가 취소되었습니다.')));
 
         const data = new FormData();
         data.append('act', 'procFileUpload');

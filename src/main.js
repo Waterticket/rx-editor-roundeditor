@@ -10,10 +10,14 @@ import '../css/roundeditor.scss';
 import { handleImageDrop, handleImagePaste } from './images.js';
 import { imageNodeView } from './nodeviews/ImageView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
+import { videoNodeView } from './nodeviews/VideoView.js';
 import { normalizeForParse, parseDocument, parseSlice, schema, serializeDocument } from './schema/index.js';
 import { Toolbar } from './ui/Toolbar.js';
+import { exitInlineNode, splitAfterInlineNode } from './ui/commands.js';
+import { uploadPlaceholderPlugin } from './uploadPlaceholders.js';
 
 const registry = Object.create(null);
+let previousGlobals = null;
 
 function normalizeSequence(value) {
     const sequence = Number.parseInt(String(value ?? ''), 10);
@@ -29,6 +33,8 @@ function readConfig(wrapper) {
 }
 
 function findNamedControl(form, name) {
+    const descendant = Array.from(form.querySelectorAll('[name]')).find(control => control.name === name);
+    if (descendant) return descendant;
     const control = form.elements.namedItem(name);
     if (!control) return null;
     if (typeof RadioNodeList !== 'undefined' && control instanceof RadioNodeList) return control[0] || null;
@@ -59,8 +65,12 @@ function createPlugins() {
             'Mod-i': toggleMark(schema.marks.em),
             'Mod-u': toggleMark(schema.marks.underline),
             'Mod-Shift-x': toggleMark(schema.marks.strike),
+            ArrowLeft: exitInlineNode(-1),
+            ArrowRight: exitInlineNode(1),
+            Enter: splitAfterInlineNode,
         }),
         keymap(baseKeymap),
+        uploadPlaceholderPlugin(),
         columnResizing(),
         tableEditing(),
         dropCursor(),
@@ -130,10 +140,9 @@ function createCompatibilityBridge(bridge) {
 }
 
 function installGlobals() {
-    if (window.RoundEditorGlobalsInstalled) return;
     window.RoundEditorGlobalsInstalled = true;
 
-    const previous = {
+    previousGlobals ||= {
         getInstance: window._getCkeInstance,
         getContainer: window._getCkeContainer,
         getFrame: window.editorGetIFrame,
@@ -142,6 +151,7 @@ function installGlobals() {
         getText: window.editorGetContentTextarea_xe,
         getSelected: window.editorGetSelectedHtml,
     };
+    const previous = previousGlobals;
 
     window._getCkeInstance = sequence => {
         const bridge = registry[normalizeSequence(sequence)];
@@ -173,6 +183,25 @@ function installGlobals() {
         const bridge = registry[normalizeSequence(sequence)];
         return bridge ? selectedHtml(bridge) : previous.getSelected?.(sequence) || '';
     };
+}
+
+function publishBridges() {
+    for (const bridge of Object.values(registry)) publishBridge(bridge);
+}
+
+function publishBridge(bridge) {
+    installGlobals();
+    window.editorRelKeys = window.editorRelKeys || [];
+    window.editorMode = window.editorMode || [];
+    bridge.rebindControls();
+    window.editorRelKeys[bridge.sequence] = {
+        primary: bridge.primaryInput,
+        content: bridge.contentInput,
+        func: () => bridge.sync(),
+        pasteHTML: html => insertHtml(bridge, html),
+        editor: { getFrame: () => bridge.editable },
+    };
+    window.editorMode[bridge.sequence] = null;
 }
 
 function applyContentStyles(bridge) {
@@ -219,8 +248,16 @@ function initialize(wrapper) {
         editable: null,
         compat: null,
         toolbar: null,
+        rebindControls() {
+            const currentForm = this.wrapper.closest('form') || this.form;
+            this.form = currentForm;
+            this.primaryInput = findNamedControl(currentForm, this.config.primaryKeyName) || this.primaryInput;
+            this.contentInput = findNamedControl(currentForm, this.config.contentKeyName) || this.contentInput;
+        },
         sync() {
+            this.rebindControls();
             if (this.view) this.contentInput.value = serializeDocument(this.view.state.doc, schema);
+            publishBridge(this);
             return this.contentInput.value;
         },
         updateDocument(html) {
@@ -229,6 +266,7 @@ function initialize(wrapper) {
                 plugins: createPlugins(),
             });
             this.view.updateState(state);
+            this.toolbar?.refresh(state);
         },
     };
     const state = EditorState.create({
@@ -245,7 +283,7 @@ function initialize(wrapper) {
         transformPastedHTML: normalizeForParse,
         handlePaste: (view, event) => handleImagePaste(bridge, event),
         handleDrop: (view, event, slice, moved) => handleImageDrop(bridge, event, moved),
-        nodeViews: { ...rawNodeViews(), image: imageNodeView(bridge) },
+        nodeViews: { ...rawNodeViews(), image: imageNodeView(bridge), video: videoNodeView(bridge) },
         dispatchTransaction(transaction) {
             bridge.view.updateState(bridge.view.state.apply(transaction));
             bridge.sync();
@@ -265,18 +303,7 @@ function initialize(wrapper) {
     ensureHiddenField(form, 'use_editor', 'Y');
     ensureHiddenField(form, 'use_html', 'Y');
     applyContentStyles(bridge);
-    installGlobals();
-
-    window.editorRelKeys = window.editorRelKeys || [];
-    window.editorRelKeys[sequence] = {
-        primary: bridge.primaryInput,
-        content: bridge.contentInput,
-        func: () => bridge.sync(),
-        pasteHTML: html => insertHtml(bridge, html),
-        editor: { getFrame: () => bridge.editable },
-    };
-    window.editorMode = window.editorMode || [];
-    window.editorMode[sequence] = null;
+    publishBridges();
 
     form.addEventListener('submit', () => bridge.sync(), true);
     bridge.sync();
@@ -302,4 +329,20 @@ if (document.readyState === 'loading') {
     boot();
 }
 
-window.addEventListener('pageshow', boot);
+window.addEventListener('load', publishBridges);
+window.addEventListener('pageshow', () => {
+    boot();
+    publishBridges();
+});
+document.addEventListener('click', event => {
+    const submitter = event.target.closest?.('button[type="submit"], input[type="submit"], button:not([type])');
+    if (!submitter?.form) return;
+    for (const bridge of Object.values(registry)) {
+        if (bridge.wrapper.closest('form') === submitter.form) bridge.sync();
+    }
+}, true);
+window.addEventListener('submit', event => {
+    for (const bridge of Object.values(registry)) {
+        if (bridge.wrapper.closest('form') === event.target) bridge.sync();
+    }
+});

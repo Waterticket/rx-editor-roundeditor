@@ -63,7 +63,9 @@ export class MediaNodeView {
         const startHeight = rect.height || current.height || MIN_SIZE;
         const ratio = startWidth / startHeight || 1;
         const startX = event.clientX;
+        const startY = event.clientY;
         const horizontalSign = direction.endsWith('e') ? 1 : -1;
+        const verticalSign = direction.startsWith('s') ? 1 : -1;
         let nextWidth = startWidth;
         let nextHeight = startHeight;
         let settled = false;
@@ -72,7 +74,9 @@ export class MediaNodeView {
             if (settled) return;
             moveEvent.preventDefault();
             nextWidth = Math.min(this.maxWidth(), Math.max(MIN_SIZE, startWidth + ((moveEvent.clientX - startX) * horizontalSign)));
-            nextHeight = Math.max(MIN_SIZE, nextWidth / ratio);
+            nextHeight = moveEvent.altKey
+                ? Math.max(MIN_SIZE, startHeight + ((moveEvent.clientY - startY) * verticalSign))
+                : Math.max(MIN_SIZE, nextWidth / ratio);
             this.previewSize(nextWidth, nextHeight);
         };
         const cleanup = () => {
@@ -125,7 +129,8 @@ export class MediaNodeView {
     }
 
     renderSize() {
-        const { width, height } = this.currentSize();
+        const width = pixels(this.node.attrs.width);
+        const height = pixels(this.node.attrs.height);
         this.media.style.width = this.node.attrs.displayWidth || (width ? `${width}px` : '');
         this.media.style.height = this.node.attrs.displayHeight || (height ? `${height}px` : '');
         this.dom.style.width = this.media.style.width;

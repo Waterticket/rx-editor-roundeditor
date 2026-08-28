@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
 
-const dom = new JSDOM('<!doctype html><html><body><div id="editor" class="roundeditor__surface"></div></body></html>', { url: 'https://example.test/write' });
+const dom = new JSDOM('<!doctype html><html><body><div id="editor" class="roundeditor__surface"></div><div id="placeholder" class="roundeditor__surface"></div></body></html>', { url: 'https://example.test/write' });
 Object.defineProperties(globalThis, {
     window: { value: dom.window, configurable: true },
     document: { value: dom.window.document, configurable: true },
@@ -20,7 +20,12 @@ const { EditorView } = await import('prosemirror-view');
 const { imageAttrsFromUpload, insertUploadedImages } = await import('../src/images.js');
 const { ImageView } = await import('../src/nodeviews/ImageView.js');
 const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
-const { normalizeRhymixUrl, uploadFile } = await import('../src/rhymix/upload.js');
+const { normalizeRhymixAssetUrl, normalizeRhymixUrl, uploadFile } = await import('../src/rhymix/upload.js');
+const {
+    addUploadPlaceholder,
+    findUploadPlaceholder,
+    uploadPlaceholderPlugin,
+} = await import('../src/uploadPlaceholders.js');
 
 assert.deepEqual(imageAttrsFromUpload({
     download_url: '/image.jpg', file_srl: 77, source_filename: '사진.jpg', dimensions: { width: 1200, height: 600 },
@@ -29,6 +34,8 @@ assert.deepEqual(imageAttrsFromUpload({
     displayWidth: '600px', displayHeight: '300px', fileSrl: '77', editorComponent: 'image_link',
 });
 assert.equal(normalizeRhymixUrl('/download?a=1&amp;b=2'), '/download?a=1&b=2');
+window.default_url = 'https://example.test/subdir/';
+assert.equal(normalizeRhymixAssetUrl('./files/poster.jpg'), '/subdir/files/poster.jpg');
 
 const initial = parseDocument('<p><img src="/old.jpg" alt="기존" width="320" height="180" style="width:320px;height:180px;" data-file-srl="41" editor_component="image_link" /></p>');
 assert.equal(initial.firstChild.firstChild.type.name, 'image');
@@ -43,6 +50,9 @@ assert.equal(imageView.dom.classList.contains('roundeditor__media--selected'), t
 assert.equal(imageView.toolbar.element.hidden, false);
 assert.equal(imageView.handles.length, 4);
 assert.equal(imageView.toolbar.element.classList.contains('roundeditor__media-toolbar--below'), true);
+assert.ok(imageView.toolbar.row.querySelector('[data-media-action="left"] .roundeditor__align-icon--left'));
+assert.ok(imageView.toolbar.row.querySelector('[data-media-action="center"] .roundeditor__align-icon--center'));
+assert.ok(imageView.toolbar.row.querySelector('[data-media-action="right"] .roundeditor__align-icon--right'));
 
 imageView.media.getBoundingClientRect = () => ({ width: 320, height: 180 });
 imageView.handles[3].dispatchEvent(new dom.window.MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 320 }));
@@ -50,6 +60,18 @@ window.dispatchEvent(new dom.window.MouseEvent('pointermove', { bubbles: true, c
 assert.equal(imageView.media.style.width, '160px');
 window.dispatchEvent(new dom.window.MouseEvent('pointerup', { bubbles: true, clientX: 160 }));
 assert.match(serializeDocument(bridge.view.state.doc, schema), /width="160" height="90"/);
+
+imageView.media.getBoundingClientRect = () => ({ width: 160, height: 90 });
+imageView.handles[3].dispatchEvent(new dom.window.MouseEvent('pointerdown', {
+    bubbles: true, button: 0, clientX: 160, clientY: 90,
+}));
+window.dispatchEvent(new dom.window.MouseEvent('pointermove', {
+    bubbles: true, clientX: 200, clientY: 140, altKey: true,
+}));
+window.dispatchEvent(new dom.window.MouseEvent('pointerup', {
+    bubbles: true, clientX: 200, clientY: 140, altKey: true,
+}));
+assert.match(serializeDocument(bridge.view.state.doc, schema), /width="200" height="140"/);
 
 imageView.updateSize(240, 135);
 assert.equal(bridge.view.state.selection instanceof NodeSelection, true);
@@ -60,6 +82,13 @@ imageView.setLink('https://example.test/image');
 assert.match(serializeDocument(bridge.view.state.doc, schema), /<a href="https:\/\/example.test\/image" target="_blank" rel="noreferrer noopener"><img/);
 imageView.setAlign('center');
 assert.match(serializeDocument(bridge.view.state.doc, schema), /^<p style="text-align:center;">/);
+imageView.setAlign('right');
+assert.match(serializeDocument(bridge.view.state.doc, schema), /^<p style="text-align:right;">/);
+imageView.toolbar.openForm('size');
+assert.equal(imageView.toolbar.formHost.querySelector('button[type="button"]').textContent, 'Remove explicit size');
+imageView.toolbar.formHost.querySelector('button[type="button"]').click();
+assert.doesNotMatch(serializeDocument(bridge.view.state.doc, schema), /(?:width|height)="/);
+assert.doesNotMatch(serializeDocument(bridge.view.state.doc, schema), /style="[^"]*(?:width|height):/);
 
 window.request_uri = '/index.php';
 let sentData;
@@ -68,7 +97,7 @@ class FakeXHR {
         this.listeners = {};
         this.upload = { addEventListener() {} };
         this.status = 200;
-        this.response = { error: 0, file_srl: 88, download_url: '/file?a=1&amp;b=2', source_filename: '업로드.png' };
+        this.response = { error: 0, file_srl: 88, download_url: '/file?a=1&amp;b=2', source_filename: '업로드.png', thumbnail_filename: './files/poster.jpg' };
     }
     open(method, url) { this.method = method; this.url = url; }
     addEventListener(name, listener) { this.listeners[name] = listener; }
@@ -81,6 +110,7 @@ globalThis.XMLHttpRequest = FakeXHR;
 const file = new dom.window.File(['png'], '업로드.png', { type: 'image/png' });
 const response = await uploadFile({ sequence: 7, config: { mid: 'board', moduleSrl: 10, uploadTargetSrl: 20, csrfToken: 'token' } }, file);
 assert.equal(response.download_url, '/file?a=1&b=2');
+assert.equal(response.thumbnail_filename, '/subdir/files/poster.jpg');
 assert.equal(sentData.get('act'), 'procFileUpload');
 assert.equal(sentData.get('editor_sequence'), '7');
 assert.equal(sentData.get('mid'), 'board');
@@ -90,6 +120,22 @@ assert.equal(sentData.get('_rx_csrf_token'), 'token');
 assert.equal(sentData.get('Filedata').name, '업로드.png');
 
 bridge.view.destroy();
+
+const placeholderBridge = { view: null };
+placeholderBridge.view = new EditorView(document.querySelector('#placeholder'), {
+    state: EditorState.create({ doc: parseDocument('<p></p>'), plugins: [uploadPlaceholderPlugin()] }),
+});
+const placeholderId = addUploadPlaceholder(placeholderBridge.view, 'image', '이미지 첨부중...');
+assert.match(document.querySelector('#placeholder').textContent, /이미지 첨부중/);
+assert.equal(findUploadPlaceholder(placeholderBridge.view.state, placeholderId), 1);
+assert.equal(serializeDocument(placeholderBridge.view.state.doc, schema), '<p>\u00a0</p>');
+insertUploadedImages(placeholderBridge, [{
+    download_url: '/placeholder.png', source_filename: 'placeholder.png', dimensions: { width: 100, height: 50 },
+}], { placeholderId });
+assert.equal(document.querySelector('#placeholder .roundeditor__upload-placeholder'), null);
+assert.match(serializeDocument(placeholderBridge.view.state.doc, schema), /src="\/placeholder.png"/);
+placeholderBridge.view.destroy();
+
 document.querySelector('#editor').replaceChildren();
 bridge.view = new EditorView(document.querySelector('#editor'), { state: EditorState.create({ doc: parseDocument('<p></p>') }) });
 insertUploadedImages(bridge, [{

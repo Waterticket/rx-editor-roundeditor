@@ -60,8 +60,13 @@ assert.equal(window.editorRelKeys[7].content, form.elements.namedItem('content')
 assert.equal(window._getCkeInstance(7).mode, 'wysiwyg');
 assert.equal(wrapper.querySelector('.roundeditor__toolbar').getAttribute('role'), 'toolbar');
 assert.equal(wrapper.querySelector('[data-command="image"]').disabled, false);
+assert.equal(wrapper.querySelector('[data-command="video"]').disabled, false);
 wrapper.querySelector('[data-command="image"]').click();
 assert.ok(wrapper.querySelector('.roundeditor__image-dropzone'));
+wrapper.querySelector('.roundeditor__panel-heading [data-command="close"]').click();
+wrapper.querySelector('[data-command="video"]').click();
+assert.ok(wrapper.querySelector('.roundeditor__video-dropzone'));
+assert.match(wrapper.querySelector('.roundeditor__video-dropzone').textContent, /50 MB/);
 wrapper.querySelector('.roundeditor__panel-heading [data-command="close"]').click();
 assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 5');
 
@@ -73,6 +78,9 @@ assert.equal(window.editorGetContent(7), '<p>Hello</p>');
 wrapper.querySelector('[data-command="redo"]').click();
 assert.equal(window.editorGetContent(7), '<p><strong>Hello</strong></p>');
 wrapper.querySelector('[data-more-group="paragraph"]').click();
+assert.ok(wrapper.querySelector('[data-command="alignLeft"] .roundeditor__align-icon--left'));
+assert.ok(wrapper.querySelector('[data-command="alignCenter"] .roundeditor__align-icon--center'));
+assert.ok(wrapper.querySelector('[data-command="alignRight"] .roundeditor__align-icon--right'));
 wrapper.querySelector('[data-command="alignCenter"]').click();
 assert.equal(wrapper.querySelector('[data-command="alignCenter"]').getAttribute('aria-pressed'), 'true');
 assert.equal(window.editorGetContent(7), '<p style="text-align:center;"><strong>Hello</strong></p>');
@@ -80,6 +88,25 @@ assert.equal(window.editorGetContent(7), '<p style="text-align:center;"><strong>
 window._getCkeInstance(7).setData('<p>Updated</p>');
 assert.equal(window.editorGetContent(7), '<p>Updated</p>');
 assert.equal(form.elements.namedItem('content').value, '<p>Updated</p>');
+
+const replacedContent = document.createElement('input');
+replacedContent.type = 'hidden';
+replacedContent.name = 'content';
+form.elements.namedItem('content').replaceWith(replacedContent);
+window._getCkeInstance(7).setData('<p>Live field</p>');
+assert.equal(replacedContent.value, '<p>Live field</p>');
+assert.equal(window.editorRelKeys[7].content, replacedContent);
+
+window.editorRelKeys = undefined;
+window.editorMode = undefined;
+window._getCkeInstance = sequence => `late-instance:${sequence}`;
+window.editorGetContent = sequence => `late-content:${sequence}`;
+wrapper.querySelector('[data-command="selectAll"]').click();
+wrapper.querySelector('[data-command="bold"]').click();
+assert.equal(window._getCkeInstance(7).mode, 'wysiwyg');
+assert.equal(window.editorGetContent(7), '<p><strong>Live field</strong></p>');
+assert.equal(window.editorGetContent(999), 'previous:999');
+assert.equal(window.editorRelKeys[7].content, replacedContent);
 
 window.editorReplaceHTML(frame, '<p>Inserted</p>');
 assert.match(window.editorGetContent(7), /Inserted/);
@@ -110,7 +137,11 @@ const tablePanel = wrapper.querySelector('.roundeditor__panel-form');
 tablePanel.elements.namedItem('rows').value = '2';
 tablePanel.elements.namedItem('columns').value = '2';
 tablePanel.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
-assert.match(window.editorGetContent(7), /<table><tbody><tr><td><p><\/p><\/td><td><p><\/p><\/td><\/tr>/);
+assert.match(window.editorGetContent(7), /<table><tbody><tr><td><p>\u00a0<\/p><\/td><td><p>\u00a0<\/p><\/td><\/tr>/);
 assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 0');
+
+window._getCkeInstance(7).setData('<p>위</p><p></p><p></p><p>아래</p>');
+assert.equal(window.editorGetContent(7), '<p>위</p><p>\u00a0</p><p>\u00a0</p><p>아래</p>');
+assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 3');
 
 console.log('roundeditor runtime contract passed');

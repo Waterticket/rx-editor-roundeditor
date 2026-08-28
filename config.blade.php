@@ -9,6 +9,28 @@ $roundeditorColorset = in_array(($colorset ?? 'auto'), ['auto', 'light', 'dark']
     ? $colorset
     : 'auto';
 $roundeditorComponents = [];
+$roundeditorLabels = $lang->roundeditor_labels ?? [];
+if ($roundeditorLabels instanceof Traversable) {
+    $roundeditorLabels = iterator_to_array($roundeditorLabels);
+}
+$roundeditorFontList = $lang->edit->fontlist ?? [];
+if ($roundeditorFontList instanceof Traversable) {
+    $roundeditorFontList = iterator_to_array($roundeditorFontList);
+}
+$roundeditorFontFamilies = [];
+foreach (array_values(is_array($roundeditorFontList) ? $roundeditorFontList : []) as $roundeditorFontFamily) {
+    $roundeditorFontFamily = (string)$roundeditorFontFamily;
+    $roundeditorFontFamilies[] = [
+        'label' => trim(array_first(explode(',', $roundeditorFontFamily, 2)), "'\" "),
+        'value' => $roundeditorFontFamily,
+    ];
+}
+if (($content_font ?? '') && !in_array((string)$content_font, array_column($roundeditorFontFamilies, 'value'), true)) {
+    array_unshift($roundeditorFontFamilies, [
+        'label' => trim(array_first(explode(',', (string)$content_font, 2)), "'\" "),
+        'value' => (string)$content_font,
+    ]);
+}
 
 foreach ($component_list ?? [] as $roundeditorComponentName => $roundeditorComponent) {
     $roundeditorComponents[(string)$roundeditorComponentName] = escape($roundeditorComponent->title, false);
@@ -44,6 +66,7 @@ $roundeditorConfig = [
     'enableDefaultComponent' => (bool)($enable_default_component ?? false),
     'components' => $roundeditorComponents,
     'contentFont' => (string)($content_font ?: 'inherit'),
+    'fontFamilies' => $roundeditorFontFamilies,
     'contentFontSize' => (string)($content_font_size ?: '15px'),
     'contentLineHeight' => (string)($content_line_height ?: '1.5'),
     'contentWordBreak' => (string)($content_word_break ?: 'normal'),
@@ -58,6 +81,7 @@ $roundeditorConfig = [
         : ($document_srl ?? ($upload_target_srl ?? 0))),
     'mid' => (string)($mid ?? (is_object($roundeditorModuleInfo) ? ($roundeditorModuleInfo->mid ?? '') : (Context::get('mid') ?? ''))),
     'csrfToken' => (string)(Context::get('_rx_csrf_token') ?? ''),
+    'labels' => is_array($roundeditorLabels) ? $roundeditorLabels : [],
 ];
 
 $roundeditor_config_json = json_encode(
@@ -72,6 +96,10 @@ unset(
     $roundeditorUploadInfo,
     $roundeditorColorset,
     $roundeditorComponents,
+    $roundeditorLabels,
+    $roundeditorFontList,
+    $roundeditorFontFamilies,
+    $roundeditorFontFamily,
     $roundeditorComponentName,
     $roundeditorComponent,
     $roundeditorSavedDocument,

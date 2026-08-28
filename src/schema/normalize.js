@@ -95,10 +95,11 @@ function visitElement(element) {
 
     sanitizeElementAttributes(element);
     const component = element.getAttribute('editor_component');
+    const nativeImageComponent = tagName === 'img' && component === 'image_link';
     const embed = tagName === 'div' && element.hasAttribute('data-oembed-url');
     const known = KNOWN_TAGS.has(tagName) && structurallyEditable(element);
 
-    if (component || embed || !known) {
+    if ((component && !nativeImageComponent) || embed || !known) {
         sanitizeRawSubtree(element);
         const kind = component
             ? (BLOCK_TAGS.has(tagName) ? 'component-block' : 'component-inline')

@@ -114,7 +114,7 @@ const CSS_PROPERTIES = new Set(`
 const DANGEROUS_URI = /^\s*(?:javascript|vbscript|data:text\/html)/i;
 const URI_ATTRIBUTES = new Set(['cite', 'codebase', 'data', 'href', 'longdesc', 'poster', 'src']);
 
-function parseStyleDeclarations(style) {
+export function parseStyleDeclarations(style) {
     const declarations = [];
     let current = '';
     let quote = '';
@@ -242,7 +242,7 @@ export function domAttributes(extra, explicit = {}) {
     return attributes;
 }
 
-export function mergeStyle(extra, declarations) {
+export function mergeStyle(extra, declarations, explicit = {}) {
     const attributes = { ...(extra || {}) };
     const attributeOrder = attributes[ATTRIBUTE_ORDER_KEY];
     delete attributes[ATTRIBUTE_ORDER_KEY];
@@ -256,5 +256,5 @@ export function mergeStyle(extra, declarations) {
     }
     else delete attributes.style;
     if (attributeOrder) attributes[ATTRIBUTE_ORDER_KEY] = attributeOrder;
-    return domAttributes(attributes);
+    return domAttributes(attributes, explicit);
 }

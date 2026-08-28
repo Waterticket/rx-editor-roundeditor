@@ -75,6 +75,8 @@ export const nodes = {
         attrs: {
             level: { default: 2 },
             align: { default: null },
+            lineHeight: { default: null },
+            indent: { default: null },
             extra: { default: null },
         },
         parseDOM: [1, 2, 3, 4, 5, 6].map(level => ({
@@ -82,12 +84,18 @@ export const nodes = {
             getAttrs: element => ({
                 level,
                 align: element.style.getPropertyValue('text-align') || null,
+                lineHeight: element.style.getPropertyValue('line-height') || null,
+                indent: element.style.getPropertyValue('margin-left') || null,
                 extra: extraAttrs(element),
             }),
         })),
         toDOM: node => [
             `h${node.attrs.level}`,
-            mergeStyle(node.attrs.extra, { 'text-align': node.attrs.align }),
+            mergeStyle(node.attrs.extra, {
+                'text-align': node.attrs.align,
+                'line-height': node.attrs.lineHeight,
+                'margin-left': node.attrs.indent,
+            }),
             0,
         ],
     },
@@ -209,6 +217,8 @@ export const nodes = {
             alt: { default: '' },
             width: { default: null },
             height: { default: null },
+            displayWidth: { default: null },
+            displayHeight: { default: null },
             fileSrl: { default: null },
             editorComponent: { default: null },
             extra: { default: null },
@@ -220,12 +230,17 @@ export const nodes = {
                 alt: element.getAttribute('alt') || '',
                 width: element.getAttribute('width'),
                 height: element.getAttribute('height'),
+                displayWidth: element.style.getPropertyValue('width') || null,
+                displayHeight: element.style.getPropertyValue('height') || null,
                 fileSrl: element.getAttribute('data-file-srl'),
                 editorComponent: element.getAttribute('editor_component'),
                 extra: extraAttrs(element, ['src', 'alt', 'width', 'height', 'data-file-srl', 'editor_component']),
             }),
         }],
-        toDOM: node => ['img', domAttributes(node.attrs.extra, {
+        toDOM: node => ['img', mergeStyle(node.attrs.extra, {
+            width: node.attrs.displayWidth,
+            height: node.attrs.displayHeight,
+        }, {
             src: node.attrs.src,
             alt: node.attrs.alt,
             width: node.attrs.width,

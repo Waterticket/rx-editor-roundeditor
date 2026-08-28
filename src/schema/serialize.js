@@ -2,6 +2,39 @@ import { DOMSerializer } from 'prosemirror-model';
 import { VOID_TAGS } from './attributes.js';
 import { RAW_ATTRIBUTE, decodeRawHtml } from './raw.js';
 
+function styleDeclarations(style) {
+    const declarations = [];
+    let current = '';
+    let quote = '';
+    let depth = 0;
+    for (const character of String(style || '')) {
+        if (quote) {
+            current += character;
+            if (character === quote) quote = '';
+        } else if (character === '"' || character === "'") {
+            quote = character;
+            current += character;
+        } else if (character === '(') {
+            depth++;
+            current += character;
+        } else if (character === ')') {
+            depth = Math.max(0, depth - 1);
+            current += character;
+        } else if (character === ';' && depth === 0) {
+            declarations.push(current);
+            current = '';
+        } else current += character;
+    }
+    if (current) declarations.push(current);
+    return declarations.map(declaration => {
+        const separator = declaration.indexOf(':');
+        return separator < 1 ? null : [
+            declaration.slice(0, separator).trim().toLowerCase(),
+            declaration.slice(separator + 1).trim(),
+        ];
+    }).filter(Boolean);
+}
+
 function mergeNestedStyleSpans(container) {
     let merged = true;
     while (merged) {
@@ -10,12 +43,9 @@ function mergeNestedStyleSpans(container) {
             if (parent.attributes.length !== 1 || parent.childNodes.length !== 1) continue;
             const child = parent.firstElementChild;
             if (!child || child.tagName !== 'SPAN' || child.attributes.length !== 1 || !child.hasAttribute('style')) continue;
-            const holder = document.createElement('span');
-            holder.setAttribute('style', parent.getAttribute('style'));
-            for (const property of Array.from(child.style)) {
-                holder.style.setProperty(property, child.style.getPropertyValue(property), child.style.getPropertyPriority(property));
-            }
-            child.setAttribute('style', holder.style.cssText);
+            const styles = new Map(styleDeclarations(parent.getAttribute('style')));
+            for (const [property, value] of styleDeclarations(child.getAttribute('style'))) styles.set(property, value);
+            child.setAttribute('style', `${Array.from(styles, ([property, value]) => `${property}:${value}`).join(';')};`);
             parent.replaceWith(child);
             merged = true;
         }

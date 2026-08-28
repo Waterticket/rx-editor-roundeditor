@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import { JSDOM } from 'jsdom';
+
+const dom = new JSDOM('<!doctype html><html><body><div id="editor" class="roundeditor__surface"></div></body></html>', { url: 'https://example.test/write' });
+Object.defineProperties(globalThis, {
+    window: { value: dom.window, configurable: true },
+    document: { value: dom.window.document, configurable: true },
+    navigator: { value: dom.window.navigator, configurable: true },
+    Node: { value: dom.window.Node, configurable: true },
+    MutationObserver: { value: dom.window.MutationObserver, configurable: true },
+    getComputedStyle: { value: dom.window.getComputedStyle, configurable: true },
+    innerHeight: { value: 800, configurable: true },
+    pageYOffset: { value: 0, configurable: true },
+    FormData: { value: dom.window.FormData, configurable: true },
+    XMLHttpRequest: { value: dom.window.XMLHttpRequest, configurable: true, writable: true },
+});
+
+const { EditorState, NodeSelection } = await import('prosemirror-state');
+const { EditorView } = await import('prosemirror-view');
+const { imageAttrsFromUpload, insertUploadedImages } = await import('../src/images.js');
+const { ImageView } = await import('../src/nodeviews/ImageView.js');
+const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
+const { normalizeRhymixUrl, uploadFile } = await import('../src/rhymix/upload.js');
+
+assert.deepEqual(imageAttrsFromUpload({
+    download_url: '/image.jpg', file_srl: 77, source_filename: '사진.jpg', dimensions: { width: 1200, height: 600 },
+}, 600), {
+    src: '/image.jpg', alt: '사진.jpg', width: 600, height: 300,
+    displayWidth: '600px', displayHeight: '300px', fileSrl: '77', editorComponent: 'image_link',
+});
+assert.equal(normalizeRhymixUrl('/download?a=1&amp;b=2'), '/download?a=1&b=2');
+
+const initial = parseDocument('<p><img src="/old.jpg" alt="기존" width="320" height="180" style="width:320px;height:180px;" data-file-srl="41" editor_component="image_link" /></p>');
+assert.equal(initial.firstChild.firstChild.type.name, 'image');
+const bridge = { config: { labels: {} }, view: null };
+let imageView;
+bridge.view = new EditorView(document.querySelector('#editor'), {
+    state: EditorState.create({ doc: initial }),
+    nodeViews: { image: (node, view, getPos) => (imageView = new ImageView(node, view, getPos, bridge)) },
+});
+bridge.view.dispatch(bridge.view.state.tr.setSelection(NodeSelection.create(bridge.view.state.doc, 1)));
+assert.equal(imageView.dom.classList.contains('roundeditor__media--selected'), true);
+assert.equal(imageView.toolbar.element.hidden, false);
+assert.equal(imageView.handles.length, 4);
+assert.equal(imageView.toolbar.element.classList.contains('roundeditor__media-toolbar--below'), true);
+
+imageView.media.getBoundingClientRect = () => ({ width: 320, height: 180 });
+imageView.handles[3].dispatchEvent(new dom.window.MouseEvent('pointerdown', { bubbles: true, button: 0, clientX: 320 }));
+window.dispatchEvent(new dom.window.MouseEvent('pointermove', { bubbles: true, clientX: 160 }));
+assert.equal(imageView.media.style.width, '160px');
+window.dispatchEvent(new dom.window.MouseEvent('pointerup', { bubbles: true, clientX: 160 }));
+assert.match(serializeDocument(bridge.view.state.doc, schema), /width="160" height="90"/);
+
+imageView.updateSize(240, 135);
+assert.equal(bridge.view.state.selection instanceof NodeSelection, true);
+assert.match(serializeDocument(bridge.view.state.doc, schema), /width="240" height="135" style="width:240px;height:135px;"/);
+imageView.setAlt('새 대체 텍스트');
+assert.match(serializeDocument(bridge.view.state.doc, schema), /alt="새 대체 텍스트"/);
+imageView.setLink('https://example.test/image');
+assert.match(serializeDocument(bridge.view.state.doc, schema), /<a href="https:\/\/example.test\/image" target="_blank" rel="noreferrer noopener"><img/);
+imageView.setAlign('center');
+assert.match(serializeDocument(bridge.view.state.doc, schema), /^<p style="text-align:center;">/);
+
+window.request_uri = '/index.php';
+let sentData;
+class FakeXHR {
+    constructor() {
+        this.listeners = {};
+        this.upload = { addEventListener() {} };
+        this.status = 200;
+        this.response = { error: 0, file_srl: 88, download_url: '/file?a=1&amp;b=2', source_filename: '업로드.png' };
+    }
+    open(method, url) { this.method = method; this.url = url; }
+    addEventListener(name, listener) { this.listeners[name] = listener; }
+    send(data) {
+        sentData = data;
+        queueMicrotask(() => this.listeners.load());
+    }
+}
+globalThis.XMLHttpRequest = FakeXHR;
+const file = new dom.window.File(['png'], '업로드.png', { type: 'image/png' });
+const response = await uploadFile({ sequence: 7, config: { mid: 'board', moduleSrl: 10, uploadTargetSrl: 20, csrfToken: 'token' } }, file);
+assert.equal(response.download_url, '/file?a=1&b=2');
+assert.equal(sentData.get('act'), 'procFileUpload');
+assert.equal(sentData.get('editor_sequence'), '7');
+assert.equal(sentData.get('mid'), 'board');
+assert.equal(sentData.get('module_srl'), '10');
+assert.equal(sentData.get('upload_target_srl'), '20');
+assert.equal(sentData.get('_rx_csrf_token'), 'token');
+assert.equal(sentData.get('Filedata').name, '업로드.png');
+
+bridge.view.destroy();
+document.querySelector('#editor').replaceChildren();
+bridge.view = new EditorView(document.querySelector('#editor'), { state: EditorState.create({ doc: parseDocument('<p></p>') }) });
+insertUploadedImages(bridge, [{
+    download_url: '/new.png', file_srl: 99, source_filename: 'new.png', dimensions: { width: 640, height: 320 },
+}], { align: 'right' });
+const inserted = serializeDocument(bridge.view.state.doc, schema);
+assert.match(inserted, /^<p style="text-align:right;">/);
+assert.match(inserted, /<img style="width:640px;height:320px;" src="\/new.png" alt="new.png" width="640" height="320" data-file-srl="99" editor_component="image_link" \/>/);
+bridge.view.destroy();
+
+console.log('roundeditor Phase 3 image contract passed');

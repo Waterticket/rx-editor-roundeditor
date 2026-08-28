@@ -1,13 +1,17 @@
-import { baseKeymap } from 'prosemirror-commands';
+import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
+import { columnResizing, tableEditing } from 'prosemirror-tables';
 import '../css/roundeditor.scss';
+import { handleImageDrop, handleImagePaste } from './images.js';
+import { imageNodeView } from './nodeviews/ImageView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
 import { normalizeForParse, parseDocument, parseSlice, schema, serializeDocument } from './schema/index.js';
+import { Toolbar } from './ui/Toolbar.js';
 
 const registry = Object.create(null);
 
@@ -47,8 +51,18 @@ function ensureHiddenField(form, name, value) {
 function createPlugins() {
     return [
         history(),
-        keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo }),
+        keymap({
+            'Mod-z': undo,
+            'Mod-y': redo,
+            'Mod-Shift-z': redo,
+            'Mod-b': toggleMark(schema.marks.strong),
+            'Mod-i': toggleMark(schema.marks.em),
+            'Mod-u': toggleMark(schema.marks.underline),
+            'Mod-Shift-x': toggleMark(schema.marks.strike),
+        }),
         keymap(baseKeymap),
+        columnResizing(),
+        tableEditing(),
         dropCursor(),
         gapCursor(),
     ];
@@ -204,6 +218,7 @@ function initialize(wrapper) {
         view: null,
         editable: null,
         compat: null,
+        toolbar: null,
         sync() {
             if (this.view) this.contentInput.value = serializeDocument(this.view.state.doc, schema);
             return this.contentInput.value;
@@ -225,12 +240,16 @@ function initialize(wrapper) {
         attributes: {
             class: 'rhymix_content xe_content editable',
             'data-editor-sequence': String(sequence),
+            spellcheck: 'false',
         },
         transformPastedHTML: normalizeForParse,
-        nodeViews: rawNodeViews(),
+        handlePaste: (view, event) => handleImagePaste(bridge, event),
+        handleDrop: (view, event, slice, moved) => handleImageDrop(bridge, event, moved),
+        nodeViews: { ...rawNodeViews(), image: imageNodeView(bridge) },
         dispatchTransaction(transaction) {
             bridge.view.updateState(bridge.view.state.apply(transaction));
             bridge.sync();
+            bridge.toolbar?.refresh(bridge.view.state);
         },
     });
     bridge.editable = bridge.view.dom;
@@ -238,6 +257,8 @@ function initialize(wrapper) {
     bridge.editable.setFocus = () => bridge.view.focus();
     bridge.editable.replaceHTML = html => insertHtml(bridge, html);
     bridge.compat = createCompatibilityBridge(bridge);
+    bridge.toolbar = new Toolbar(bridge);
+    bridge.toolbar.refresh(bridge.view.state);
     registry[sequence] = bridge;
 
     form.setAttribute('editor_sequence', String(sequence));

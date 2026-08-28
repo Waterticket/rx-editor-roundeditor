@@ -49,7 +49,11 @@ const styledText = schema.text('병합', [
 const styledDocument = schema.node('doc', null, [schema.node('paragraph', null, [styledText])]);
 assert.equal(
     serializeDocument(styledDocument, schema),
-    '<p><span style="font-size: 18px; color: rgb(226, 80, 65);">병합</span></p>'
+    '<p><span style="font-size:18px;color:#E25041;">병합</span></p>'
 );
+
+const reparsedStyledDocument = parseDocument(serializeDocument(styledDocument, schema));
+assert.equal(reparsedStyledDocument.firstChild.firstChild.marks.some(mark => mark.type === schema.marks.fontSize), true);
+assert.equal(reparsedStyledDocument.firstChild.firstChild.marks.some(mark => mark.type === schema.marks.fontColor), true);
 
 console.log(`roundeditor round-trip contract passed (${fixtures.length} golden cases)`);

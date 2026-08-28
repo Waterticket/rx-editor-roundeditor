@@ -11,6 +11,7 @@ const config = {
     contentLineHeight: '1.5',
     contentWordBreak: 'normal',
     contentParagraphSpacing: '0',
+    allowUpload: true,
 };
 const dom = new JSDOM(`<!doctype html><html><body>
     <form>
@@ -49,6 +50,7 @@ assert.equal(wrapper.classList.contains('roundeditor--ready'), true);
 assert.equal(wrapper.querySelector('.roundeditor__loading'), null);
 assert.equal(frame.classList.contains('ProseMirror'), true);
 assert.equal(frame.dataset.editorSequence, '7');
+assert.equal(frame.getAttribute('spellcheck'), 'false');
 assert.equal(form.getAttribute('editor_sequence'), '7');
 assert.equal(form.elements.namedItem('use_editor').value, 'Y');
 assert.equal(form.elements.namedItem('use_html').value, 'Y');
@@ -56,6 +58,24 @@ assert.equal(window.editorGetContent(7), '<p>Hello</p>');
 assert.equal(window.editorGetContentTextarea_xe(7), 'Hello');
 assert.equal(window.editorRelKeys[7].content, form.elements.namedItem('content'));
 assert.equal(window._getCkeInstance(7).mode, 'wysiwyg');
+assert.equal(wrapper.querySelector('.roundeditor__toolbar').getAttribute('role'), 'toolbar');
+assert.equal(wrapper.querySelector('[data-command="image"]').disabled, false);
+wrapper.querySelector('[data-command="image"]').click();
+assert.ok(wrapper.querySelector('.roundeditor__image-dropzone'));
+wrapper.querySelector('.roundeditor__panel-heading [data-command="close"]').click();
+assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 5');
+
+wrapper.querySelector('[data-command="selectAll"]').click();
+wrapper.querySelector('[data-command="bold"]').click();
+assert.equal(window.editorGetContent(7), '<p><strong>Hello</strong></p>');
+wrapper.querySelector('[data-command="undo"]').click();
+assert.equal(window.editorGetContent(7), '<p>Hello</p>');
+wrapper.querySelector('[data-command="redo"]').click();
+assert.equal(window.editorGetContent(7), '<p><strong>Hello</strong></p>');
+wrapper.querySelector('[data-more-group="paragraph"]').click();
+wrapper.querySelector('[data-command="alignCenter"]').click();
+assert.equal(wrapper.querySelector('[data-command="alignCenter"]').getAttribute('aria-pressed'), 'true');
+assert.equal(window.editorGetContent(7), '<p style="text-align:center;"><strong>Hello</strong></p>');
 
 window._getCkeInstance(7).setData('<p>Updated</p>');
 assert.equal(window.editorGetContent(7), '<p>Updated</p>');
@@ -71,5 +91,26 @@ assert.match(window.editorGetContent(7), /<abbr title="약어">원문<\/abbr>/);
 
 window._getCkeInstance(7).insertHtml('<img src="image.png" alt="삽입 이미지">');
 assert.match(window.editorGetContent(7), /<img src="image.png" alt="삽입 이미지" \/>/);
+
+window._getCkeInstance(7).setData('<p>Link</p>');
+wrapper.querySelector('[data-command="selectAll"]').click();
+wrapper.querySelector('[data-command="link"]').click();
+const linkPanel = wrapper.querySelector('.roundeditor__panel-form');
+linkPanel.elements.namedItem('href').value = 'https://example.test/path';
+linkPanel.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+assert.equal(
+    window.editorGetContent(7),
+    '<p><a href="https://example.test/path" target="_blank" rel="noreferrer noopener">Link</a></p>'
+);
+
+window._getCkeInstance(7).setData('<p></p>');
+wrapper.querySelector('[data-more-group="rich"]').click();
+wrapper.querySelector('[data-command="table"]').click();
+const tablePanel = wrapper.querySelector('.roundeditor__panel-form');
+tablePanel.elements.namedItem('rows').value = '2';
+tablePanel.elements.namedItem('columns').value = '2';
+tablePanel.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
+assert.match(window.editorGetContent(7), /<table><tbody><tr><td><p><\/p><\/td><td><p><\/p><\/td><\/tr>/);
+assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 0');
 
 console.log('roundeditor runtime contract passed');

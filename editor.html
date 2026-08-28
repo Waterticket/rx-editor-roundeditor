@@ -4,15 +4,15 @@
 
 <load target="^/common/css/xeicon/xeicon.min.css" />
 <load target="../../tpl/js/editor_common.js" />
-<load target="dist/rxeditor.css" />
-<load target="dist/rxeditor.js" type="module" />
+<load target="dist/roundeditor.css" />
+<load target="dist/roundeditor.js" type="module" />
 
-<div id="rxeditor_instance_{$editor_sequence}"
-    class="rxeditor rxeditor--{$rxeditor_colorset}"
+<div id="roundeditor_instance_{$editor_sequence}"
+    class="roundeditor roundeditor--{$roundeditor_colorset}"
     data-editor-sequence="{$editor_sequence}"
     data-editor-primary-key-name="{$editor_primary_key_name}"
     data-editor-content-key-name="{$editor_content_key_name}"
-    data-editor-config="{$rxeditor_config_json}">
-    <div class="rxeditor__loading" role="status" aria-live="polite">{$lang->rxeditor_loading}</div>
-    <div class="rxeditor__surface"></div>
+    data-editor-config="{$roundeditor_config_json}">
+    <div class="roundeditor__loading" role="status" aria-live="polite">{$lang->roundeditor_loading}</div>
+    <div class="roundeditor__surface"></div>
 </div>

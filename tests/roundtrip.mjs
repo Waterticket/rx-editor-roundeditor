@@ -38,9 +38,9 @@ for (const [index, fixture] of fixtures.entries()) {
 }
 
 const cleanedByName = Object.fromEntries(fixtures.map((fixture, index) => [fixture.name, cleaned[index]]));
-assert.match(normalizeForParse(cleanedByName['legacy div raw block']), /data-rxeditor-kind="block"/);
-assert.match(normalizeForParse(cleanedByName.oembed), /data-rxeditor-kind="block"/);
-assert.match(normalizeForParse(cleanedByName['raw inline abbreviation']), /data-rxeditor-kind="inline"/);
+assert.match(normalizeForParse(cleanedByName['legacy div raw block']), /data-roundeditor-kind="block"/);
+assert.match(normalizeForParse(cleanedByName.oembed), /data-roundeditor-kind="block"/);
+assert.match(normalizeForParse(cleanedByName['raw inline abbreviation']), /data-roundeditor-kind="inline"/);
 
 const styledText = schema.text('병합', [
     schema.marks.fontSize.create({ value: '18px' }),
@@ -52,4 +52,4 @@ assert.equal(
     '<p><span style="font-size: 18px; color: rgb(226, 80, 65);">병합</span></p>'
 );
 
-console.log(`rxeditor round-trip contract passed (${fixtures.length} golden cases)`);
+console.log(`roundeditor round-trip contract passed (${fixtures.length} golden cases)`);

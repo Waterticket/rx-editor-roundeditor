@@ -46,4 +46,4 @@ for (const [index, document] of documents.entries()) {
     );
 }
 
-console.log(`rxeditor document regression passed (${documents.length}/500 available documents)`);
+console.log(`roundeditor document regression passed (${documents.length}/500 available documents)`);

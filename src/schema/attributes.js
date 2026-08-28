@@ -20,8 +20,8 @@ export const BLOCK_TAGS = new Set(`
 
 export const VOID_TAGS = new Set('basefont br col embed hr img param source track wbr'.split(' '));
 
-export const RESERVED_ATTRIBUTE_PREFIX = 'data-rxeditor-';
-const ATTRIBUTE_ORDER_KEY = '__rxeditorAttributeOrder';
+export const RESERVED_ATTRIBUTE_PREFIX = 'data-roundeditor-';
+const ATTRIBUTE_ORDER_KEY = '__roundeditorAttributeOrder';
 
 const COMMON_ATTRIBUTES = [
     'id', 'title', 'contenteditable', 'style', 'dir', 'xml:lang', 'lang',
@@ -238,7 +238,7 @@ export function domAttributes(extra, explicit = {}) {
     for (const [name, value] of Object.entries(values)) {
         if (!Object.hasOwn(attributes, name)) attributes[name] = value;
     }
-    if (attributes.style) attributes['data-rxeditor-style'] = encodeURIComponent(attributes.style);
+    if (attributes.style) attributes['data-roundeditor-style'] = encodeURIComponent(attributes.style);
     return attributes;
 }
 

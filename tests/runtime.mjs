@@ -16,11 +16,11 @@ const dom = new JSDOM(`<!doctype html><html><body>
     <form>
         <input name="document_srl" value="123">
         <textarea name="content">&lt;p&gt;Hello&lt;/p&gt;</textarea>
-        <div class="rxeditor rxeditor--light"
+        <div class="roundeditor roundeditor--light"
             data-editor-sequence="7"
             data-editor-config='${JSON.stringify(config)}'>
-            <div class="rxeditor__loading">Loading</div>
-            <div class="rxeditor__surface"></div>
+            <div class="roundeditor__loading">Loading</div>
+            <div class="roundeditor__surface"></div>
         </div>
     </form>
 </body></html>`, { url: 'https://example.test/' });
@@ -39,14 +39,14 @@ Object.defineProperties(globalThis, {
 window.editorGetContent = sequence => `previous:${sequence}`;
 window.editorGetIFrame = sequence => `previous-frame:${sequence}`;
 
-await import('../dist/rxeditor.js');
+await import('../dist/roundeditor.js');
 
-const wrapper = document.querySelector('.rxeditor');
+const wrapper = document.querySelector('.roundeditor');
 const form = document.querySelector('form');
 const frame = window.editorGetIFrame(7);
 
-assert.equal(wrapper.classList.contains('rxeditor--ready'), true);
-assert.equal(wrapper.querySelector('.rxeditor__loading'), null);
+assert.equal(wrapper.classList.contains('roundeditor--ready'), true);
+assert.equal(wrapper.querySelector('.roundeditor__loading'), null);
 assert.equal(frame.classList.contains('ProseMirror'), true);
 assert.equal(frame.dataset.editorSequence, '7');
 assert.equal(form.getAttribute('editor_sequence'), '7');
@@ -72,4 +72,4 @@ assert.match(window.editorGetContent(7), /<abbr title="약어">원문<\/abbr>/);
 window._getCkeInstance(7).insertHtml('<img src="image.png" alt="삽입 이미지">');
 assert.match(window.editorGetContent(7), /<img src="image.png" alt="삽입 이미지" \/>/);
 
-console.log('rxeditor runtime contract passed');
+console.log('roundeditor runtime contract passed');

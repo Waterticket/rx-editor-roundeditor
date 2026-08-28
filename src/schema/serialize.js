@@ -23,13 +23,13 @@ function mergeNestedStyleSpans(container) {
 }
 
 function restoreSourceStyles(container) {
-    for (const element of Array.from(container.querySelectorAll('[data-rxeditor-style]'))) {
+    for (const element of Array.from(container.querySelectorAll('[data-roundeditor-style]'))) {
         try {
-            element.setAttribute('style', decodeURIComponent(element.getAttribute('data-rxeditor-style')));
+            element.setAttribute('style', decodeURIComponent(element.getAttribute('data-roundeditor-style')));
         } catch (error) {
             element.removeAttribute('style');
         }
-        element.removeAttribute('data-rxeditor-style');
+        element.removeAttribute('data-roundeditor-style');
     }
 }
 
@@ -39,7 +39,7 @@ function unwrapInternalNodes(container) {
         template.innerHTML = decodeRawHtml(wrapper.getAttribute(RAW_ATTRIBUTE));
         wrapper.replaceWith(...Array.from(template.content.childNodes));
     }
-    for (const paragraph of Array.from(container.querySelectorAll('p[data-rxeditor-unwrap]'))) {
+    for (const paragraph of Array.from(container.querySelectorAll('p[data-roundeditor-unwrap]'))) {
         paragraph.replaceWith(...Array.from(paragraph.childNodes));
     }
 }

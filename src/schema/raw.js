@@ -1,9 +1,9 @@
-export const RAW_ATTRIBUTE = 'data-rxeditor-raw';
-export const RAW_BLOCK_SELECTOR = `div[${RAW_ATTRIBUTE}][data-rxeditor-kind="block"]`;
-export const RAW_INLINE_SELECTOR = `span[${RAW_ATTRIBUTE}][data-rxeditor-kind="inline"]`;
-export const COMPONENT_BLOCK_SELECTOR = `div[${RAW_ATTRIBUTE}][data-rxeditor-kind="component-block"]`;
-export const COMPONENT_INLINE_SELECTOR = `span[${RAW_ATTRIBUTE}][data-rxeditor-kind="component-inline"]`;
-export const EMBED_SELECTOR = `div[${RAW_ATTRIBUTE}][data-rxeditor-kind="embed"]`;
+export const RAW_ATTRIBUTE = 'data-roundeditor-raw';
+export const RAW_BLOCK_SELECTOR = `div[${RAW_ATTRIBUTE}][data-roundeditor-kind="block"]`;
+export const RAW_INLINE_SELECTOR = `span[${RAW_ATTRIBUTE}][data-roundeditor-kind="inline"]`;
+export const COMPONENT_BLOCK_SELECTOR = `div[${RAW_ATTRIBUTE}][data-roundeditor-kind="component-block"]`;
+export const COMPONENT_INLINE_SELECTOR = `span[${RAW_ATTRIBUTE}][data-roundeditor-kind="component-inline"]`;
+export const EMBED_SELECTOR = `div[${RAW_ATTRIBUTE}][data-roundeditor-kind="embed"]`;
 
 export function encodeRawHtml(html) {
     return encodeURIComponent(String(html || ''));
@@ -20,7 +20,7 @@ export function decodeRawHtml(encoded) {
 export function rawDomSpec(tagName, kind, html) {
     return [tagName, {
         [RAW_ATTRIBUTE]: encodeRawHtml(html),
-        'data-rxeditor-kind': kind,
+        'data-roundeditor-kind': kind,
     }];
 }
 

@@ -69,7 +69,7 @@ export const marks = {
         },
         parseDOM: [
             {
-                tag: 'span:not([data-rxeditor-raw])',
+                tag: 'span:not([data-roundeditor-raw])',
                 priority: 10,
                 getAttrs: element => ({ tag: 'span', extra: collectExtraAttributes(element) }),
             },

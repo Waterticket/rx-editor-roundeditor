@@ -5,7 +5,7 @@ import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import '../css/rxeditor.scss';
+import '../css/roundeditor.scss';
 import { rawNodeViews } from './nodeviews/RawView.js';
 import { normalizeForParse, parseDocument, parseSlice, schema, serializeDocument } from './schema/index.js';
 
@@ -20,7 +20,7 @@ function readConfig(wrapper) {
     try {
         return JSON.parse(wrapper.dataset.editorConfig || '{}');
     } catch (error) {
-        throw new Error(`Invalid rxeditor configuration: ${error.message}`);
+        throw new Error(`Invalid roundeditor configuration: ${error.message}`);
     }
 }
 
@@ -116,8 +116,8 @@ function createCompatibilityBridge(bridge) {
 }
 
 function installGlobals() {
-    if (window.RxEditorGlobalsInstalled) return;
-    window.RxEditorGlobalsInstalled = true;
+    if (window.RoundEditorGlobalsInstalled) return;
+    window.RoundEditorGlobalsInstalled = true;
 
     const previous = {
         getInstance: window._getCkeInstance,
@@ -163,26 +163,26 @@ function installGlobals() {
 
 function applyContentStyles(bridge) {
     const styles = {
-        '--rxeditor-height': `${bridge.config.height}px`,
-        '--rxeditor-content-font': bridge.config.contentFont,
-        '--rxeditor-content-font-size': bridge.config.contentFontSize,
-        '--rxeditor-content-line-height': bridge.config.contentLineHeight,
-        '--rxeditor-content-word-break': bridge.config.contentWordBreak,
-        '--rxeditor-content-paragraph-spacing': bridge.config.contentParagraphSpacing,
+        '--roundeditor-height': `${bridge.config.height}px`,
+        '--roundeditor-content-font': bridge.config.contentFont,
+        '--roundeditor-content-font-size': bridge.config.contentFontSize,
+        '--roundeditor-content-line-height': bridge.config.contentLineHeight,
+        '--roundeditor-content-word-break': bridge.config.contentWordBreak,
+        '--roundeditor-content-paragraph-spacing': bridge.config.contentParagraphSpacing,
     };
     Object.entries(styles).forEach(([name, value]) => bridge.wrapper.style.setProperty(name, value));
 }
 
 function showError(wrapper, error) {
-    wrapper.classList.add('rxeditor--error');
-    const loading = wrapper.querySelector('.rxeditor__loading');
+    wrapper.classList.add('roundeditor--error');
+    const loading = wrapper.querySelector('.roundeditor__loading');
     if (loading) loading.remove();
-    const surface = wrapper.querySelector('.rxeditor__surface');
+    const surface = wrapper.querySelector('.roundeditor__surface');
     if (surface) {
-        surface.className = 'rxeditor__error';
-        surface.textContent = `rxeditor could not be initialized.\n${error.message || error}`;
+        surface.className = 'roundeditor__error';
+        surface.textContent = `roundeditor could not be initialized.\n${error.message || error}`;
     }
-    console.error('[rxeditor] Initialization failed.', error);
+    console.error('[roundeditor] Initialization failed.', error);
 }
 
 function initialize(wrapper) {
@@ -220,7 +220,7 @@ function initialize(wrapper) {
         doc: parseDocument(contentInput.value),
         plugins: createPlugins(),
     });
-    bridge.view = new EditorView(wrapper.querySelector('.rxeditor__surface'), {
+    bridge.view = new EditorView(wrapper.querySelector('.roundeditor__surface'), {
         state,
         attributes: {
             class: 'rhymix_content xe_content editable',
@@ -259,14 +259,14 @@ function initialize(wrapper) {
 
     form.addEventListener('submit', () => bridge.sync(), true);
     bridge.sync();
-    wrapper.querySelector('.rxeditor__loading')?.remove();
-    wrapper.classList.add('rxeditor--ready');
+    wrapper.querySelector('.roundeditor__loading')?.remove();
+    wrapper.classList.add('roundeditor--ready');
     if (config.focus) bridge.view.focus();
 }
 
 function boot() {
-    document.querySelectorAll('.rxeditor:not([data-rxeditor-started])').forEach(wrapper => {
-        wrapper.setAttribute('data-rxeditor-started', 'true');
+    document.querySelectorAll('.roundeditor:not([data-roundeditor-started])').forEach(wrapper => {
+        wrapper.setAttribute('data-roundeditor-started', 'true');
         try {
             initialize(wrapper);
         } catch (error) {

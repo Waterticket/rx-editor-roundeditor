@@ -10,12 +10,12 @@ export default defineConfig({
         lib: {
             entry: 'src/main.js',
             formats: ['es'],
-            fileName: () => 'rxeditor.js',
-            cssFileName: 'rxeditor',
+            fileName: () => 'roundeditor.js',
+            cssFileName: 'roundeditor',
         },
         rollupOptions: {
             output: {
-                assetFileNames: 'rxeditor.[ext]',
+                assetFileNames: 'roundeditor.[ext]',
             },
         },
     },

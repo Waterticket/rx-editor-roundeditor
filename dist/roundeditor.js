@@ -7709,9 +7709,9 @@ function sc(e, t) {
 }
 var cc = sc(!1, !0), lc = sc(!0, !0), uc = class {
 	constructor(e) {
-		this.node = e, this.dom = document.createElement(e.type.isInline ? "span" : "div"), this.dom.className = `rxeditor__raw rxeditor__raw--${e.type.isInline ? "inline" : "block"}`, this.dom.contentEditable = "false", this.dom.dataset.rxeditorRawNode = e.type.name;
+		this.node = e, this.dom = document.createElement(e.type.isInline ? "span" : "div"), this.dom.className = `roundeditor__raw roundeditor__raw--${e.type.isInline ? "inline" : "block"}`, this.dom.contentEditable = "false", this.dom.dataset.roundeditorRawNode = e.type.name;
 		let t = document.createElement("span");
-		t.className = "rxeditor__raw-label", t.textContent = e.type.name.startsWith("rhymixComponent") ? "라이믹스 에디터 컴포넌트 · 원본 유지됨" : "이 영역은 현재 편집할 수 없습니다 · 원본 유지됨", this.dom.appendChild(t);
+		t.className = "roundeditor__raw-label", t.textContent = e.type.name.startsWith("rhymixComponent") ? "라이믹스 에디터 컴포넌트 · 원본 유지됨" : "이 영역은 현재 편집할 수 없습니다 · 원본 유지됨", this.dom.appendChild(t);
 	}
 	stopEvent() {
 		return !0;
@@ -7731,7 +7731,7 @@ function dc() {
 }
 //#endregion
 //#region src/schema/attributes.js
-var fc = new Set("a abbr acronym address article aside audio b basefont bdo big blockquote br caption center cite\n    code col colgroup dd del details dfn dir div dl dt em embed figcaption figure font footer h1 h2\n    h3 h4 h5 h6 header hr i iframe img ins kbd li main mark menu nav object ol p param pre q s samp\n    section small source span strike strong sub summary sup table tbody td tfoot th thead time tr\n    track tt u ul var video wbr".split(/\s+/)), pc = new Set("h1 h2 h3 h4 h5 h6 div p a span img b i strong em u s sub sup header footer nav main section\n    article aside details summary ul ol li mark wbr figure figcaption caption table thead tbody tr th\n    td ins del iframe video audio source track blockquote code".split(/\s+/)), mc = new Set("address article aside audio blockquote caption center col colgroup dd del details dir div dl dt\n    embed figure footer h1 h2 h3 h4 h5 h6 header hr iframe ins li main menu nav object ol p pre section\n    summary table tbody td tfoot th thead tr ul video".split(/\s+/)), hc = new Set("basefont br col embed hr img param source track wbr".split(" ")), gc = "__rxeditorAttributeOrder", _c = [
+var fc = new Set("a abbr acronym address article aside audio b basefont bdo big blockquote br caption center cite\n    code col colgroup dd del details dfn dir div dl dt em embed figcaption figure font footer h1 h2\n    h3 h4 h5 h6 header hr i iframe img ins kbd li main mark menu nav object ol p param pre q s samp\n    section small source span strike strong sub summary sup table tbody td tfoot th thead time tr\n    track tt u ul var video wbr".split(/\s+/)), pc = new Set("h1 h2 h3 h4 h5 h6 div p a span img b i strong em u s sub sup header footer nav main section\n    article aside details summary ul ol li mark wbr figure figcaption caption table thead tbody tr th\n    td ins del iframe video audio source track blockquote code".split(/\s+/)), mc = new Set("address article aside audio blockquote caption center col colgroup dd del details dir div dl dt\n    embed figure footer h1 h2 h3 h4 h5 h6 header hr iframe ins li main menu nav object ol p pre section\n    summary table tbody td tfoot th thead tr ul video".split(/\s+/)), hc = new Set("basefont br col embed hr img param source track wbr".split(" ")), gc = "__roundeditorAttributeOrder", _c = [
 	"id",
 	"title",
 	"contenteditable",
@@ -8045,7 +8045,7 @@ function Tc(e) {
 	let t = e.tagName.toLowerCase(), n = Cc(t), r = (t === "div" || t === "img") && e.hasAttribute("editor_component");
 	for (let i of Array.from(e.attributes)) {
 		let a = i.name.toLowerCase(), o = i.value, s = a.startsWith("data-") && pc.has(t), c = r && !a.startsWith("on");
-		if (a === "class" || a.startsWith("data-rxeditor-") || a.startsWith("on")) {
+		if (a === "class" || a.startsWith("data-roundeditor-") || a.startsWith("on")) {
 			e.removeAttribute(i.name);
 			continue;
 		}
@@ -8073,8 +8073,8 @@ function Tc(e) {
 	}
 }
 function Ec(e, t = []) {
-	let n = /* @__PURE__ */ new Set([...t, "class"]), r = Array.from(e.attributes).map((e) => e.name).filter((e) => e !== "class" && !e.startsWith("data-rxeditor-")), i = r.length ? { [gc]: r } : {};
-	for (let t of Array.from(e.attributes)) !n.has(t.name) && !t.name.startsWith("data-rxeditor-") && (i[t.name] = t.value);
+	let n = /* @__PURE__ */ new Set([...t, "class"]), r = Array.from(e.attributes).map((e) => e.name).filter((e) => e !== "class" && !e.startsWith("data-roundeditor-")), i = r.length ? { [gc]: r } : {};
+	for (let t of Array.from(e.attributes)) !n.has(t.name) && !t.name.startsWith("data-roundeditor-") && (i[t.name] = t.value);
 	return Object.keys(i).length ? i : null;
 }
 function Y(e, t = {}) {
@@ -8085,7 +8085,7 @@ function Y(e, t = {}) {
 	let a = {};
 	for (let e of r) Object.hasOwn(i, e) && (a[e] = i[e]);
 	for (let [e, t] of Object.entries(i)) Object.hasOwn(a, e) || (a[e] = t);
-	return a.style && (a["data-rxeditor-style"] = encodeURIComponent(a.style)), a;
+	return a.style && (a["data-roundeditor-style"] = encodeURIComponent(a.style)), a;
 }
 function Dc(e, t) {
 	let n = { ...e || {} }, r = n[gc];
@@ -8178,7 +8178,7 @@ var Ac = {
 			extra: { default: null }
 		},
 		parseDOM: [{
-			tag: "span:not([data-rxeditor-raw])",
+			tag: "span:not([data-roundeditor-raw])",
 			priority: 10,
 			getAttrs: (e) => ({
 				tag: "span",
@@ -8783,7 +8783,7 @@ function al(e, t, n) {
 new Pn("tableColumnResizing");
 //#endregion
 //#region src/schema/raw.js
-var Q = "data-rxeditor-raw", ol = `div[${Q}][data-rxeditor-kind="block"]`, sl = `span[${Q}][data-rxeditor-kind="inline"]`, cl = `div[${Q}][data-rxeditor-kind="component-block"]`, ll = `span[${Q}][data-rxeditor-kind="component-inline"]`, ul = `div[${Q}][data-rxeditor-kind="embed"]`;
+var Q = "data-roundeditor-raw", ol = `div[${Q}][data-roundeditor-kind="block"]`, sl = `span[${Q}][data-roundeditor-kind="inline"]`, cl = `div[${Q}][data-roundeditor-kind="component-block"]`, ll = `span[${Q}][data-roundeditor-kind="component-inline"]`, ul = `div[${Q}][data-roundeditor-kind="embed"]`;
 function dl(e) {
 	return encodeURIComponent(String(e || ""));
 }
@@ -8797,7 +8797,7 @@ function fl(e) {
 function pl(e, t, n) {
 	return [e, {
 		[Q]: dl(n),
-		"data-rxeditor-kind": t
+		"data-roundeditor-kind": t
 	}];
 }
 function ml(e) {
@@ -8813,7 +8813,7 @@ function hl(e) {
 		align: e.style.getPropertyValue("text-align") || null,
 		lineHeight: e.style.getPropertyValue("line-height") || null,
 		indent: e.style.getPropertyValue("margin-left") || null,
-		unwrap: e.hasAttribute("data-rxeditor-unwrap"),
+		unwrap: e.hasAttribute("data-roundeditor-unwrap"),
 		extra: $(e)
 	};
 }
@@ -8823,7 +8823,7 @@ function gl(e, t = "p") {
 		"line-height": e.attrs.lineHeight,
 		"margin-left": e.attrs.indent
 	});
-	return e.attrs.unwrap && (n["data-rxeditor-unwrap"] = ""), [
+	return e.attrs.unwrap && (n["data-roundeditor-unwrap"] = ""), [
 		t,
 		n,
 		0
@@ -9269,7 +9269,7 @@ var vl = Bc({
 }, bl = new Set("a b blockquote br code em font h1 h2 h3 h4 h5 h6 hr i img li ol p pre s span strike strong sub\n    sup table tbody td th tr u ul video".split(/\s+/)), xl = new Set("script style form input button select textarea canvas svg".split(" "));
 function Sl(e, t) {
 	let n = t === "inline" || t === "component-inline", r = document.createElement(n ? "span" : "div");
-	r.setAttribute(Q, dl(e.outerHTML)), r.setAttribute("data-rxeditor-kind", t), e.replaceWith(r);
+	r.setAttribute(Q, dl(e.outerHTML)), r.setAttribute("data-roundeditor-kind", t), e.replaceWith(r);
 }
 function Cl(e) {
 	let t = e.parentNode;
@@ -9324,7 +9324,7 @@ function Al(e) {
 function jl(e) {
 	if (e.nodeType !== Node.ELEMENT_NODE) return !1;
 	let t = e;
-	return t.getAttribute("data-rxeditor-kind") === "block" || t.getAttribute("data-rxeditor-kind") === "component-block" || t.getAttribute("data-rxeditor-kind") === "embed" || mc.has(t.tagName.toLowerCase());
+	return t.getAttribute("data-roundeditor-kind") === "block" || t.getAttribute("data-roundeditor-kind") === "component-block" || t.getAttribute("data-roundeditor-kind") === "embed" || mc.has(t.tagName.toLowerCase());
 }
 function Ml(e) {
 	if (!Array.from(e.childNodes).some(jl)) return;
@@ -9345,9 +9345,9 @@ function Nl(e, t = !1) {
 			n = null;
 			continue;
 		}
-		n || (n = document.createElement("p"), n.setAttribute("data-rxeditor-unwrap", ""), e.insertBefore(n, t)), n.appendChild(t), (t.nodeType !== Node.TEXT_NODE || t.nodeValue) && (r = !0);
+		n || (n = document.createElement("p"), n.setAttribute("data-roundeditor-unwrap", ""), e.insertBefore(n, t)), n.appendChild(t), (t.nodeType !== Node.TEXT_NODE || t.nodeValue) && (r = !0);
 	}
-	t && !r && !e.querySelector(":scope > p") && (n = document.createElement("p"), n.setAttribute("data-rxeditor-unwrap", ""), e.insertBefore(n, e.firstChild));
+	t && !r && !e.querySelector(":scope > p") && (n = document.createElement("p"), n.setAttribute("data-roundeditor-unwrap", ""), e.insertBefore(n, e.firstChild));
 }
 function Pl(e) {
 	let t = document.createElement("template");
@@ -9375,13 +9375,13 @@ function Fl(e) {
 	}
 }
 function Il(e) {
-	for (let t of Array.from(e.querySelectorAll("[data-rxeditor-style]"))) {
+	for (let t of Array.from(e.querySelectorAll("[data-roundeditor-style]"))) {
 		try {
-			t.setAttribute("style", decodeURIComponent(t.getAttribute("data-rxeditor-style")));
+			t.setAttribute("style", decodeURIComponent(t.getAttribute("data-roundeditor-style")));
 		} catch {
 			t.removeAttribute("style");
 		}
-		t.removeAttribute("data-rxeditor-style");
+		t.removeAttribute("data-roundeditor-style");
 	}
 }
 function Ll(e) {
@@ -9389,7 +9389,7 @@ function Ll(e) {
 		let e = document.createElement("template");
 		e.innerHTML = fl(t.getAttribute(Q)), t.replaceWith(...Array.from(e.content.childNodes));
 	}
-	for (let t of Array.from(e.querySelectorAll("p[data-rxeditor-unwrap]"))) t.replaceWith(...Array.from(t.childNodes));
+	for (let t of Array.from(e.querySelectorAll("p[data-roundeditor-unwrap]"))) t.replaceWith(...Array.from(t.childNodes));
 }
 function Rl(e) {
 	let t = Array.from(hc).join("|");
@@ -9427,7 +9427,7 @@ function Kl(e) {
 	try {
 		return JSON.parse(e.dataset.editorConfig || "{}");
 	} catch (e) {
-		throw Error(`Invalid rxeditor configuration: ${e.message}`);
+		throw Error(`Invalid roundeditor configuration: ${e.message}`);
 	}
 }
 function ql(e, t) {
@@ -9492,8 +9492,8 @@ function $l(e) {
 	};
 }
 function eu() {
-	if (window.RxEditorGlobalsInstalled) return;
-	window.RxEditorGlobalsInstalled = !0;
+	if (window.RoundEditorGlobalsInstalled) return;
+	window.RoundEditorGlobalsInstalled = !0;
 	let e = {
 		getInstance: window._getCkeInstance,
 		getContainer: window._getCkeContainer,
@@ -9528,21 +9528,21 @@ function eu() {
 }
 function tu(e) {
 	let t = {
-		"--rxeditor-height": `${e.config.height}px`,
-		"--rxeditor-content-font": e.config.contentFont,
-		"--rxeditor-content-font-size": e.config.contentFontSize,
-		"--rxeditor-content-line-height": e.config.contentLineHeight,
-		"--rxeditor-content-word-break": e.config.contentWordBreak,
-		"--rxeditor-content-paragraph-spacing": e.config.contentParagraphSpacing
+		"--roundeditor-height": `${e.config.height}px`,
+		"--roundeditor-content-font": e.config.contentFont,
+		"--roundeditor-content-font-size": e.config.contentFontSize,
+		"--roundeditor-content-line-height": e.config.contentLineHeight,
+		"--roundeditor-content-word-break": e.config.contentWordBreak,
+		"--roundeditor-content-paragraph-spacing": e.config.contentParagraphSpacing
 	};
 	Object.entries(t).forEach(([t, n]) => e.wrapper.style.setProperty(t, n));
 }
 function nu(e, t) {
-	e.classList.add("rxeditor--error");
-	let n = e.querySelector(".rxeditor__loading");
+	e.classList.add("roundeditor--error");
+	let n = e.querySelector(".roundeditor__loading");
 	n && n.remove();
-	let r = e.querySelector(".rxeditor__surface");
-	r && (r.className = "rxeditor__error", r.textContent = `rxeditor could not be initialized.\n${t.message || t}`), console.error("[rxeditor] Initialization failed.", t);
+	let r = e.querySelector(".roundeditor__surface");
+	r && (r.className = "roundeditor__error", r.textContent = `roundeditor could not be initialized.\n${t.message || t}`), console.error("[roundeditor] Initialization failed.", t);
 }
 function ru(e) {
 	let t = Kl(e), n = Gl(t.editorSequence || e.dataset.editorSequence), r = e.closest("form");
@@ -9573,7 +9573,7 @@ function ru(e) {
 		doc: Hl(i.value),
 		plugins: Yl()
 	});
-	a.view = new Cs(e.querySelector(".rxeditor__surface"), {
+	a.view = new Cs(e.querySelector(".roundeditor__surface"), {
 		state: o,
 		attributes: {
 			class: "rhymix_content xe_content editable",
@@ -9590,11 +9590,11 @@ function ru(e) {
 		func: () => a.sync(),
 		pasteHTML: (e) => Xl(a, e),
 		editor: { getFrame: () => a.editable }
-	}, window.editorMode = window.editorMode || [], window.editorMode[n] = null, r.addEventListener("submit", () => a.sync(), !0), a.sync(), e.querySelector(".rxeditor__loading")?.remove(), e.classList.add("rxeditor--ready"), t.focus && a.view.focus();
+	}, window.editorMode = window.editorMode || [], window.editorMode[n] = null, r.addEventListener("submit", () => a.sync(), !0), a.sync(), e.querySelector(".roundeditor__loading")?.remove(), e.classList.add("roundeditor--ready"), t.focus && a.view.focus();
 }
 function iu() {
-	document.querySelectorAll(".rxeditor:not([data-rxeditor-started])").forEach((e) => {
-		e.setAttribute("data-rxeditor-started", "true");
+	document.querySelectorAll(".roundeditor:not([data-roundeditor-started])").forEach((e) => {
+		e.setAttribute("data-roundeditor-started", "true");
 		try {
 			ru(e);
 		} catch (t) {

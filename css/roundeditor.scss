@@ -1,0 +1,94 @@
+.roundeditor {
+    --roundeditor-background: #ffffff;
+    --roundeditor-border: #d8dde3;
+    --roundeditor-color: #202124;
+    --roundeditor-muted: #6b7280;
+    width: 100%;
+    border: 1px solid var(--roundeditor-border);
+    border-radius: 10px;
+    background: var(--roundeditor-background);
+    color: var(--roundeditor-color);
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.roundeditor--dark {
+    --roundeditor-background: #1f2329;
+    --roundeditor-border: #353b45;
+    --roundeditor-color: #f3f4f6;
+    --roundeditor-muted: #a8b0bd;
+}
+
+@media (prefers-color-scheme: dark) {
+    .roundeditor--auto {
+        --roundeditor-background: #1f2329;
+        --roundeditor-border: #353b45;
+        --roundeditor-color: #f3f4f6;
+        --roundeditor-muted: #a8b0bd;
+    }
+}
+
+.roundeditor__loading,
+.roundeditor__error {
+    min-height: var(--roundeditor-height, 300px);
+    padding: 20px;
+    color: var(--roundeditor-muted);
+    box-sizing: border-box;
+    white-space: pre-wrap;
+}
+
+.roundeditor__surface {
+    min-height: var(--roundeditor-height, 300px);
+}
+
+.roundeditor__surface .ProseMirror {
+    min-height: inherit;
+    padding: 20px;
+    font-family: var(--roundeditor-content-font, inherit);
+    font-size: var(--roundeditor-content-font-size, 15px);
+    line-height: var(--roundeditor-content-line-height, 1.5);
+    word-break: var(--roundeditor-content-word-break, normal);
+    box-sizing: border-box;
+    outline: 0;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.roundeditor__surface .ProseMirror p {
+    margin: 0 0 var(--roundeditor-content-paragraph-spacing, 0);
+}
+
+.roundeditor__surface .ProseMirror p:last-child {
+    margin-bottom: 0;
+}
+
+.roundeditor__raw {
+    border: 1px dashed #9aa4b2;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--roundeditor-background) 88%, #8aa4c8);
+    color: var(--roundeditor-muted);
+    cursor: default;
+    user-select: none;
+}
+
+.roundeditor__raw--block {
+    display: block;
+    margin: 8px 0;
+    padding: 12px;
+}
+
+.roundeditor__raw--inline {
+    display: inline-block;
+    padding: 2px 5px;
+    vertical-align: baseline;
+}
+
+.roundeditor__raw-label {
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.roundeditor__raw.ProseMirror-selectednode {
+    border-color: #3b82f6;
+    outline: 2px solid color-mix(in srgb, #3b82f6 30%, transparent);
+}

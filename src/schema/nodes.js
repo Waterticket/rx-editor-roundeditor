@@ -19,7 +19,7 @@ function parseParagraphAttrs(element) {
         align: element.style.getPropertyValue('text-align') || null,
         lineHeight: element.style.getPropertyValue('line-height') || null,
         indent: element.style.getPropertyValue('margin-left') || null,
-        unwrap: element.hasAttribute('data-rxeditor-unwrap'),
+        unwrap: element.hasAttribute('data-roundeditor-unwrap'),
         extra: extraAttrs(element),
     };
 }
@@ -30,7 +30,7 @@ function paragraphDom(node, tagName = 'p') {
         'line-height': node.attrs.lineHeight,
         'margin-left': node.attrs.indent,
     });
-    if (node.attrs.unwrap) attributes['data-rxeditor-unwrap'] = '';
+    if (node.attrs.unwrap) attributes['data-roundeditor-unwrap'] = '';
     return [tagName, attributes, 0];
 }
 

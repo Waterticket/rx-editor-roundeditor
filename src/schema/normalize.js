@@ -15,7 +15,7 @@ function rawReplacement(element, kind) {
     const inline = kind === 'inline' || kind === 'component-inline';
     const replacement = document.createElement(inline ? 'span' : 'div');
     replacement.setAttribute(RAW_ATTRIBUTE, encodeRawHtml(element.outerHTML));
-    replacement.setAttribute('data-rxeditor-kind', kind);
+    replacement.setAttribute('data-roundeditor-kind', kind);
     element.replaceWith(replacement);
 }
 
@@ -113,9 +113,9 @@ function visitElement(element) {
 function isBlockNode(node) {
     if (node.nodeType !== Node.ELEMENT_NODE) return false;
     const element = node;
-    if (element.getAttribute('data-rxeditor-kind') === 'block') return true;
-    if (element.getAttribute('data-rxeditor-kind') === 'component-block') return true;
-    if (element.getAttribute('data-rxeditor-kind') === 'embed') return true;
+    if (element.getAttribute('data-roundeditor-kind') === 'block') return true;
+    if (element.getAttribute('data-roundeditor-kind') === 'component-block') return true;
+    if (element.getAttribute('data-roundeditor-kind') === 'embed') return true;
     return BLOCK_TAGS.has(element.tagName.toLowerCase());
 }
 
@@ -149,7 +149,7 @@ function wrapInlineRuns(container, createEmpty = false) {
         }
         if (!paragraph) {
             paragraph = document.createElement('p');
-            paragraph.setAttribute('data-rxeditor-unwrap', '');
+            paragraph.setAttribute('data-roundeditor-unwrap', '');
             container.insertBefore(paragraph, child);
         }
         paragraph.appendChild(child);
@@ -157,7 +157,7 @@ function wrapInlineRuns(container, createEmpty = false) {
     }
     if (createEmpty && !foundContent && !container.querySelector(':scope > p')) {
         paragraph = document.createElement('p');
-        paragraph.setAttribute('data-rxeditor-unwrap', '');
+        paragraph.setAttribute('data-roundeditor-unwrap', '');
         container.insertBefore(paragraph, container.firstChild);
     }
 }

@@ -1,0 +1,284 @@
+import { baseKeymap } from 'prosemirror-commands';
+import { dropCursor } from 'prosemirror-dropcursor';
+import { gapCursor } from 'prosemirror-gapcursor';
+import { history, redo, undo } from 'prosemirror-history';
+import { keymap } from 'prosemirror-keymap';
+import { EditorState } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
+import '../css/rxeditor.scss';
+import { rawNodeViews } from './nodeviews/RawView.js';
+import { normalizeForParse, parseDocument, parseSlice, schema, serializeDocument } from './schema/index.js';
+
+const registry = Object.create(null);
+
+function normalizeSequence(value) {
+    const sequence = Number.parseInt(String(value ?? ''), 10);
+    return Number.isFinite(sequence) && sequence > 0 ? sequence : 0;
+}
+
+function readConfig(wrapper) {
+    try {
+        return JSON.parse(wrapper.dataset.editorConfig || '{}');
+    } catch (error) {
+        throw new Error(`Invalid rxeditor configuration: ${error.message}`);
+    }
+}
+
+function findNamedControl(form, name) {
+    const control = form.elements.namedItem(name);
+    if (!control) return null;
+    if (typeof RadioNodeList !== 'undefined' && control instanceof RadioNodeList) return control[0] || null;
+    return control;
+}
+
+function ensureHiddenField(form, name, value) {
+    let field = findNamedControl(form, name);
+    if (!field) {
+        field = document.createElement('input');
+        field.type = 'hidden';
+        field.name = name;
+        form.appendChild(field);
+    }
+    field.value = value;
+    field.setAttribute('value', value);
+    return field;
+}
+
+function createPlugins() {
+    return [
+        history(),
+        keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo }),
+        keymap(baseKeymap),
+        dropCursor(),
+        gapCursor(),
+    ];
+}
+
+function insertHtml(bridge, html) {
+    const slice = parseSlice(html);
+    bridge.view.dispatch(bridge.view.state.tr.replaceSelection(slice));
+    bridge.view.focus();
+    return bridge.sync();
+}
+
+function selectedHtml(bridge) {
+    return serializeDocument({ content: bridge.view.state.selection.content().content }, schema);
+}
+
+function findBridgeForFrame(frame) {
+    const element = frame?.jquery ? frame[0] : frame;
+    const candidates = [
+        element?.dataset?.editorSequence,
+        element?.editor_sequence,
+        typeof element?.getAttribute === 'function' ? element.getAttribute('data-editor-sequence') : null,
+        String(element?.id || '').match(/_(\d+)$/)?.[1],
+        window.editorPrevSrl,
+    ];
+
+    if (typeof element?.closest === 'function') {
+        candidates.push(element.closest('[data-editor-sequence]')?.dataset?.editorSequence);
+    }
+
+    for (const candidate of candidates) {
+        const bridge = registry[normalizeSequence(candidate)];
+        if (bridge) return bridge;
+    }
+
+    return Object.values(registry).find(bridge => {
+        if (element === bridge.editable || element === bridge.wrapper) return true;
+        try {
+            return bridge.wrapper.contains(element);
+        } catch (error) {
+            return false;
+        }
+    }) || null;
+}
+
+function createCompatibilityBridge(bridge) {
+    return {
+        mode: 'wysiwyg',
+        getData: () => bridge.sync(),
+        setData: html => {
+            bridge.updateDocument(html);
+            return bridge.sync();
+        },
+        insertHtml: html => insertHtml(bridge, html),
+        getText: () => bridge.view.state.doc.textBetween(0, bridge.view.state.doc.content.size, '\n\n'),
+        getSelection: () => ({
+            getSelectedText: () => bridge.view.state.doc.textBetween(
+                bridge.view.state.selection.from,
+                bridge.view.state.selection.to,
+                '\n\n'
+            ),
+        }),
+        focus: () => bridge.view.focus(),
+    };
+}
+
+function installGlobals() {
+    if (window.RxEditorGlobalsInstalled) return;
+    window.RxEditorGlobalsInstalled = true;
+
+    const previous = {
+        getInstance: window._getCkeInstance,
+        getContainer: window._getCkeContainer,
+        getFrame: window.editorGetIFrame,
+        replaceHtml: window.editorReplaceHTML,
+        getContent: window.editorGetContent,
+        getText: window.editorGetContentTextarea_xe,
+        getSelected: window.editorGetSelectedHtml,
+    };
+
+    window._getCkeInstance = sequence => {
+        const bridge = registry[normalizeSequence(sequence)];
+        return bridge ? bridge.compat : previous.getInstance?.(sequence);
+    };
+    window._getCkeContainer = sequence => {
+        const bridge = registry[normalizeSequence(sequence)];
+        if (bridge) return window.jQuery ? window.jQuery(bridge.wrapper) : bridge.wrapper;
+        return previous.getContainer?.(sequence);
+    };
+    window.editorGetIFrame = sequence => {
+        const bridge = registry[normalizeSequence(sequence)];
+        return bridge ? bridge.editable : previous.getFrame?.(sequence) || null;
+    };
+    window.editorReplaceHTML = (frame, html) => {
+        const bridge = findBridgeForFrame(frame);
+        if (bridge) return bridge.compat.insertHtml(html, 'unfiltered_html');
+        return previous.replaceHtml?.(frame, html);
+    };
+    window.editorGetContent = sequence => {
+        const bridge = registry[normalizeSequence(sequence)];
+        return bridge ? bridge.sync() : previous.getContent?.(sequence) || '';
+    };
+    window.editorGetContentTextarea_xe = sequence => {
+        const bridge = registry[normalizeSequence(sequence)];
+        return bridge ? bridge.compat.getText() : previous.getText?.(sequence) || '';
+    };
+    window.editorGetSelectedHtml = sequence => {
+        const bridge = registry[normalizeSequence(sequence)];
+        return bridge ? selectedHtml(bridge) : previous.getSelected?.(sequence) || '';
+    };
+}
+
+function applyContentStyles(bridge) {
+    const styles = {
+        '--rxeditor-height': `${bridge.config.height}px`,
+        '--rxeditor-content-font': bridge.config.contentFont,
+        '--rxeditor-content-font-size': bridge.config.contentFontSize,
+        '--rxeditor-content-line-height': bridge.config.contentLineHeight,
+        '--rxeditor-content-word-break': bridge.config.contentWordBreak,
+        '--rxeditor-content-paragraph-spacing': bridge.config.contentParagraphSpacing,
+    };
+    Object.entries(styles).forEach(([name, value]) => bridge.wrapper.style.setProperty(name, value));
+}
+
+function showError(wrapper, error) {
+    wrapper.classList.add('rxeditor--error');
+    const loading = wrapper.querySelector('.rxeditor__loading');
+    if (loading) loading.remove();
+    const surface = wrapper.querySelector('.rxeditor__surface');
+    if (surface) {
+        surface.className = 'rxeditor__error';
+        surface.textContent = `rxeditor could not be initialized.\n${error.message || error}`;
+    }
+    console.error('[rxeditor] Initialization failed.', error);
+}
+
+function initialize(wrapper) {
+    const config = readConfig(wrapper);
+    const sequence = normalizeSequence(config.editorSequence || wrapper.dataset.editorSequence);
+    const form = wrapper.closest('form');
+    if (!sequence || !form) throw new Error('The editor sequence or parent form is missing.');
+
+    const contentInput = findNamedControl(form, config.contentKeyName);
+    if (!contentInput) throw new Error(`The Rhymix content field "${config.contentKeyName}" was not found.`);
+
+    const bridge = {
+        wrapper,
+        form,
+        config,
+        sequence,
+        primaryInput: findNamedControl(form, config.primaryKeyName) || { value: '' },
+        contentInput,
+        view: null,
+        editable: null,
+        compat: null,
+        sync() {
+            if (this.view) this.contentInput.value = serializeDocument(this.view.state.doc, schema);
+            return this.contentInput.value;
+        },
+        updateDocument(html) {
+            const state = EditorState.create({
+                doc: parseDocument(html),
+                plugins: createPlugins(),
+            });
+            this.view.updateState(state);
+        },
+    };
+    const state = EditorState.create({
+        doc: parseDocument(contentInput.value),
+        plugins: createPlugins(),
+    });
+    bridge.view = new EditorView(wrapper.querySelector('.rxeditor__surface'), {
+        state,
+        attributes: {
+            class: 'rhymix_content xe_content editable',
+            'data-editor-sequence': String(sequence),
+        },
+        transformPastedHTML: normalizeForParse,
+        nodeViews: rawNodeViews(),
+        dispatchTransaction(transaction) {
+            bridge.view.updateState(bridge.view.state.apply(transaction));
+            bridge.sync();
+        },
+    });
+    bridge.editable = bridge.view.dom;
+    bridge.editable.editor_sequence = sequence;
+    bridge.editable.setFocus = () => bridge.view.focus();
+    bridge.editable.replaceHTML = html => insertHtml(bridge, html);
+    bridge.compat = createCompatibilityBridge(bridge);
+    registry[sequence] = bridge;
+
+    form.setAttribute('editor_sequence', String(sequence));
+    ensureHiddenField(form, 'use_editor', 'Y');
+    ensureHiddenField(form, 'use_html', 'Y');
+    applyContentStyles(bridge);
+    installGlobals();
+
+    window.editorRelKeys = window.editorRelKeys || [];
+    window.editorRelKeys[sequence] = {
+        primary: bridge.primaryInput,
+        content: bridge.contentInput,
+        func: () => bridge.sync(),
+        pasteHTML: html => insertHtml(bridge, html),
+        editor: { getFrame: () => bridge.editable },
+    };
+    window.editorMode = window.editorMode || [];
+    window.editorMode[sequence] = null;
+
+    form.addEventListener('submit', () => bridge.sync(), true);
+    bridge.sync();
+    wrapper.querySelector('.rxeditor__loading')?.remove();
+    wrapper.classList.add('rxeditor--ready');
+    if (config.focus) bridge.view.focus();
+}
+
+function boot() {
+    document.querySelectorAll('.rxeditor:not([data-rxeditor-started])').forEach(wrapper => {
+        wrapper.setAttribute('data-rxeditor-started', 'true');
+        try {
+            initialize(wrapper);
+        } catch (error) {
+            showError(wrapper, error);
+        }
+    });
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+} else {
+    boot();
+}
+
+window.addEventListener('pageshow', boot);

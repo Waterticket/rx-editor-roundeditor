@@ -1,0 +1,102 @@
+[
+  {
+    "name": "paragraph alignment",
+    "input": "<p style=\"text-align:center\">가운데</p>",
+    "expected": "<p style=\"text-align:center;\">가운데</p>"
+  },
+  {
+    "name": "paragraph line height",
+    "input": "<p style=\"line-height:1.8\">줄간격</p>",
+    "expected": "<p style=\"line-height:1.8;\">줄간격</p>"
+  },
+  {
+    "name": "paragraph indentation",
+    "input": "<p style=\"margin-left:40px\">들여쓰기</p>",
+    "expected": "<p style=\"margin-left:40px;\">들여쓰기</p>"
+  },
+  {
+    "name": "font styles",
+    "input": "<p><span style=\"font-size:18px;color:#e25041;background-color:#ffffff;font-family:'Noto Sans KR', sans-serif\">서식</span></p>",
+    "expected": "<p><span style=\"font-size:18px;color:#e25041;background-color:#ffffff;font-family:'Noto Sans KR', sans-serif;\">서식</span></p>"
+  },
+  {
+    "name": "basic marks",
+    "input": "<p><strong>굵게</strong><em>기울임</em><u>밑줄</u><s>취소</s><sub>아래</sub><sup>위</sup><code>코드</code></p>",
+    "expected": "<p><strong>굵게</strong><em>기울임</em><u>밑줄</u><s>취소</s><sub>아래</sub><sup>위</sup><code>코드</code></p>"
+  },
+  {
+    "name": "ordered list",
+    "input": "<ol start=\"3\"><li>셋</li><li>넷</li></ol>",
+    "expected": "<ol start=\"3\"><li>셋</li><li>넷</li></ol>"
+  },
+  {
+    "name": "blockquote",
+    "input": "<blockquote><p>인용</p></blockquote>",
+    "expected": "<blockquote><p>인용</p></blockquote>"
+  },
+  {
+    "name": "horizontal rule",
+    "input": "<p>위</p><hr><p>아래</p>",
+    "expected": "<p>위</p><hr /><p>아래</p>"
+  },
+  {
+    "name": "table",
+    "input": "<table border=\"1\"><tbody><tr><th>제목</th><td colspan=\"2\" style=\"width:120px\">값</td></tr></tbody></table>",
+    "expected": "<table border=\"1\"><tbody><tr><th>제목</th><td colspan=\"2\" style=\"width:120px;\">값</td></tr></tbody></table>"
+  },
+  {
+    "name": "image",
+    "input": "<p><img src=\"./files/x.webp\" alt=\"이미지\" width=\"100\" height=\"80\" style=\"width:100px;height:80px\" data-file-srl=\"12\" editor_component=\"image_link\"></p>",
+    "expected": "<p><img src=\"./files/x.webp\" alt=\"이미지\" width=\"100\" height=\"80\" style=\"width:100px;height:80px;\" data-file-srl=\"12\" editor_component=\"image_link\" /></p>"
+  },
+  {
+    "name": "inline sticker",
+    "input": "<p>앞 <img src=\"./files/sticker.webp\" alt=\"스티커\" width=\"100\" height=\"100\" style=\"width:100px;height:100px\" data-rx-sticker=\"12|34\" data-rx-sticker-type=\"video\"> 뒤</p>",
+    "expected": "<p>앞 <img src=\"./files/sticker.webp\" alt=\"스티커\" width=\"100\" height=\"100\" style=\"width:100px;height:100px;\" data-rx-sticker=\"12|34\" data-rx-sticker-type=\"video\" /> 뒤</p>"
+  },
+  {
+    "name": "block video",
+    "input": "<video src=\"./files/x.mp4\" style=\"width:200px\" autoplay muted loop playsinline></video>",
+    "expected": "<video src=\"./files/x.mp4\" style=\"width:200px;\" autoplay=\"\" muted=\"\" loop=\"\" playsinline=\"\"></video>"
+  },
+  {
+    "name": "inline video is lifted",
+    "input": "<p>a <video src=\"./files/x.mp4\"></video> b</p>",
+    "expected": "<p>a </p><video src=\"./files/x.mp4\"></video> b"
+  },
+  {
+    "name": "link normalization",
+    "input": "<p><a href=\"https://example.com\" target=\"_blank\" rel=\"noopener\">링크</a></p>",
+    "expected": "<p><a href=\"https://example.com\" target=\"_blank\" rel=\"noreferrer noopener\">링크</a></p>"
+  },
+  {
+    "name": "code block",
+    "input": "<pre><code class=\"language-php\">echo 1;</code></pre>",
+    "expected": "<pre><code>echo 1;</code></pre>"
+  },
+  {
+    "name": "legacy div raw block",
+    "input": "<div class=\"my-legacy\" data-x=\"1\" style=\"border:1px solid red\">레거시</div>",
+    "expected": "<div style=\"border:1px solid #FF0000;\" data-x=\"1\">레거시</div>"
+  },
+  {
+    "name": "unknown tag",
+    "input": "<my-widget foo=\"1\">bar</my-widget>",
+    "expected": "bar"
+  },
+  {
+    "name": "oembed",
+    "input": "<figure class=\"media\"><div data-oembed-url=\"https://www.youtube.com/watch?v=test\"><iframe src=\"https://www.youtube.com/embed/test\"></iframe></div></figure>",
+    "expected": "<figure><div data-oembed-url=\"https://www.youtube.com/watch?v=test\"><iframe src=\"https://www.youtube.com/embed/test\"></iframe></div></figure>"
+  },
+  {
+    "name": "details raw block",
+    "input": "<details open><summary>요약</summary><p>본문</p></details>",
+    "expected": "<details open=\"\"><summary>요약</summary><p>본문</p></details>"
+  },
+  {
+    "name": "raw inline abbreviation",
+    "input": "<p>앞 <abbr title=\"HyperText Markup Language\">HTML</abbr> 뒤</p>",
+    "expected": "<p>앞 <abbr title=\"HyperText Markup Language\">HTML</abbr> 뒤</p>"
+  }
+]

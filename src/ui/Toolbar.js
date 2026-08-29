@@ -36,6 +36,7 @@ import {
 } from './commands.js';
 import { createLinkPanel } from './panels/LinkPanel.js';
 import { createTablePanel } from './panels/TablePanel.js';
+import { createStickerPanel } from './panels/StickerPanel.js';
 
 const FALLBACK_LABELS = {
     toolbar: 'Editor toolbar', more: 'More', close: 'Close', bold: 'Bold', italic: 'Italic',
@@ -47,7 +48,9 @@ const FALLBACK_LABELS = {
     alignLeft: 'Align left', alignCenter: 'Align center', alignRight: 'Align right',
     alignJustify: 'Justify', orderedList: 'Numbered list', bulletList: 'Bulleted list',
     outdent: 'Outdent', indent: 'Indent', quote: 'Block quote', horizontalRule: 'Horizontal rule',
-    sticker: 'Sticker (available in Phase 5)', undo: 'Undo', redo: 'Redo', selectAll: 'Select all',
+    sticker: 'Sticker', stickerPacks: 'Sticker packs', stickerRecent: 'Recent', stickerLoading: 'Loading stickers…',
+    stickerEmpty: 'No stickers are available.', stickerError: 'Could not load stickers.',
+    undo: 'Undo', redo: 'Redo', selectAll: 'Select all',
     source: 'Source editing (available in Phase 6)', fullscreen: 'Fullscreen (available in Phase 6)',
     help: 'Keyboard shortcuts', normal: 'Normal', code: 'Code', reset: 'Reset', custom: 'Custom',
     apply: 'Apply', remove: 'Remove', cancel: 'Cancel', insert: 'Insert', url: 'URL',
@@ -154,7 +157,7 @@ export class Toolbar {
         paragraph.appendChild(this.moreButton('paragraph', 'paragraph'));
 
         const sticker = this.addGroup('sticker');
-        sticker.appendChild(button('sticker', this.labels, { disabled: true }));
+        sticker.appendChild(button('sticker', this.labels));
 
         const spacer = document.createElement('span');
         spacer.className = 'roundeditor__toolbar-spacer';
@@ -248,7 +251,7 @@ export class Toolbar {
     }
 
     closePanel() {
-        this.panel.querySelector('.roundeditor__image-panel, .roundeditor__video-panel')
+        this.panel.querySelector('.roundeditor__image-panel, .roundeditor__video-panel, .roundeditor__sticker-panel')
             ?.dispatchEvent(new window.Event('roundeditor:close'));
         this.panelName = null;
         this.panel.hidden = true;
@@ -357,6 +360,9 @@ export class Toolbar {
             this.tablePanel();
         } else if (name === 'specialCharacters') {
             this.characterPanel();
+        } else if (name === 'sticker') {
+            const panel = createStickerPanel(this.bridge, this.labels, () => this.closePanel());
+            this.openPanel(name, this.labels.sticker, panel);
         } else if (name === 'help') {
             const content = document.createElement('p');
             content.className = 'roundeditor__help';

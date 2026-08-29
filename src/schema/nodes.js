@@ -185,9 +185,12 @@ export const nodes = {
             fileSrl: { default: null },
             mediaType: { default: 'image' },
             src: { default: '' },
+            videoSrc: { default: null },
             title: { default: '' },
-            width: { default: null },
-            height: { default: null },
+            width: { default: 100 },
+            height: { default: 100 },
+            displayWidth: { default: '100px' },
+            displayHeight: { default: '100px' },
             extra: { default: null },
         },
         parseDOM: [{
@@ -201,13 +204,18 @@ export const nodes = {
                     mediaType: element.getAttribute('data-rx-sticker-type') || 'image',
                     src: element.getAttribute('src') || '',
                     title: element.getAttribute('alt') || '',
-                    width: element.getAttribute('width'),
-                    height: element.getAttribute('height'),
+                    width: element.getAttribute('width') || 100,
+                    height: element.getAttribute('height') || 100,
+                    displayWidth: element.style.getPropertyValue('width') || `${element.getAttribute('width') || 100}px`,
+                    displayHeight: element.style.getPropertyValue('height') || `${element.getAttribute('height') || 100}px`,
                     extra: extraAttrs(element, ['data-rx-sticker', 'data-rx-sticker-type', 'src', 'alt', 'width', 'height']),
                 };
             },
         }],
-        toDOM: node => ['img', domAttributes(node.attrs.extra, {
+        toDOM: node => ['img', mergeStyle(node.attrs.extra, {
+            width: node.attrs.displayWidth,
+            height: node.attrs.displayHeight,
+        }, {
             src: node.attrs.src,
             alt: node.attrs.title,
             width: node.attrs.width,

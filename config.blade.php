@@ -81,6 +81,7 @@ $roundeditorConfig = [
         : ($document_srl ?? ($upload_target_srl ?? 0))),
     'mid' => (string)($mid ?? (is_object($roundeditorModuleInfo) ? ($roundeditorModuleInfo->mid ?? '') : (Context::get('mid') ?? ''))),
     'csrfToken' => (string)(Context::get('_rx_csrf_token') ?? ''),
+    'stickerMaxSize' => 100,
     'labels' => is_array($roundeditorLabels) ? $roundeditorLabels : [],
 ];
 

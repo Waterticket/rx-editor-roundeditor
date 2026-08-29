@@ -12,10 +12,12 @@ import { handleImageDrop, handleImagePaste } from './images.js';
 import { imageNodeView } from './nodeviews/ImageView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
 import { videoNodeView } from './nodeviews/VideoView.js';
+import { stickerNodeView } from './nodeviews/StickerView.js';
 import { normalizeForParse, parseDocument, parseSlice, schema, serializeDocument } from './schema/index.js';
 import { Toolbar } from './ui/Toolbar.js';
 import { exitInlineNode, splitAfterInlineNode } from './ui/commands.js';
 import { uploadPlaceholderPlugin } from './uploadPlaceholders.js';
+import { resolveDocumentStickers } from './stickers.js';
 
 const registry = Object.create(null);
 let previousGlobals = null;
@@ -285,7 +287,12 @@ function initialize(wrapper) {
         transformPastedHTML: normalizeForParse,
         handlePaste: (view, event) => handleImagePaste(bridge, event),
         handleDrop: (view, event, slice, moved) => handleImageDrop(bridge, event, moved),
-        nodeViews: { ...rawNodeViews(), image: imageNodeView(bridge), video: videoNodeView(bridge) },
+        nodeViews: {
+            ...rawNodeViews(),
+            image: imageNodeView(bridge),
+            video: videoNodeView(bridge),
+            sticker: stickerNodeView(bridge),
+        },
         dispatchTransaction(transaction) {
             bridge.view.updateState(bridge.view.state.apply(transaction));
             bridge.sync();
@@ -310,6 +317,7 @@ function initialize(wrapper) {
 
     form.addEventListener('submit', () => bridge.sync(), true);
     bridge.sync();
+    resolveDocumentStickers(bridge).catch(error => console.warn('[roundeditor] Sticker resolution failed.', error));
     wrapper.querySelector('.roundeditor__loading')?.remove();
     wrapper.classList.add('roundeditor--ready');
     if (config.focus) bridge.view.focus();

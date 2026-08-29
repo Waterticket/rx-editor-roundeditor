@@ -220,3 +220,79 @@ export class VideoFloatingToolbar {
         width.input.focus();
     }
 }
+
+export class StickerFloatingToolbar {
+    constructor({ labels, values, onDelete, onSize, onLink }) {
+        this.labels = labels;
+        this.values = values;
+        this.handlers = { onDelete, onSize, onLink };
+        this.element = document.createElement('div');
+        this.element.className = 'roundeditor__media-toolbar';
+        this.element.hidden = true;
+        this.element.contentEditable = 'false';
+        this.row = document.createElement('div');
+        this.row.className = 'roundeditor__media-toolbar-row';
+        this.row.append(
+            actionButton('delete', labels.stickerDelete, '×'),
+            actionButton('size', labels.stickerSize, '↔'),
+            actionButton('link', labels.stickerLink, '🔗')
+        );
+        this.formHost = document.createElement('div');
+        this.formHost.className = 'roundeditor__media-toolbar-form';
+        this.element.append(this.row, this.formHost);
+        this.element.addEventListener('click', event => this.execute(event));
+    }
+
+    show() { this.element.hidden = false; }
+    hide() {
+        this.element.hidden = true;
+        this.formHost.replaceChildren();
+    }
+
+    execute(event) {
+        const action = event.target.closest('[data-media-action]')?.dataset.mediaAction;
+        if (!action) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (action === 'delete') this.handlers.onDelete();
+        else this.openForm(action);
+    }
+
+    openForm(action) {
+        const values = this.values();
+        const form = document.createElement('form');
+        if (action === 'size') {
+            const width = field(this.labels.stickerWidth, 'width', 'number');
+            const height = field(this.labels.stickerHeight, 'height', 'number');
+            for (const item of [width, height]) {
+                item.input.min = '24';
+                item.input.max = '100';
+                item.input.inputMode = 'numeric';
+            }
+            width.input.value = values.width || '';
+            height.input.value = values.height || '';
+            form.append(width.wrapper, height.wrapper);
+            form.addEventListener('submit', event => {
+                event.preventDefault();
+                this.handlers.onSize(Number(width.input.value), Number(height.input.value));
+                this.formHost.replaceChildren();
+            });
+        } else {
+            const href = field(this.labels.url, 'href', 'url');
+            href.input.value = values.href || '';
+            href.input.placeholder = 'https://';
+            form.appendChild(href.wrapper);
+            form.addEventListener('submit', event => {
+                event.preventDefault();
+                this.handlers.onLink(href.input.value.trim());
+                this.formHost.replaceChildren();
+            });
+        }
+        const apply = document.createElement('button');
+        apply.type = 'submit';
+        apply.textContent = this.labels.apply;
+        form.appendChild(apply);
+        this.formHost.replaceChildren(form);
+        form.querySelector('input')?.focus();
+    }
+}

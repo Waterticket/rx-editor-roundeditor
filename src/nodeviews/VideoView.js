@@ -59,7 +59,16 @@ export class VideoView extends MediaNodeView {
                 }
             }, { rootMargin: '240px' })
             : null;
-        if (this.observer) this.observer.observe(this.dom);
+        // A video inserted by the legacy "본문 삽입" action may have no
+        // width/height attributes yet.  With an empty src the wrapper then
+        // collapses to 0x0, so IntersectionObserver never gets an intersecting
+        // box and Firefox cannot start playback.  Load metadata immediately
+        // for that case; the metadata handler supplies the intrinsic size.
+        const hasExplicitSize = Boolean(
+            this.node.attrs.displayWidth || this.node.attrs.displayHeight
+            || this.node.attrs.width || this.node.attrs.height
+        );
+        if (this.observer && hasExplicitSize) this.observer.observe(this.dom);
         else this.loadPreview();
     }
 

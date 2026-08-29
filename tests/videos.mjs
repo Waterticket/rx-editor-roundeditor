@@ -36,6 +36,9 @@ initial.descendants((node, position) => {
 });
 const parsedVideo = initial.nodeAt(videoPosition);
 assert.equal(parsedVideo.type.name, 'video');
+
+const legacyUrlVideo = parseDocument('<video src="index.php?module=file&amp;act=procFileDownload&amp;file_srl=30100"></video>');
+assert.equal(legacyUrlVideo.firstChild.attrs.src, '/index.php?module=file&act=procFileDownload&file_srl=30100&force_inline=Y');
 assert.equal(parsedVideo.isBlock, true);
 assert.equal(parsedVideo.attrs.displayWidth, '640px');
 assert.equal(parsedVideo.attrs.displayHeight, '360px');

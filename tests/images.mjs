@@ -20,10 +20,11 @@ const { EditorView } = await import('prosemirror-view');
 const { imageAttrsFromUpload, insertUploadedImages } = await import('../src/images.js');
 const { ImageView } = await import('../src/nodeviews/ImageView.js');
 const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
-const { normalizeRhymixAssetUrl, normalizeRhymixUrl, uploadFile } = await import('../src/rhymix/upload.js');
+const { normalizeRhymixAssetUrl, normalizeRhymixUrl, normalizeRhymixVideoUrl, uploadFile } = await import('../src/rhymix/upload.js');
 const {
     addUploadPlaceholder,
     findUploadPlaceholder,
+    updateUploadPlaceholder,
     uploadPlaceholderPlugin,
 } = await import('../src/uploadPlaceholders.js');
 
@@ -34,6 +35,10 @@ assert.deepEqual(imageAttrsFromUpload({
     displayWidth: '600px', displayHeight: '300px', fileSrl: '77', editorComponent: 'image_link',
 });
 assert.equal(normalizeRhymixUrl('/download?a=1&amp;b=2'), '/download?a=1&b=2');
+assert.equal(normalizeRhymixUrl('index.php?module=file&amp;act=procFileDownload'), '/index.php?module=file&act=procFileDownload');
+assert.equal(normalizeRhymixUrl('./index.php?module=file'), '/index.php?module=file');
+assert.equal(normalizeRhymixVideoUrl('index.php?module=file&amp;act=procFileDownload&amp;file_srl=30100'), '/index.php?module=file&act=procFileDownload&file_srl=30100&force_inline=Y');
+assert.equal(normalizeRhymixVideoUrl('/files/attach/video.mp4'), '/files/attach/video.mp4');
 window.default_url = 'https://example.test/subdir/';
 assert.equal(normalizeRhymixAssetUrl('./files/poster.jpg'), '/subdir/files/poster.jpg');
 
@@ -127,6 +132,12 @@ placeholderBridge.view = new EditorView(document.querySelector('#placeholder'), 
 });
 const placeholderId = addUploadPlaceholder(placeholderBridge.view, 'image', '이미지 첨부중...');
 assert.match(document.querySelector('#placeholder').textContent, /이미지 첨부중/);
+assert.match(document.querySelector('#placeholder').textContent, /0%/);
+updateUploadPlaceholder(placeholderBridge.view, placeholderId, 0.427);
+assert.match(document.querySelector('#placeholder').textContent, /43%/);
+assert.equal(document.querySelector('#placeholder .roundeditor__upload-placeholder').style.getPropertyValue('--roundeditor-upload-progress'), '43%');
+updateUploadPlaceholder(placeholderBridge.view, placeholderId, 0.99, '이미지 처리중...');
+assert.match(document.querySelector('#placeholder').textContent, /이미지 처리중/);
 assert.equal(findUploadPlaceholder(placeholderBridge.view.state, placeholderId), 1);
 assert.equal(serializeDocument(placeholderBridge.view.state.doc, schema), '<p>\u00a0</p>');
 insertUploadedImages(placeholderBridge, [{

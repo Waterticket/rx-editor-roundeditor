@@ -10,6 +10,7 @@ Object.defineProperties(globalThis, {
 });
 
 const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
+const { normalizeRhymixVideoUrl } = await import('../src/rhymix/upload.js');
 
 function runPhp(script, input = null) {
     const result = spawnSync('php', [new URL(script, import.meta.url).pathname], {
@@ -37,10 +38,19 @@ const cleaned = cleanBatch(documents.map(document => document.content));
 const serialized = cleaned.map(html => serializeDocument(parseDocument(html), schema));
 const cleanedAfterRoundTrip = cleanBatch(serialized);
 
+// The editor canonicalizes legacy file URLs such as `index.php?...` to a
+// site-root URL so media keeps working on nested routes (notably Firefox).
+// Compare against that canonical form while retaining the fixed-point check
+// below for the HTML filter itself.
+const canonicalized = cleanBatch(cleaned.map(html => html.replace(
+    /(<video\b[^>]*\bsrc=")([^"]*)(")/gi,
+    (_match, prefix, url, suffix) => `${prefix}${normalizeRhymixVideoUrl(url)}${suffix}`
+)));
+
 for (const [index, document] of documents.entries()) {
     assert.equal(
         cleanedAfterRoundTrip[index],
-        fillEmptyParagraphs(cleaned[index]),
+        fillEmptyParagraphs(canonicalized[index]),
         `document ${document.document_srl}: editor round trip changed clean HTML`
     );
     assert.equal(

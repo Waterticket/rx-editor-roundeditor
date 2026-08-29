@@ -1,4 +1,5 @@
 import { tableNodes } from 'prosemirror-tables';
+import { normalizeRhymixUrl, normalizeRhymixVideoUrl } from '../rhymix/upload.js';
 import { collectExtraAttributes, domAttributes, mergeStyle } from './attributes.js';
 import {
     COMPONENT_BLOCK_SELECTOR,
@@ -235,7 +236,7 @@ export const nodes = {
         parseDOM: [{
             tag: 'img:not([data-rx-sticker])',
             getAttrs: element => ({
-                src: element.getAttribute('src') || '',
+                src: normalizeRhymixUrl(element.getAttribute('src') || ''),
                 alt: element.getAttribute('alt') || '',
                 width: element.getAttribute('width'),
                 height: element.getAttribute('height'),
@@ -286,7 +287,7 @@ export const nodes = {
         parseDOM: [{
             tag: 'video',
             getAttrs: element => ({
-                src: element.getAttribute('src') || '',
+                src: normalizeRhymixVideoUrl(element.getAttribute('src') || ''),
                 poster: element.getAttribute('poster'),
                 width: element.getAttribute('width'),
                 height: element.getAttribute('height'),

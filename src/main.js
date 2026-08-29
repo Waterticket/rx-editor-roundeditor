@@ -7,6 +7,7 @@ import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { columnResizing, tableEditing } from 'prosemirror-tables';
 import '../css/roundeditor.scss';
+import { AttachmentList } from './AttachmentList.js';
 import { handleImageDrop, handleImagePaste } from './images.js';
 import { imageNodeView } from './nodeviews/ImageView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
@@ -248,6 +249,7 @@ function initialize(wrapper) {
         editable: null,
         compat: null,
         toolbar: null,
+        attachments: null,
         rebindControls() {
             const currentForm = this.wrapper.closest('form') || this.form;
             this.form = currentForm;
@@ -296,6 +298,7 @@ function initialize(wrapper) {
     bridge.editable.replaceHTML = html => insertHtml(bridge, html);
     bridge.compat = createCompatibilityBridge(bridge);
     bridge.toolbar = new Toolbar(bridge);
+    if (config.allowUpload) bridge.attachments = new AttachmentList(bridge);
     bridge.toolbar.refresh(bridge.view.state);
     registry[sequence] = bridge;
 

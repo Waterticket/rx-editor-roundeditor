@@ -1,5 +1,5 @@
 import { Fragment, Slice } from 'prosemirror-model';
-import { uploadImageFiles } from './rhymix/upload.js';
+import { normalizeRhymixUrl, uploadImageFiles } from './rhymix/upload.js';
 import {
     addUploadPlaceholder,
     findUploadPlaceholder,
@@ -18,7 +18,7 @@ export function imageAttrsFromUpload(upload, maxWidth = Infinity) {
     const width = naturalWidth > 0 ? Math.max(24, Math.round(naturalWidth * scale)) : null;
     const height = naturalHeight > 0 ? Math.max(24, Math.round(naturalHeight * scale)) : null;
     return {
-        src: upload.download_url,
+        src: normalizeRhymixUrl(upload.download_url),
         alt: upload.source_filename || '',
         width,
         height,

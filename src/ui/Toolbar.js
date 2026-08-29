@@ -35,9 +35,7 @@ import {
     toggleTextMark,
 } from './commands.js';
 import { createLinkPanel } from './panels/LinkPanel.js';
-import { createImagePanel } from './panels/ImagePanel.js';
 import { createTablePanel } from './panels/TablePanel.js';
-import { createVideoPanel } from './panels/VideoPanel.js';
 
 const FALLBACK_LABELS = {
     toolbar: 'Editor toolbar', more: 'More', close: 'Close', bold: 'Bold', italic: 'Italic',
@@ -149,10 +147,6 @@ export class Toolbar {
         text.appendChild(this.moreButton('text'));
 
         const rich = this.addGroup('rich');
-        rich.append(
-            button('image', this.labels, { disabled: !this.bridge.config.allowUpload }),
-            button('video', this.labels, { disabled: !this.bridge.config.allowUpload })
-        );
         rich.appendChild(button('link', this.labels));
         rich.appendChild(this.moreButton('rich'));
 
@@ -326,21 +320,7 @@ export class Toolbar {
             run(view, commands[name]);
             return;
         }
-        if (name === 'image') {
-            const panel = createImagePanel({
-                bridge: this.bridge,
-                labels: this.labels,
-                onClose: () => this.closePanel(),
-            });
-            this.openPanel(name, this.labels.image, panel);
-        } else if (name === 'video') {
-            const panel = createVideoPanel({
-                bridge: this.bridge,
-                labels: this.labels,
-                onClose: () => this.closePanel(),
-            });
-            this.openPanel(name, this.labels.video, panel);
-        } else if (name === 'fontSize') {
+        if (name === 'fontSize') {
             const choices = this.choices(name, FONT_SIZES, value => `${value}px`, value => (
                 run(view, setTextStyle(schema.marks.fontSize, `${value}px`))
             ));

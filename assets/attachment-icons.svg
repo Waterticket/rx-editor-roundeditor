@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 16V4"/>
+    <path d="m7.5 8.5 4.5-4.5 4.5 4.5"/>
+    <path d="M5 13.5v4A2.5 2.5 0 0 0 7.5 20h9a2.5 2.5 0 0 0 2.5-2.5v-4"/>
+  </symbol>
+  <symbol id="insert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 5.5h9"/>
+    <path d="M4 12h6"/>
+    <path d="M4 18.5h9"/>
+    <path d="M16 8v8"/>
+    <path d="m13 13 3 3 3-3"/>
+  </symbol>
+  <symbol id="trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 7h15"/>
+    <path d="M9 3.5h6l1 3.5H8l1-3.5Z"/>
+    <path d="m7 7 .8 13h8.4L17 7"/>
+    <path d="M10 10.5v6"/>
+    <path d="M14 10.5v6"/>
+  </symbol>
+  <symbol id="cover" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/>
+    <path d="m8.2 12.2 2.4 2.4 5.3-5.3"/>
+  </symbol>
+  <symbol id="play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m9 7 8 5-8 5V7Z"/>
+  </symbol>
+</svg>

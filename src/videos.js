@@ -1,4 +1,4 @@
-import { normalizeRhymixAssetUrl, uploadFile } from './rhymix/upload.js';
+import { normalizeRhymixAssetUrl, normalizeRhymixVideoUrl, uploadFile } from './rhymix/upload.js';
 import { findUploadPlaceholder, removeUploadPlaceholderFrom } from './uploadPlaceholders.js';
 
 export const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
@@ -36,7 +36,7 @@ export function videoAttrsFromUpload(upload, maxWidth = Infinity, align = null) 
     const height = naturalHeight > 0 ? Math.max(24, Math.round(naturalHeight * scale)) : null;
     const gifVideo = String(upload.original_type || '').toLowerCase() === 'image/gif';
     return {
-        src: upload.download_url,
+        src: normalizeRhymixVideoUrl(upload.download_url),
         poster: normalizeRhymixAssetUrl(upload.thumbnail_filename) || null,
         width,
         height,

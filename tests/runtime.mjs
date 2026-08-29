@@ -59,15 +59,8 @@ assert.equal(window.editorGetContentTextarea_xe(7), 'Hello');
 assert.equal(window.editorRelKeys[7].content, form.elements.namedItem('content'));
 assert.equal(window._getCkeInstance(7).mode, 'wysiwyg');
 assert.equal(wrapper.querySelector('.roundeditor__toolbar').getAttribute('role'), 'toolbar');
-assert.equal(wrapper.querySelector('[data-command="image"]').disabled, false);
-assert.equal(wrapper.querySelector('[data-command="video"]').disabled, false);
-wrapper.querySelector('[data-command="image"]').click();
-assert.ok(wrapper.querySelector('.roundeditor__image-dropzone'));
-wrapper.querySelector('.roundeditor__panel-heading [data-command="close"]').click();
-wrapper.querySelector('[data-command="video"]').click();
-assert.ok(wrapper.querySelector('.roundeditor__video-dropzone'));
-assert.match(wrapper.querySelector('.roundeditor__video-dropzone').textContent, /50 MB/);
-wrapper.querySelector('.roundeditor__panel-heading [data-command="close"]').click();
+assert.equal(wrapper.querySelector('[data-command="image"]'), null);
+assert.equal(wrapper.querySelector('[data-command="video"]'), null);
 assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 5');
 
 wrapper.querySelector('[data-command="selectAll"]').click();

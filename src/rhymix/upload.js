@@ -3,7 +3,32 @@ function requestUrl() {
 }
 
 export function normalizeRhymixUrl(value) {
-    return String(value || '').replaceAll('&amp;', '&').replaceAll('&#039;', "'");
+    const url = String(value || '').replaceAll('&amp;', '&').replaceAll('&#039;', "'");
+    // Rhymix's legacy file module returns `index.php?...` without a leading
+    // slash.  That works only when the page is at the site root; on nested
+    // routes such as /notice/30099 the browser resolves it to /notice/index.php
+    // and Firefox reports the media as unavailable.  Keep external, data and
+    // other relative content URLs untouched, but make the known file endpoint
+    // site-root relative so every browser requests the same resource.
+    if (/^(?:\.\/)?index\.php(?:[?#]|$)/i.test(url)) {
+        return `/${url.replace(/^\.\//, '')}`;
+    }
+    return url;
+}
+
+export function normalizeRhymixVideoUrl(value) {
+    const url = normalizeRhymixUrl(value);
+    if (!url) return url;
+    try {
+        const parsed = new URL(url, 'https://roundeditor.invalid/');
+        if (parsed.searchParams.get('module') !== 'file'
+            || parsed.searchParams.get('act') !== 'procFileDownload') return url;
+        if (!parsed.searchParams.has('force_inline')) parsed.searchParams.set('force_inline', 'Y');
+        const origin = parsed.origin === 'https://roundeditor.invalid' ? '' : parsed.origin;
+        return `${origin}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch (error) {
+        return url;
+    }
 }
 
 export function normalizeRhymixAssetUrl(value) {

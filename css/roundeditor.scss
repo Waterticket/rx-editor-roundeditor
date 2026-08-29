@@ -124,7 +124,7 @@ body.color_scheme_dark .roundeditor__attachments {
     opacity: .42;
 }
 
-.roundeditor__icon {
+.roundeditor .roundeditor__icon {
     display: block;
     width: 22px;
     height: 22px;
@@ -137,26 +137,26 @@ body.color_scheme_dark .roundeditor__attachments {
     stroke-linejoin: round;
 }
 
-.roundeditor__icon text {
+.roundeditor .roundeditor__icon text {
     fill: currentColor;
     stroke: none;
     font-family: Arial, sans-serif;
 }
 
-.roundeditor__icon-letter {
+.roundeditor .roundeditor__icon-letter {
     font-size: 18px;
     font-weight: 600;
 }
 
-.roundeditor__icon-letter--bold {
+.roundeditor .roundeditor__icon-letter--bold {
     font-weight: 750;
 }
 
-.roundeditor__icon-letter--italic {
+.roundeditor .roundeditor__icon-letter--italic {
     font-style: italic;
 }
 
-.roundeditor__icon--fontSize {
+.roundeditor .roundeditor__icon--fontSize {
     width: 24px;
     flex-basis: 24px;
 }

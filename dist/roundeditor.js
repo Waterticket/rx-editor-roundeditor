@@ -9741,10 +9741,12 @@ var nd = class {
 		let e = this.container.querySelector(".xefu-dropzone");
 		if (!e) return;
 		let t = e.querySelector(".xefu-dropzone-message"), n = e.querySelector(".fileinput-button");
-		if (this.fileButton = n, this.fileInput = n?.querySelector("input[type=\"file\"]") || null, e.setAttribute("role", "button"), e.tabIndex = 0, e.addEventListener("click", (e) => {
-			!this.fileInput || e.target === this.fileInput || this.fileInput.click();
+		if (this.fileButton = n, e.setAttribute("role", "button"), e.tabIndex = 0, e.addEventListener("click", (e) => {
+			let t = this.currentFileInput();
+			!t || e.target === t || t.click();
 		}), e.addEventListener("keydown", (e) => {
-			!this.fileInput || !["Enter", " "].includes(e.key) || (e.preventDefault(), this.fileInput.click());
+			let t = this.currentFileInput();
+			!t || !["Enter", " "].includes(e.key) || (e.preventDefault(), t.click());
 		}), t && !e.querySelector(".roundeditor__dropzone-icon")) {
 			let e = zu("upload");
 			e.classList.add("roundeditor__dropzone-icon"), t.before(e);
@@ -9775,6 +9777,9 @@ var nd = class {
 				a.className = "allowed_attach_size", a.textContent = t.querySelector(".allowed_attach_size")?.textContent || "", n.append(document.createTextNode(`${this.labels.attachmentsCountCurrent} `), r, document.createTextNode(`${this.labels.attachmentsCountSuffix} · `), i, document.createTextNode(" / "), a), e.insertBefore(n, e.querySelector(".xefu-progress-status") || null);
 			}
 		}
+	}
+	currentFileInput() {
+		return this.fileButton?.querySelector("input[type=\"file\"]") || null;
 	}
 	mergeControlsIntoHeading() {
 		let e = this.container.querySelector(".xefu-controll"), t = e?.querySelector(":scope > div:last-child");
@@ -9808,8 +9813,8 @@ var nd = class {
 		n.textContent = this.labels.attachmentsDropOverlay, t.appendChild(n), e.appendChild(t);
 	}
 	syncLayout() {
-		let e = this.container.querySelectorAll(".xefu-list-images li, .xefu-list-files li").length > 0;
-		this.container.classList.toggle("roundeditor__attachments--empty", !e), this.container.classList.toggle("roundeditor__attachments--has-files", e), this.headingActions && (this.headingActions.hidden = !e), this.policy && (this.policy.hidden = !e), this.syncSelectionActions(), this.fileButton && (e && this.fileButton.parentElement !== this.headingActions ? this.headingActions?.prepend(this.fileButton) : !e && this.fileButton.parentElement !== this.dropzoneActions && this.dropzoneActions?.appendChild(this.fileButton));
+		let e = this.container.querySelectorAll(".xefu-list-images li, .xefu-list-files li").length > 0, t = this.container.querySelector(".xefu-list");
+		t && (e ? t.style.display = "block" : t.style.removeProperty("display")), this.container.classList.toggle("roundeditor__attachments--empty", !e), this.container.classList.toggle("roundeditor__attachments--has-files", e), this.headingActions && (this.headingActions.hidden = !e), this.policy && (this.policy.hidden = !e), this.syncSelectionActions(), this.fileButton && (e && this.fileButton.parentElement !== this.headingActions ? this.headingActions?.prepend(this.fileButton) : !e && this.fileButton.parentElement !== this.dropzoneActions && this.dropzoneActions?.appendChild(this.fileButton));
 	}
 	syncSelectionActions() {
 		let e = !!this.container.querySelector(".xefu-file.selected, .xefu-file input:checked");

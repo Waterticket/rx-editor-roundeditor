@@ -213,17 +213,18 @@ export class AttachmentList {
         const message = dropzone.querySelector('.xefu-dropzone-message');
         const button = dropzone.querySelector('.fileinput-button');
         this.fileButton = button;
-        this.fileInput = button?.querySelector('input[type="file"]') || null;
         dropzone.setAttribute('role', 'button');
         dropzone.tabIndex = 0;
         dropzone.addEventListener('click', event => {
-            if (!this.fileInput || event.target === this.fileInput) return;
-            this.fileInput.click();
+            const fileInput = this.currentFileInput();
+            if (!fileInput || event.target === fileInput) return;
+            fileInput.click();
         });
         dropzone.addEventListener('keydown', event => {
-            if (!this.fileInput || !['Enter', ' '].includes(event.key)) return;
+            const fileInput = this.currentFileInput();
+            if (!fileInput || !['Enter', ' '].includes(event.key)) return;
             event.preventDefault();
-            this.fileInput.click();
+            fileInput.click();
         });
         if (message && !dropzone.querySelector('.roundeditor__dropzone-icon')) {
             const icon = svgIcon('upload');
@@ -288,6 +289,13 @@ export class AttachmentList {
         }
     }
 
+    currentFileInput() {
+        // Blueimp replaces the file input with a clone after every selection so
+        // the same filename can be selected again. Never retain the detached
+        // input from the first selection.
+        return this.fileButton?.querySelector('input[type="file"]') || null;
+    }
+
     mergeControlsIntoHeading() {
         const controls = this.container.querySelector('.xefu-controll');
         const actionContainer = controls?.querySelector(':scope > div:last-child');
@@ -331,6 +339,15 @@ export class AttachmentList {
 
     syncLayout() {
         const hasFiles = this.container.querySelectorAll('.xefu-list-images li, .xefu-list-files li').length > 0;
+        const list = this.container.querySelector('.xefu-list');
+        // The legacy uploader stylesheet hides the list by default and only its
+        // asynchronous refresh normally adds an inline display value. Keep the
+        // list visible whenever either a pending preview or a server file exists.
+        // This also survives later observer passes after the legacy .show().
+        if (list) {
+            if (hasFiles) list.style.display = 'block';
+            else list.style.removeProperty('display');
+        }
         this.container.classList.toggle('roundeditor__attachments--empty', !hasFiles);
         this.container.classList.toggle('roundeditor__attachments--has-files', hasFiles);
         if (this.headingActions) this.headingActions.hidden = !hasFiles;

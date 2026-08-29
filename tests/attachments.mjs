@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM(`<!doctype html><html><body><form>
@@ -81,12 +82,26 @@ assert.equal(uploader.querySelector('.roundeditor__attachment-action--delete').t
 assert.equal(uploader.querySelector('.roundeditor__attachment-action--insert').hidden, true);
 assert.equal(uploader.querySelector('.roundeditor__attachment-action--delete').hidden, true);
 
+const originalFileInput = uploader.querySelector('.fileinput-button input[type="file"]');
+const replacementFileInput = originalFileInput.cloneNode(true);
+let originalInputClicks = 0;
+let replacementInputClicks = 0;
+originalFileInput.addEventListener('click', () => { originalInputClicks += 1; });
+replacementFileInput.addEventListener('click', () => { replacementInputClicks += 1; });
+originalFileInput.after(replacementFileInput);
+originalFileInput.remove();
+uploader.querySelector('.fileinput-button').click();
+assert.equal(originalInputClicks, 0);
+assert.equal(replacementInputClicks, 1);
+
 const imageItem = document.createElement('li');
 imageItem.className = 'xefu-file xefu-file-image';
 imageItem.dataset.fileSrl = '77';
 imageItem.innerHTML = '<strong class="xefu-file-name">cover.png</strong><span class="xefu-file-info"><span class="xefu-file-size">10KB</span><span><span class="xefu-thumbnail"></span></span><span><input type="checkbox" data-file-srl="77"></span><button class="xefu-act-set-cover" data-file-srl="77" title="대표 이미지로 설정"></button></span>';
+uploader.querySelector('.xefu-list').style.display = 'none';
 uploader.querySelector('.xefu-list-images ul')?.appendChild(imageItem);
 await new Promise(resolve => queueMicrotask(resolve));
+assert.equal(uploader.querySelector('.xefu-list').style.display, 'block');
 const imageCheckbox = imageItem.querySelector('input[type="checkbox"]');
 const thumbnailCheckbox = imageItem.querySelector('.xefu-act-set-cover');
 assert.equal(thumbnailCheckbox.classList.contains('roundeditor__thumbnail-checkbox'), true);
@@ -205,10 +220,13 @@ assert.equal(wrapper.querySelector('.roundeditor__upload-placeholder'), null);
 
 const file = new dom.window.File(['png'], 'progress.png', { type: 'image/png' });
 const upload = { files: [file], loaded: 0, total: 100 };
+uploader.querySelector('.xefu-list').style.display = 'none';
 handlers.fileuploadadd({}, upload);
 assert.match(wrapper.querySelector('.roundeditor__upload-placeholder').textContent, /0%/);
 assert.equal(uploader.querySelectorAll('.roundeditor__attachment-upload').length, 1);
 assert.equal(uploader.querySelector('.roundeditor__attachment-upload-percent').textContent, '0%');
+assert.equal(uploader.querySelector('.xefu-list').style.display, 'block');
+assert.equal(uploader.classList.contains('roundeditor__attachments--has-files'), true);
 upload.loaded = 61;
 handlers.fileuploadprogress({}, upload);
 assert.match(wrapper.querySelector('.roundeditor__upload-placeholder').textContent, /61%/);
@@ -279,6 +297,12 @@ handlers.fileuploadadd({}, rejectedUpload);
 assert.match(wrapper.querySelector('.roundeditor__upload-placeholder').textContent, /0%/);
 await new Promise(resolve => setTimeout(resolve, 0));
 assert.equal(wrapper.querySelector('.roundeditor__upload-placeholder'), null);
+
+const compiledCss = readFileSync(new URL('../dist/roundeditor.css', import.meta.url), 'utf8');
+assert.match(compiledCss, /\.roundeditor \.roundeditor__swatch\{/);
+assert.match(compiledCss, /\.roundeditor \.roundeditor__swatch--reset\{/);
+assert.match(compiledCss, /\.roundeditor__attachments \.xefu-btn\{[^}]*height:auto!important/);
+assert.match(compiledCss, /\.roundeditor__attachments \.xefu-btn\{[^}]*white-space:nowrap/);
 
 bridge.view.destroy();
 console.log('roundeditor attachment list contract passed');

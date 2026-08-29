@@ -21,9 +21,11 @@ dom.window.IntersectionObserver = class {
 };
 globalThis.IntersectionObserver = dom.window.IntersectionObserver;
 
-const { EditorState, NodeSelection, TextSelection } = await import('prosemirror-state');
+const { AllSelection, EditorState, NodeSelection, TextSelection } = await import('prosemirror-state');
 const { EditorView } = await import('prosemirror-view');
+const { updateEditorDocument } = await import('../src/documentUpdate.js');
 const { StickerView } = await import('../src/nodeviews/StickerView.js');
+const { mediaSelectionPlugin } = await import('../src/mediaSelection.js');
 const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
 const { insertSticker, resolveDocumentStickers } = await import('../src/stickers.js');
 const { createStickerPanel } = await import('../src/ui/panels/StickerPanel.js');
@@ -43,7 +45,7 @@ assert.doesNotMatch(serializeDocument(parsed, schema), /videoSrc|\.mp4/);
 const bridge = { config: { labels: {}, mid: 'board' }, view: null };
 let stickerView;
 bridge.view = new EditorView(document.querySelector('#editor'), {
-    state: EditorState.create({ doc: parsed }),
+    state: EditorState.create({ doc: parsed, plugins: [mediaSelectionPlugin()] }),
     nodeViews: { sticker: (node, view, getPos) => (stickerView = new StickerView(node, view, getPos, bridge)) },
 });
 assert.equal(stickerView.handles.length, 0);
@@ -57,6 +59,9 @@ bridge.view.dispatch(bridge.view.state.tr.setSelection(NodeSelection.create(brid
 assert.equal(bridge.view.state.selection instanceof NodeSelection, true);
 assert.equal(stickerView.dom.classList.contains('roundeditor__media--selected'), true);
 assert.equal(stickerView.handles.length, 0);
+
+bridge.view.dispatch(bridge.view.state.tr.setSelection(new AllSelection(bridge.view.state.doc)));
+assert.equal(stickerView.dom.classList.contains('roundeditor__media--range-selected'), true);
 
 window.exec_json = (action, params, success) => {
     assert.equal(action, 'sticker.resolveStickers');
@@ -74,6 +79,13 @@ assert.equal(stickerView.media.loop, true);
 assert.equal(stickerView.media.playsInline, true);
 assert.equal(stickerView.media.getAttribute('src'), '/animated.mp4');
 assert.equal(serializeDocument(bridge.view.state.doc, schema).includes('/animated.mp4'), false);
+
+const animatedStickerMedia = stickerView.media;
+updateEditorDocument(bridge.view, parseDocument(serializeDocument(bridge.view.state.doc, schema)));
+assert.equal(stickerView.media, animatedStickerMedia);
+assert.equal(stickerView.media.tagName, 'VIDEO');
+assert.equal(stickerView.media.getAttribute('src'), '/animated.mp4');
+assert.equal(bridge.view.state.doc.firstChild.child(1).attrs.videoSrc, '/animated.mp4');
 
 bridge.view.destroy();
 document.querySelector('#editor').replaceChildren();

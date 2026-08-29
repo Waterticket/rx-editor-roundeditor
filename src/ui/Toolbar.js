@@ -1,4 +1,5 @@
 import { redo, undo } from 'prosemirror-history';
+import { uiIcon } from '../icons.js';
 import {
     addColumnAfter,
     addColumnBefore,
@@ -72,20 +73,6 @@ const FALLBACK_LABELS = {
     imageUploading: 'Uploading image…', videoUploading: 'Uploading video…',
 };
 
-const ICONS = {
-    bold: '<strong>B</strong>', italic: '<em>I</em>', underline: '<u>U</u>', strike: '<s>S</s>',
-    fontSize: '↕', lineHeight: '≡', textColor: 'A', backgroundColor: '▣', clearFormatting: 'Tx',
-    fontFamily: 'F',
-    image: '▧', video: '▶', link: '🔗', table: '▦', specialCharacters: 'Ω', paragraph: '¶',
-    alignLeft: '<span class="roundeditor__align-icon roundeditor__align-icon--left"><i></i><i></i><i></i></span>',
-    alignCenter: '<span class="roundeditor__align-icon roundeditor__align-icon--center"><i></i><i></i><i></i></span>',
-    alignRight: '<span class="roundeditor__align-icon roundeditor__align-icon--right"><i></i><i></i><i></i></span>',
-    alignJustify: '<span class="roundeditor__align-icon roundeditor__align-icon--justify"><i></i><i></i><i></i></span>',
-    orderedList: '1.',
-    bulletList: '•', outdent: '⇤', indent: '⇥', quote: '❝', horizontalRule: '―', sticker: '☺',
-    undo: '↶', redo: '↷', selectAll: '▣', source: '&lt;/&gt;', fullscreen: '⛶', help: '?', more: '⋯',
-};
-
 function button(name, labels, options = {}) {
     const element = document.createElement('button');
     element.type = 'button';
@@ -93,7 +80,7 @@ function button(name, labels, options = {}) {
     element.dataset.command = name;
     element.title = labels[name] || name;
     element.setAttribute('aria-label', labels[name] || name);
-    element.innerHTML = options.icon || ICONS[name] || name;
+    element.appendChild(uiIcon(options.icon || name));
     if (options.disabled) {
         element.disabled = true;
         element.setAttribute('aria-disabled', 'true');
@@ -185,7 +172,7 @@ export class Toolbar {
     }
 
     moreButton(group, icon = 'more') {
-        const element = button('more', this.labels, { icon: ICONS[icon] });
+        const element = button('more', this.labels, { icon });
         element.dataset.moreGroup = group;
         element.addEventListener('click', event => {
             event.stopPropagation();
@@ -221,7 +208,7 @@ export class Toolbar {
             right: ['source', 'fullscreen', 'help'],
         }[group] || [];
         return names.map(name => {
-            if (name === 'format') return button('format', { format: this.labels.normal }, { icon: 'P' });
+            if (name === 'format') return button('format', { format: this.labels.normal });
             return button(name, this.labels, { disabled: ['source', 'fullscreen'].includes(name) });
         });
     }
@@ -244,7 +231,7 @@ export class Toolbar {
         heading.className = 'roundeditor__panel-heading';
         const titleElement = document.createElement('strong');
         titleElement.textContent = title;
-        const close = button('close', this.labels, { icon: '×' });
+        const close = button('close', this.labels);
         close.addEventListener('click', () => this.closePanel());
         heading.append(titleElement, close);
         this.panel.replaceChildren(heading, content);

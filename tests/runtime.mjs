@@ -59,6 +59,12 @@ assert.equal(window.editorGetContentTextarea_xe(7), 'Hello');
 assert.equal(window.editorRelKeys[7].content, form.elements.namedItem('content'));
 assert.equal(window._getCkeInstance(7).mode, 'wysiwyg');
 assert.equal(wrapper.querySelector('.roundeditor__toolbar').getAttribute('role'), 'toolbar');
+assert.equal(
+    wrapper.querySelectorAll('.roundeditor__toolbar-primary .roundeditor__tool').length,
+    wrapper.querySelectorAll('.roundeditor__toolbar-primary .roundeditor__tool > svg.roundeditor__icon').length
+);
+assert.equal(wrapper.querySelector('[data-command="fontSize"] svg').dataset.icon, 'fontSize');
+assert.equal(wrapper.querySelector('[data-command="link"] svg').dataset.icon, 'link');
 assert.equal(wrapper.querySelector('[data-command="image"]'), null);
 assert.equal(wrapper.querySelector('[data-command="video"]'), null);
 assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 5');
@@ -71,6 +77,10 @@ assert.equal(window.editorGetContent(7), '<p>Hello</p>');
 wrapper.querySelector('[data-command="redo"]').click();
 assert.equal(window.editorGetContent(7), '<p><strong>Hello</strong></p>');
 wrapper.querySelector('[data-more-group="paragraph"]').click();
+assert.equal(
+    wrapper.querySelectorAll('.roundeditor__toolbar-more .roundeditor__tool').length,
+    wrapper.querySelectorAll('.roundeditor__toolbar-more .roundeditor__tool > svg.roundeditor__icon').length
+);
 assert.ok(wrapper.querySelector('[data-command="alignLeft"] .roundeditor__align-icon--left'));
 assert.ok(wrapper.querySelector('[data-command="alignCenter"] .roundeditor__align-icon--center'));
 assert.ok(wrapper.querySelector('[data-command="alignRight"] .roundeditor__align-icon--right'));

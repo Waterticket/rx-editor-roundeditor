@@ -102,6 +102,10 @@ export class VideoView extends MediaNodeView {
 
     update(node) {
         if (node.type !== this.node.type) return false;
+        if (node.eq(this.node)) {
+            this.node = node;
+            return true;
+        }
         this.node = node;
         this.render();
         return true;

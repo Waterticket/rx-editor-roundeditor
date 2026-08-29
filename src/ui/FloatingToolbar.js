@@ -1,20 +1,17 @@
-function actionButton(action, label, text = label) {
+import { uiIcon } from '../icons.js';
+
+function actionButton(action, label, icon = action) {
     const button = document.createElement('button');
     button.type = 'button';
     button.dataset.mediaAction = action;
     button.title = label;
     button.setAttribute('aria-label', label);
-    button.textContent = text;
+    button.appendChild(uiIcon(icon));
     return button;
 }
 
 function alignmentButton(action, label) {
-    const button = actionButton(action, label, '');
-    const icon = document.createElement('span');
-    icon.className = `roundeditor__align-icon roundeditor__align-icon--${action}`;
-    icon.append(document.createElement('i'), document.createElement('i'), document.createElement('i'));
-    button.appendChild(icon);
-    return button;
+    return actionButton(action, label, `align${action[0].toUpperCase()}${action.slice(1)}`);
 }
 
 function field(label, name, type = 'text') {
@@ -41,10 +38,10 @@ export class FloatingToolbar {
         this.row = document.createElement('div');
         this.row.className = 'roundeditor__media-toolbar-row';
         this.row.append(
-            actionButton('delete', labels.imageDelete, '×'),
-            actionButton('size', labels.imageSize, '↔'),
-            actionButton('link', labels.imageLink, '🔗'),
-            actionButton('alt', labels.imageAlt, 'ALT'),
+            actionButton('delete', labels.imageDelete),
+            actionButton('size', labels.imageSize, 'resize'),
+            actionButton('link', labels.imageLink),
+            actionButton('alt', labels.imageAlt),
             alignmentButton('left', labels.alignLeft),
             alignmentButton('center', labels.alignCenter),
             alignmentButton('right', labels.alignRight)
@@ -138,10 +135,10 @@ export class VideoFloatingToolbar {
         this.row = document.createElement('div');
         this.row.className = 'roundeditor__media-toolbar-row';
         this.row.append(
-            actionButton('delete', labels.videoDelete, '×'),
-            actionButton('size', labels.videoSize, '↔'),
-            actionButton('autoplay', labels.videoAutoplay, '▶'),
-            actionButton('controls', labels.videoControls, '▰'),
+            actionButton('delete', labels.videoDelete),
+            actionButton('size', labels.videoSize, 'resize'),
+            actionButton('autoplay', labels.videoAutoplay, 'play'),
+            actionButton('controls', labels.videoControls),
             alignmentButton('left', labels.alignLeft),
             alignmentButton('center', labels.alignCenter),
             alignmentButton('right', labels.alignRight)

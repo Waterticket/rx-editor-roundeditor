@@ -124,6 +124,43 @@ body.color_scheme_dark .roundeditor__attachments {
     opacity: .42;
 }
 
+.roundeditor__icon {
+    display: block;
+    width: 22px;
+    height: 22px;
+    flex: 0 0 22px;
+    overflow: visible;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.roundeditor__icon text {
+    fill: currentColor;
+    stroke: none;
+    font-family: Arial, sans-serif;
+}
+
+.roundeditor__icon-letter {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.roundeditor__icon-letter--bold {
+    font-weight: 750;
+}
+
+.roundeditor__icon-letter--italic {
+    font-style: italic;
+}
+
+.roundeditor__icon--fontSize {
+    width: 24px;
+    flex-basis: 24px;
+}
+
 .roundeditor__align-icon {
     display: inline-flex;
     width: 18px;
@@ -148,10 +185,9 @@ body.color_scheme_dark .roundeditor__attachments {
 .roundeditor__align-icon--justify { align-items: stretch; }
 
 .roundeditor__panel {
-    position: absolute;
+    position: relative;
     z-index: 2;
-    right: 0;
-    left: 0;
+    width: 100%;
     max-height: min(320px, 50vh);
     padding: 12px;
     overflow: auto;
@@ -1486,9 +1522,20 @@ body.color_scheme_dark .roundeditor__attachments {
     outline-offset: 2px;
 }
 
+.roundeditor__media--range-selected::after,
+.roundeditor__media--video.roundeditor__media--selected::after,
+.roundeditor__media--sticker.roundeditor__media--selected::after {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: rgba(236, 72, 153, .38);
+    content: '';
+    pointer-events: none;
+}
+
 .roundeditor__media-handle {
     position: absolute;
-    z-index: 4;
+    z-index: 7;
     display: none;
     width: 9px;
     height: 9px;
@@ -1511,7 +1558,7 @@ body.color_scheme_dark .roundeditor__attachments {
     position: absolute;
     bottom: calc(100% + 10px);
     left: 50%;
-    z-index: 6;
+    z-index: 8;
     min-width: max-content;
     padding: 4px;
     border: 1px solid var(--roundeditor-border);
@@ -1549,6 +1596,13 @@ body.color_scheme_dark .roundeditor__attachments {
     color: inherit;
     font: inherit;
     cursor: pointer;
+}
+
+.roundeditor__media-toolbar-row .roundeditor__icon {
+    width: 18px;
+    height: 18px;
+    margin: auto;
+    flex-basis: 18px;
 }
 
 .roundeditor__media-toolbar-row button:hover,

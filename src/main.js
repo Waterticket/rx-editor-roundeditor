@@ -8,7 +8,9 @@ import { EditorView } from 'prosemirror-view';
 import { columnResizing, tableEditing } from 'prosemirror-tables';
 import '../css/roundeditor.scss';
 import { AttachmentList } from './AttachmentList.js';
+import { updateEditorDocument } from './documentUpdate.js';
 import { handleImageDrop, handleImagePaste } from './images.js';
+import { mediaSelectionPlugin } from './mediaSelection.js';
 import { imageNodeView } from './nodeviews/ImageView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
 import { videoNodeView } from './nodeviews/VideoView.js';
@@ -74,6 +76,7 @@ function createPlugins() {
         }),
         keymap(baseKeymap),
         uploadPlaceholderPlugin(),
+        mediaSelectionPlugin(),
         columnResizing(),
         tableEditing(),
         dropCursor(),
@@ -265,12 +268,7 @@ function initialize(wrapper) {
             return this.contentInput.value;
         },
         updateDocument(html) {
-            const state = EditorState.create({
-                doc: parseDocument(html),
-                plugins: createPlugins(),
-            });
-            this.view.updateState(state);
-            this.toolbar?.refresh(state);
+            updateEditorDocument(this.view, parseDocument(html));
         },
     };
     const state = EditorState.create({

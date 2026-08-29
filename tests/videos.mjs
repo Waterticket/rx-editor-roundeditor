@@ -16,9 +16,11 @@ dom.window.HTMLMediaElement.prototype.pause = () => {};
 dom.window.HTMLMediaElement.prototype.load = () => {};
 
 const { gapCursor, GapCursor } = await import('prosemirror-gapcursor');
-const { EditorState, NodeSelection, TextSelection } = await import('prosemirror-state');
+const { AllSelection, EditorState, NodeSelection, TextSelection } = await import('prosemirror-state');
 const { EditorView } = await import('prosemirror-view');
+const { updateEditorDocument } = await import('../src/documentUpdate.js');
 const { VideoView } = await import('../src/nodeviews/VideoView.js');
+const { mediaSelectionPlugin } = await import('../src/mediaSelection.js');
 const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
 const { addUploadPlaceholder, uploadPlaceholderPlugin } = await import('../src/uploadPlaceholders.js');
 const {
@@ -49,7 +51,7 @@ assert.equal(parsedVideo.attrs.preload, 'none');
 const bridge = { config: { labels: {} }, view: null };
 let videoView;
 bridge.view = new EditorView(document.querySelector('#editor'), {
-    state: EditorState.create({ doc: initial, plugins: [gapCursor()] }),
+    state: EditorState.create({ doc: initial, plugins: [gapCursor(), mediaSelectionPlugin()] }),
     nodeViews: { video: (node, view, getPos) => (videoView = new VideoView(node, view, getPos, bridge)) },
 });
 bridge.view.dispatch(bridge.view.state.tr.setSelection(NodeSelection.create(bridge.view.state.doc, videoPosition)));
@@ -64,6 +66,10 @@ assert.equal(videoView.media.getAttribute('loading'), 'lazy');
 assert.ok(videoView.dom.querySelector('.roundeditor__video-play-indicator'));
 assert.match(videoView.dom.querySelector('.roundeditor__video-play-indicator use').getAttribute('href'), /attachment-icons\.svg#play$/);
 assert.equal(videoView.toolbar.row.querySelector('[data-media-action="controls"]').getAttribute('aria-pressed'), 'true');
+
+bridge.view.dispatch(bridge.view.state.tr.setSelection(new AllSelection(bridge.view.state.doc)));
+assert.equal(videoView.dom.classList.contains('roundeditor__media--range-selected'), true);
+assert.equal(videoView.toolbar.element.hidden, true);
 
 videoView.resizeFromForm(500, 240);
 assert.match(serializeDocument(bridge.view.state.doc, schema), /width="500" height="240"/);
@@ -103,6 +109,12 @@ assert.equal(videoFiles([
     new dom.window.File(['webm'], 'movie.webm', { type: 'video/webm' }),
     new dom.window.File(['txt'], 'readme.txt', { type: 'text/plain' }),
 ]).length, 1);
+
+const activeVideoMedia = videoView.media;
+const withoutLeadingParagraph = parseDocument(serializeDocument(bridge.view.state.doc, schema).replace(/^<p>위<\/p>/, ''));
+updateEditorDocument(bridge.view, withoutLeadingParagraph);
+assert.equal(videoView.media, activeVideoMedia);
+assert.equal(videoView.media.getAttribute('src'), '/movie.mp4');
 
 assert.deepEqual(videoAttrsFromUpload({
     download_url: '/files/download/7', thumbnail_filename: '/poster.jpg', file_srl: 77,

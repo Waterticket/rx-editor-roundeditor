@@ -22,6 +22,16 @@ export function videoFiles(list) {
     return Array.from(list || []).filter(isVideoFile);
 }
 
+export function formatVideoDuration(duration) {
+    if (!Number.isFinite(duration) || duration <= 0) return '';
+    const totalSeconds = Math.max(1, Math.round(duration));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    const shortTime = `${minutes}:${String(seconds).padStart(2, '0')}`;
+    return hours ? `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}` : shortTime;
+}
+
 export function videoAlignmentAttrs(align) {
     if (align === 'center') {
         return { align, display: 'block', marginLeft: 'auto', marginRight: 'auto' };

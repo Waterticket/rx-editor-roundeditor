@@ -17,6 +17,7 @@ $lang->roundeditor_labels = [
     'clearFormatting' => 'Clear formatting',
     'image' => 'Image',
     'video' => 'Video',
+    'videoDuration' => 'Video duration',
     'link' => 'Link',
     'table' => 'Table',
     'specialCharacters' => 'Special characters',

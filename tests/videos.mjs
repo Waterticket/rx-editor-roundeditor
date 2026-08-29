@@ -27,6 +27,7 @@ const {
     insertUploadedVideo,
     isVideoFile,
     MAX_VIDEO_SIZE,
+    formatVideoDuration,
     videoAttrsFromUpload,
     videoFiles,
 } = await import('../src/videos.js');
@@ -67,6 +68,10 @@ assert.equal(videoView.media.autoplay, false);
 assert.equal(videoView.media.getAttribute('src'), '/movie.mp4');
 assert.equal(videoView.media.preload, 'metadata');
 assert.equal(videoView.media.getAttribute('loading'), 'lazy');
+Object.defineProperty(videoView.media, 'duration', { value: 83.6, configurable: true });
+videoView.media.dispatchEvent(new dom.window.Event('loadedmetadata'));
+assert.equal(videoView.dom.querySelector('.roundeditor__video-duration').textContent, '1:24');
+assert.equal(videoView.dom.querySelector('.roundeditor__video-duration').getAttribute('aria-label'), 'Video duration: 1:24');
 assert.ok(videoView.dom.querySelector('.roundeditor__video-play-indicator'));
 assert.match(videoView.dom.querySelector('.roundeditor__video-play-indicator use').getAttribute('href'), /attachment-icons\.svg#play$/);
 assert.equal(videoView.toolbar.row.querySelector('[data-media-action="controls"]').getAttribute('aria-pressed'), 'true');
@@ -106,6 +111,9 @@ assert.doesNotMatch(serialized, /(?:width|height)="/);
 assert.doesNotMatch(serialized, /style="[^"]*(?:width|height):/);
 
 assert.equal(MAX_VIDEO_SIZE, 52428800);
+assert.equal(formatVideoDuration(4.2), '0:04');
+assert.equal(formatVideoDuration(3661), '1:01:01');
+assert.equal(formatVideoDuration(Infinity), '');
 assert.equal(isVideoFile(new dom.window.File(['mp4'], 'movie.mp4', { type: 'video/mp4' })), true);
 assert.equal(isVideoFile(new dom.window.File(['mov'], 'movie.mov', { type: 'video/quicktime' })), true);
 assert.equal(isVideoFile(new dom.window.File(['txt'], 'movie.txt', { type: 'text/plain' })), false);

@@ -1,8 +1,8 @@
 import { imageFiles, insertUploadedImages } from './images.js';
 import { svgIcon } from './icons.js';
-import { normalizeRhymixAssetUrl, normalizeRhymixUrl } from './rhymix/upload.js';
+import { normalizeRhymixAssetUrl, normalizeRhymixUrl, normalizeRhymixVideoUrl } from './rhymix/upload.js';
 import { addUploadPlaceholder, removeUploadPlaceholder, updateUploadPlaceholder } from './uploadPlaceholders.js';
-import { insertUploadedVideo, isVideoFile } from './videos.js';
+import { formatVideoDuration, insertUploadedVideo, isVideoFile } from './videos.js';
 
 const FALLBACK_LABELS = {
     attachments: 'Attachments',
@@ -17,6 +17,7 @@ const FALLBACK_LABELS = {
     videoUploading: 'Uploading video…',
     imageProcessing: 'Processing image…',
     videoProcessing: 'Processing video…',
+    videoDuration: 'Video duration',
 };
 
 function mediaType(file) {
@@ -339,37 +340,69 @@ export class AttachmentList {
         const imageList = this.container?.querySelector('.xefu-list-images ul');
         const fileList = this.container?.querySelector('.xefu-list-files ul');
         if (!imageList || !fileList) return;
-        for (const item of Array.from(fileList.querySelectorAll('li'))) {
+        const items = [...imageList.querySelectorAll('li'), ...fileList.querySelectorAll('li')];
+        for (const item of items) {
             const nameElement = item.querySelector('.xefu-file-name');
             const filename = nameElement?.textContent?.trim() || '';
             if (!/\.(?:mp4|webm|mov)$/i.test(filename) || item.dataset.roundeditorVideo) continue;
             item.dataset.roundeditorVideo = 'true';
-            item.classList.add('xefu-file-image');
-            item.classList.add('roundeditor__video-fallback');
             const info = item.querySelector('.xefu-file-info') || item;
             const file = this.pendingFiles.get(filename);
-            const thumbnail = file && window.URL?.createObjectURL
-                ? document.createElement('video')
-                : document.createElement('span');
-            thumbnail.className = 'xefu-thumbnail';
-            thumbnail.setAttribute('aria-hidden', 'true');
-            if (file && window.URL?.createObjectURL) {
-                thumbnail.src = window.URL.createObjectURL(file);
-                thumbnail.muted = true;
-                thumbnail.playsInline = true;
-                thumbnail.preload = 'metadata';
+            const fileSrl = item.dataset.fileSrl
+                || item.querySelector('[data-file-srl]')?.dataset.fileSrl
+                || '';
+            const source = file && window.URL?.createObjectURL
+                ? window.URL.createObjectURL(file)
+                : fileSrl
+                    ? normalizeRhymixVideoUrl(`/index.php?module=file&act=procFileDownload&file_srl=${encodeURIComponent(fileSrl)}`)
+                    : '';
+            let metadataVideo;
+            if (item.parentElement === fileList) {
+                item.classList.add('xefu-file-image');
+                item.classList.add('roundeditor__video-fallback');
+                const thumbnail = source ? document.createElement('video') : document.createElement('span');
+                thumbnail.className = 'xefu-thumbnail';
+                thumbnail.setAttribute('aria-hidden', 'true');
+                if (thumbnail instanceof window.HTMLVideoElement) {
+                    thumbnail.src = source;
+                    thumbnail.muted = true;
+                    thumbnail.playsInline = true;
+                    thumbnail.preload = 'metadata';
+                    metadataVideo = thumbnail;
+                }
+                info.insertBefore(thumbnail, info.firstChild);
+                imageList.appendChild(item);
+            } else if (source) {
+                metadataVideo = document.createElement('video');
+                metadataVideo.preload = 'metadata';
+                metadataVideo.muted = true;
+                metadataVideo.src = source;
             }
-            info.insertBefore(thumbnail, info.firstChild);
-            const overlay = document.createElement('span');
-            overlay.className = 'xefu-file-video';
-            overlay.setAttribute('aria-hidden', 'true');
-            const play = document.createElement('span');
-            play.className = 'xefu-file-video-play';
-            play.appendChild(svgIcon('play'));
-            overlay.appendChild(play);
-            item.appendChild(overlay);
-            imageList.appendChild(item);
+            if (!item.querySelector('.xefu-file-video')) {
+                const overlay = document.createElement('span');
+                overlay.className = 'xefu-file-video';
+                overlay.setAttribute('aria-hidden', 'true');
+                const play = document.createElement('span');
+                play.className = 'xefu-file-video-play';
+                play.appendChild(svgIcon('play'));
+                overlay.appendChild(play);
+                item.appendChild(overlay);
+            }
+            if (metadataVideo) this.decorateVideoDuration(item, metadataVideo);
         }
+    }
+
+    decorateVideoDuration(item, video) {
+        const badge = document.createElement('span');
+        badge.className = 'roundeditor__attachment-video-duration';
+        badge.hidden = true;
+        item.appendChild(badge);
+        video.addEventListener('loadedmetadata', () => {
+            const duration = formatVideoDuration(video.duration);
+            badge.textContent = duration;
+            badge.hidden = !duration;
+            badge.setAttribute('aria-label', `${this.labels.videoDuration}: ${duration}`);
+        }, { once: true });
     }
 
     bindUploader(attempt = 0) {

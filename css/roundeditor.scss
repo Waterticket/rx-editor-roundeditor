@@ -1449,6 +1449,25 @@ body.color_scheme_dark .roundeditor__attachments {
     color: #fff;
 }
 
+.roundeditor__attachment-video-duration,
+.roundeditor__video-duration {
+    z-index: 3;
+    padding: 2px 5px;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, .72);
+    color: #fff;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+    pointer-events: none;
+}
+
+.roundeditor__attachments .roundeditor__attachment-video-duration {
+    position: absolute;
+    right: 7px;
+    bottom: 27px;
+}
+
 .roundeditor__attachments .xefu-file:hover { background: var(--roundeditor-hover); }
 .roundeditor__attachments .xefu-file.selected,
 .roundeditor__attachments .xefu-file.selected:hover {
@@ -1563,6 +1582,12 @@ body.color_scheme_dark .roundeditor__attachments {
     height: 24px;
     flex-basis: 24px;
     color: #fff;
+}
+
+.roundeditor__video-duration {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
 }
 
 .roundeditor__upload-placeholder {

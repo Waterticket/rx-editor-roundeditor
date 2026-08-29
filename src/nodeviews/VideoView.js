@@ -2,13 +2,14 @@ import { NodeSelection } from 'prosemirror-state';
 import { svgIcon } from '../icons.js';
 import { MediaNodeView } from './MediaNodeView.js';
 import { VideoFloatingToolbar } from '../ui/FloatingToolbar.js';
-import { videoAlignmentAttrs } from '../videos.js';
+import { formatVideoDuration, videoAlignmentAttrs } from '../videos.js';
 
 const FALLBACK_LABELS = {
     videoDelete: 'Delete video', videoSize: 'Video size', videoAutoplay: 'Autoplay',
     videoControls: 'Show controls', videoWidth: 'Width', videoHeight: 'Height', apply: 'Apply',
     alignLeft: 'Align left', alignCenter: 'Align center', alignRight: 'Align right',
     sizeReset: 'Remove explicit size',
+    videoDuration: 'Video duration',
 };
 
 export class VideoView extends MediaNodeView {
@@ -19,8 +20,13 @@ export class VideoView extends MediaNodeView {
         super(node, view, getPos, video);
         this.bridge = bridge;
         this.previewLoaded = false;
+        this.labels = { ...FALLBACK_LABELS, ...(bridge.config.labels || {}) };
         this.pausePlayback = () => this.media.pause();
         this.showMetadata = () => {
+            const duration = formatVideoDuration(this.media.duration);
+            this.durationBadge.textContent = duration;
+            this.durationBadge.hidden = !duration;
+            this.durationBadge.setAttribute('aria-label', `${this.labels.videoDuration}: ${duration}`);
             if (this.node.attrs.displayWidth || this.node.attrs.displayHeight || this.node.attrs.width || this.node.attrs.height) return;
             const naturalWidth = this.media.videoWidth;
             const naturalHeight = this.media.videoHeight;
@@ -36,9 +42,13 @@ export class VideoView extends MediaNodeView {
         this.playIndicator.contentEditable = 'false';
         this.playIndicator.setAttribute('aria-hidden', 'true');
         this.playIndicator.appendChild(svgIcon('play'));
-        this.media.after(this.playIndicator);
+        this.durationBadge = document.createElement('span');
+        this.durationBadge.className = 'roundeditor__video-duration';
+        this.durationBadge.contentEditable = 'false';
+        this.durationBadge.hidden = true;
+        this.media.after(this.playIndicator, this.durationBadge);
         this.toolbar = new VideoFloatingToolbar({
-            labels: { ...FALLBACK_LABELS, ...(bridge.config.labels || {}) },
+            labels: this.labels,
             values: () => this.values(),
             onDelete: () => this.remove(),
             onSize: (width, height) => this.resizeFromForm(width, height),
@@ -94,6 +104,9 @@ export class VideoView extends MediaNodeView {
         this.previewLoaded = true;
         const source = this.node.attrs.src || '';
         if (this.media.getAttribute('src') === source) return;
+        this.durationBadge.hidden = true;
+        this.durationBadge.textContent = '';
+        this.durationBadge.removeAttribute('aria-label');
         this.media.pause();
         if (source) this.media.setAttribute('src', source);
         else this.media.removeAttribute('src');

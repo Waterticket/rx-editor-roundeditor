@@ -112,12 +112,18 @@ assert.equal(thumbnailCheckbox.getAttribute('aria-checked'), 'false');
 
 const videoItem = document.createElement('li');
 videoItem.className = 'xefu-file';
-videoItem.innerHTML = '<span class="xefu-file-name">clip.mov</span><span class="xefu-file-info"><span>1MB</span><input type="checkbox"></span>';
+videoItem.dataset.fileSrl = '91';
+videoItem.innerHTML = '<span class="xefu-file-name">clip.mov</span><span class="xefu-file-info"><span>1MB</span><input type="checkbox" data-file-srl="91"></span>';
 uploader.querySelector('.xefu-list-files ul')?.appendChild(videoItem);
 // Allow the list observer to decorate a video that has no server thumbnail.
 await new Promise(resolve => queueMicrotask(resolve));
 assert.equal(uploader.querySelector('.xefu-list-images .xefu-file-video-play') !== null, true);
 assert.match(uploader.querySelector('.xefu-list-images .xefu-file-video-play use').getAttribute('href'), /attachment-icons\.svg#play$/);
+const durationVideo = videoItem.querySelector('video.xefu-thumbnail');
+Object.defineProperty(durationVideo, 'duration', { value: 125.2, configurable: true });
+durationVideo.dispatchEvent(new dom.window.Event('loadedmetadata'));
+assert.equal(videoItem.querySelector('.roundeditor__attachment-video-duration').textContent, '2:05');
+assert.equal(videoItem.querySelector('.roundeditor__attachment-video-duration').getAttribute('aria-label'), 'Video duration: 2:05');
 assert.equal(uploader.classList.contains('roundeditor__attachments--has-files'), true);
 assert.equal(uploader.querySelector('.roundeditor__attachments-policy').hidden, false);
 assert.equal(uploader.querySelector('.roundeditor__attachments-actions .fileinput-button') !== null, true);

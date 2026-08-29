@@ -17,6 +17,7 @@ $lang->roundeditor_labels = [
     'clearFormatting' => '서식 지우기',
     'image' => '이미지',
     'video' => '동영상',
+    'videoDuration' => '동영상 길이',
     'link' => '링크',
     'table' => '표',
     'specialCharacters' => '특수 문자',

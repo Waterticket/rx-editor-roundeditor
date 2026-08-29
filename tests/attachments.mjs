@@ -16,6 +16,7 @@ Object.defineProperties(globalThis, {
     MutationObserver: { value: dom.window.MutationObserver, configurable: true },
     getComputedStyle: { value: dom.window.getComputedStyle, configurable: true },
 });
+dom.window.HTMLMediaElement.prototype.load = () => {};
 
 const handlers = {};
 const jqueryData = {};
@@ -57,7 +58,7 @@ async function clickMedia(target) {
     target.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true, button: 0 }));
     target.dispatchEvent(new dom.window.MouseEvent('mouseup', { bubbles: true, button: 0 }));
     target.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, button: 0 }));
-    await new Promise(resolve => queueMicrotask(resolve));
+    await new Promise(resolve => window.setTimeout(resolve, 0));
 }
 assert.ok(uploader);
 assert.notEqual(uploader.parentElement, wrapper);
@@ -124,6 +125,17 @@ Object.defineProperty(durationVideo, 'duration', { value: 125.2, configurable: t
 durationVideo.dispatchEvent(new dom.window.Event('loadedmetadata'));
 assert.equal(videoItem.querySelector('.roundeditor__attachment-video-duration').textContent, '2:05');
 assert.equal(videoItem.querySelector('.roundeditor__attachment-video-duration').getAttribute('aria-label'), 'Video duration: 2:05');
+
+const thumbnailVideoItem = document.createElement('li');
+thumbnailVideoItem.className = 'xefu-file xefu-file-image';
+thumbnailVideoItem.dataset.fileSrl = '92';
+thumbnailVideoItem.dataset.duration = '3661';
+thumbnailVideoItem.innerHTML = '<span class="xefu-file-name">server-thumbnail.mp4</span><span class="xefu-file-info"><span class="xefu-file-size">2MB</span><span><span class="xefu-thumbnail" style="background-image:url(/poster.jpg)"></span></span><span><input type="checkbox" data-file-srl="92"></span></span>';
+uploader.querySelector('.xefu-list-images ul')?.appendChild(thumbnailVideoItem);
+await new Promise(resolve => queueMicrotask(resolve));
+assert.equal(thumbnailVideoItem.querySelector('video.roundeditor__attachment-video-metadata'), null);
+assert.equal(thumbnailVideoItem.querySelector('.roundeditor__attachment-video-duration').textContent, '1:01:01');
+assert.equal(thumbnailVideoItem.querySelector('.roundeditor__attachment-video-duration').hidden, false);
 assert.equal(uploader.classList.contains('roundeditor__attachments--has-files'), true);
 assert.equal(uploader.querySelector('.roundeditor__attachments-policy').hidden, false);
 assert.equal(uploader.querySelector('.roundeditor__attachments-actions .fileinput-button') !== null, true);
@@ -131,7 +143,23 @@ await clickMedia(videoItem.querySelector('.xefu-thumbnail'));
 assert.equal(videoItem.classList.contains('selected'), true);
 await clickMedia(videoItem.querySelector('.xefu-thumbnail'));
 assert.equal(videoItem.classList.contains('selected'), false);
+await clickMedia(imageItem.querySelector('.xefu-thumbnail'));
+await clickMedia(videoItem.querySelector('.xefu-thumbnail'));
+assert.equal(imageItem.classList.contains('selected'), true);
+assert.equal(videoItem.classList.contains('selected'), true);
+await clickMedia(imageItem.querySelector('.xefu-thumbnail'));
+await clickMedia(videoItem.querySelector('.xefu-thumbnail'));
 const videoCheckbox = videoItem.querySelector('input[type="checkbox"]');
+await clickMedia(imageCheckbox);
+await clickMedia(videoCheckbox);
+assert.equal(imageCheckbox.checked, true);
+assert.equal(videoCheckbox.checked, true);
+assert.equal(imageItem.classList.contains('selected'), true);
+assert.equal(videoItem.classList.contains('selected'), true);
+await clickMedia(imageCheckbox);
+await clickMedia(videoCheckbox);
+assert.equal(imageCheckbox.checked, false);
+assert.equal(videoCheckbox.checked, false);
 videoCheckbox.checked = true;
 videoCheckbox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
 assert.equal(uploader.querySelector('.roundeditor__attachment-action--insert').hidden, false);
@@ -142,13 +170,49 @@ videoCheckbox.checked = false;
 videoCheckbox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
 assert.equal(uploader.querySelector('.roundeditor__attachment-action--insert').hidden, true);
 
+const cancelledFile = new dom.window.File(['cancel'], 'cancelled.mp4', { type: 'video/mp4' });
+let abortCount = 0;
+let cancelMarkerSeen = false;
+let failureHandler = null;
+const cancellableRequest = {
+    done() { return this; },
+    fail(handler) { failureHandler = handler; return this; },
+    abort() {
+        abortCount += 1;
+        cancelMarkerSeen = cancellableUpload._roundeditorCancelled === true;
+        failureHandler?.();
+    },
+};
+const cancellableUpload = {
+    files: [cancelledFile],
+    submit() { return cancellableRequest; },
+};
+handlers.fileuploadadd({}, cancellableUpload);
+cancellableUpload.submit();
+const cancelledPreview = [...uploader.querySelectorAll('.roundeditor__attachment-upload')]
+    .find(item => item.querySelector('.xefu-file-name')?.textContent === 'cancelled.mp4');
+assert.ok(cancelledPreview);
+const cancelUploadButton = cancelledPreview.querySelector('.roundeditor__attachment-upload-cancel');
+assert.equal(cancelUploadButton.title, 'Cancel upload');
+assert.equal(cancelUploadButton.getAttribute('aria-label'), 'cancelled.mp4: Cancel upload');
+assert.equal(cancelUploadButton.querySelector('span').textContent, 'Cancel');
+assert.match(cancelUploadButton.querySelector('use').getAttribute('href'), /attachment-icons\.svg#cancel$/);
+cancelUploadButton.click();
+assert.equal(abortCount, 1);
+assert.equal(cancelMarkerSeen, true);
+assert.equal(cancelledPreview.isConnected, false);
+assert.equal(wrapper.querySelector('.roundeditor__upload-placeholder'), null);
+
 const file = new dom.window.File(['png'], 'progress.png', { type: 'image/png' });
 const upload = { files: [file], loaded: 0, total: 100 };
 handlers.fileuploadadd({}, upload);
 assert.match(wrapper.querySelector('.roundeditor__upload-placeholder').textContent, /0%/);
+assert.equal(uploader.querySelectorAll('.roundeditor__attachment-upload').length, 1);
+assert.equal(uploader.querySelector('.roundeditor__attachment-upload-percent').textContent, '0%');
 upload.loaded = 61;
 handlers.fileuploadprogress({}, upload);
 assert.match(wrapper.querySelector('.roundeditor__upload-placeholder').textContent, /61%/);
+assert.equal(uploader.querySelector('.roundeditor__attachment-upload-percent').textContent, '61%');
 const doneUpload = { files: [file], result: {
     error: 0,
     file_srl: 88,
@@ -159,10 +223,55 @@ const doneUpload = { files: [file], result: {
 } };
 handlers.fileuploaddone({}, doneUpload);
 assert.equal(wrapper.querySelector('.roundeditor__upload-placeholder'), null);
+assert.equal(uploader.querySelector('.roundeditor__attachment-upload-percent').textContent, '100%');
 const progressSerialized = serializeDocument(bridge.view.state.doc, schema);
 assert.match(progressSerialized, /src="\/progress.png"/);
 assert.match(progressSerialized, /<\/p><p>\u00a0<\/p><p>\u00a0<\/p>$/);
 assert.match(serializeDocument(bridge.view.state.doc, schema), /data-file-srl="88"/);
+const completedImage = document.createElement('li');
+completedImage.className = 'xefu-file xefu-file-image';
+completedImage.dataset.fileSrl = '88';
+completedImage.innerHTML = '<strong class="xefu-file-name">progress.png</strong>';
+uploader.querySelector('.xefu-list-images ul').appendChild(completedImage);
+await new Promise(resolve => queueMicrotask(resolve));
+assert.equal(uploader.querySelectorAll('.roundeditor__attachment-upload').length, 0);
+
+const firstVideoFile = new dom.window.File(['first'], 'first.mp4', { type: 'video/mp4' });
+const secondVideoFile = new dom.window.File(['second'], 'second.mp4', { type: 'video/mp4' });
+const videoBatch = { files: [firstVideoFile, secondVideoFile], loaded: 0, total: 200 };
+handlers.fileuploadadd({}, videoBatch);
+assert.equal(wrapper.querySelectorAll('.roundeditor__upload-placeholder--video').length, 2);
+assert.equal(uploader.querySelectorAll('.roundeditor__attachment-upload').length, 2);
+videoBatch.loaded = 100;
+handlers.fileuploadprogress({}, videoBatch);
+assert.deepEqual(
+    [...uploader.querySelectorAll('.roundeditor__attachment-upload-percent')].map(element => element.textContent),
+    ['50%', '50%']
+);
+videoBatch.result = {
+    error: 0, file_srl: 101, download_url: '/first.mp4', source_filename: 'first.mp4', width: 640, height: 360,
+};
+handlers.fileuploaddone({}, videoBatch);
+assert.equal(wrapper.querySelectorAll('.roundeditor__upload-placeholder--video').length, 1);
+assert.equal(uploader.querySelectorAll('.roundeditor__attachment-upload').length, 2);
+assert.equal(uploader.querySelector('.roundeditor__attachment-upload-percent').textContent, '100%');
+assert.match(serializeDocument(bridge.view.state.doc, schema), /src="\/first.mp4"/);
+videoBatch.result = {
+    error: 0, file_srl: 102, download_url: '/second.mp4', source_filename: 'second.mp4', width: 640, height: 360,
+};
+handlers.fileuploaddone({}, videoBatch);
+assert.equal(wrapper.querySelectorAll('.roundeditor__upload-placeholder--video').length, 0);
+assert.equal(uploader.querySelectorAll('.roundeditor__attachment-upload').length, 2);
+assert.match(serializeDocument(bridge.view.state.doc, schema), /src="\/second.mp4"/);
+for (const fileSrl of ['101', '102']) {
+    const completedVideo = document.createElement('li');
+    completedVideo.className = 'xefu-file xefu-file-image';
+    completedVideo.dataset.fileSrl = fileSrl;
+    completedVideo.innerHTML = `<strong class="xefu-file-name">${fileSrl}.mp4</strong>`;
+    uploader.querySelector('.xefu-list-images ul').appendChild(completedVideo);
+}
+await new Promise(resolve => queueMicrotask(resolve));
+assert.equal(uploader.querySelectorAll('.roundeditor__attachment-upload').length, 0);
 
 const rejectedFile = new dom.window.File(['too large'], 'rejected.mp4', { type: 'video/mp4' });
 const rejectedUpload = { files: [rejectedFile], submit() {} };

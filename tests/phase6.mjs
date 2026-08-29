@@ -106,7 +106,7 @@ componentButton.click();
 assert.deepEqual(calls.component.at(-1), { name: 'poll_maker', sequence: 16 });
 
 compat.setData('<p>Visual</p>');
-const sourceButton = wrapper.querySelector('[data-command="source"]');
+const sourceButton = wrapper.querySelector('.roundeditor__tool-group--right [data-command="source"]');
 sourceButton.click();
 const source = wrapper.querySelector('.roundeditor__source');
 assert.equal(source.hidden, false);
@@ -128,7 +128,7 @@ assert.equal(window.editorMode[16], null);
 assert.equal(compat.mode, 'wysiwyg');
 assert.equal(window.editorGetContent(16), '<p>Source <strong title="kept">HTML</strong></p>');
 
-const fullscreenButton = wrapper.querySelector('[data-command="fullscreen"]');
+const fullscreenButton = wrapper.querySelector('.roundeditor__tool-group--right [data-command="fullscreen"]');
 fullscreenButton.click();
 assert.equal(wrapper.classList.contains('roundeditor--fullscreen'), true);
 assert.equal(document.documentElement.classList.contains('roundeditor-fullscreen-open'), true);

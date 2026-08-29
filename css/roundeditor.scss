@@ -14,6 +14,8 @@
     --roundeditor-empty-upload-background: #f7f7f8;
     --roundeditor-empty-upload-hover: #f1f2f4;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     border: 1px solid var(--roundeditor-border);
     border-radius: 10px;
     background: var(--roundeditor-background);
@@ -57,19 +59,23 @@ body.color_scheme_dark .roundeditor__attachments {
     z-index: 3;
     background: var(--roundeditor-toolbar);
     border-bottom: 1px solid var(--roundeditor-border);
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .roundeditor__toolbar-primary,
 .roundeditor__toolbar-more {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     min-height: 42px;
     padding: 0;
-    overflow-x: auto;
-    scrollbar-width: thin;
+    overflow: hidden;
 }
 
 .roundeditor__toolbar-more {
+    align-content: center;
     border-top: 1px solid var(--roundeditor-border);
 }
 
@@ -773,9 +779,14 @@ body.color_scheme_dark .roundeditor__attachments {
 }
 
 .roundeditor__surface {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: var(--roundeditor-height, 300px);
     max-height: 50vh;
+    overflow-x: hidden;
     overflow-y: auto;
+    box-sizing: border-box;
 }
 
 .roundeditor__source {
@@ -836,6 +847,9 @@ body.color_scheme_dark .roundeditor__attachments {
 }
 
 .roundeditor__surface .ProseMirror {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     min-height: inherit;
     padding: 20px;
     font-family: var(--roundeditor-content-font, inherit);
@@ -1468,6 +1482,103 @@ body.color_scheme_dark .roundeditor__attachments {
     bottom: 27px;
 }
 
+.roundeditor__attachments .roundeditor__attachment-video-metadata {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.roundeditor__attachments .roundeditor__attachment-upload {
+    --roundeditor-attachment-progress: 0%;
+    cursor: default;
+}
+
+.roundeditor__attachments .roundeditor__attachment-upload-cancel {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    z-index: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 48px;
+    height: 30px;
+    padding: 0 7px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font: inherit;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, .28);
+    box-shadow: 0 2px 7px rgba(0, 0, 0, .48);
+    cursor: pointer;
+}
+
+.roundeditor__attachments .roundeditor__attachment-upload-cancel:hover,
+.roundeditor__attachments .roundeditor__attachment-upload-cancel:focus-visible {
+    background: #b91c1c;
+    outline: 2px solid #fca5a5;
+    outline-offset: 1px;
+}
+
+.roundeditor__attachments .roundeditor__attachment-upload-cancel:disabled {
+    opacity: .55;
+    cursor: wait;
+}
+
+.roundeditor__attachments .roundeditor__attachment-upload-cancel .roundeditor__attachment-icon {
+    width: 13px;
+    height: 13px;
+    flex-basis: 13px;
+}
+
+.roundeditor__attachments .roundeditor__attachment-upload-percent {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 4;
+    min-width: 42px;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, .72);
+    color: #fff;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    text-align: center;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.roundeditor__attachments .roundeditor__attachment-upload-progress {
+    position: absolute;
+    right: 6px;
+    bottom: 6px;
+    left: 6px;
+    z-index: 4;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .38);
+    pointer-events: none;
+}
+
+.roundeditor__attachments .roundeditor__attachment-upload-progress > span {
+    display: block;
+    width: var(--roundeditor-attachment-progress);
+    height: 100%;
+    border-radius: inherit;
+    background: var(--roundeditor-accent);
+    transition: width .15s ease;
+}
+
 .roundeditor__attachments .xefu-file:hover { background: var(--roundeditor-hover); }
 .roundeditor__attachments .xefu-file.selected,
 .roundeditor__attachments .xefu-file.selected:hover {
@@ -1889,14 +2000,8 @@ body.color_scheme_dark .roundeditor__attachments {
 }
 
 @media (max-width: 720px) {
-    .roundeditor__toolbar-primary,
-    .roundeditor__toolbar-more {
-        scroll-snap-type: x proximity;
-    }
-
     .roundeditor__tool-group {
         padding: 0 2px;
-        scroll-snap-align: start;
     }
 
     .roundeditor__toolbar-primary,
@@ -1925,8 +2030,8 @@ body.color_scheme_dark .roundeditor__attachments {
         height: 21px;
     }
 
-    .roundeditor__tool-group--text .roundeditor__tool[data-command="lineHeight"],
-    .roundeditor__tool-group--text .roundeditor__tool[data-command="backgroundColor"] {
+    .roundeditor--compact .roundeditor__tool-group--text .roundeditor__tool[data-command="lineHeight"],
+    .roundeditor--compact .roundeditor__tool-group--text .roundeditor__tool[data-command="backgroundColor"] {
         display: none;
     }
 
@@ -1958,4 +2063,52 @@ body.color_scheme_dark .roundeditor__attachments {
     .roundeditor__tool--component { min-width: 30px; padding: 0 4px; }
     .roundeditor .roundeditor__icon { width: 18px; height: 18px; flex-basis: 18px; }
     .roundeditor .roundeditor__component-icon { width: 20px; height: 20px; }
+}
+
+/* The editor is often narrower than the viewport inside board layouts. These
+ * classes are driven by ResizeObserver, so responsive behavior follows the
+ * editor's real container width instead of only the device width. */
+.roundeditor--compact .roundeditor__toolbar-primary,
+.roundeditor--compact .roundeditor__toolbar-more {
+    min-height: 36px;
+}
+
+.roundeditor--compact .roundeditor__tool-group {
+    max-width: 100%;
+    padding: 0 2px;
+}
+
+.roundeditor--compact .roundeditor__tool-group--components {
+    flex: 0 0 auto;
+    flex-wrap: wrap;
+}
+
+.roundeditor--compact .roundeditor__tool-group--text .roundeditor__tool:not([data-command="bold"]):not([data-more-group="text"]),
+.roundeditor--compact .roundeditor__tool-group--right .roundeditor__tool[data-command="source"],
+.roundeditor--compact .roundeditor__tool-group--right .roundeditor__tool[data-command="fullscreen"] {
+    display: none;
+}
+
+.roundeditor--compact .roundeditor__tool {
+    width: 34px;
+    height: 36px;
+}
+
+.roundeditor--compact .roundeditor__tool--component {
+    width: auto;
+    min-width: 34px;
+    padding: 0 5px;
+}
+
+.roundeditor--compact .roundeditor__tool-group--text .roundeditor__tool[data-command="lineHeight"],
+.roundeditor--compact .roundeditor__tool-group--text .roundeditor__tool[data-command="backgroundColor"] {
+    display: none;
+}
+
+.roundeditor--narrow .roundeditor__tool-group { padding: 0 1px; }
+.roundeditor--narrow .roundeditor__tool { width: 30px; height: 34px; }
+.roundeditor--narrow .roundeditor__tool--component { width: auto; min-width: 30px; padding: 0 4px; }
+.roundeditor--narrow .roundeditor__tool-group--text .roundeditor__tool[data-command="fontSize"],
+.roundeditor--narrow .roundeditor__tool-group--text .roundeditor__tool[data-command="textColor"] {
+    display: none;
 }

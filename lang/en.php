@@ -55,6 +55,7 @@ $lang->roundeditor_labels = [
     'apply' => 'Apply',
     'remove' => 'Remove',
     'cancel' => 'Cancel',
+    'cancelUpload' => 'Cancel upload',
     'insert' => 'Insert',
     'url' => 'URL',
     'newWindow' => 'Open in a new window',

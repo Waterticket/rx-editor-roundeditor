@@ -124,6 +124,8 @@ export class Toolbar {
         this.labels = { ...FALLBACK_LABELS, ...(bridge.config.labels || {}) };
         this.activeMore = null;
         this.panelName = null;
+        this.compact = false;
+        this.narrow = false;
         this.element = document.createElement('div');
         this.element.className = 'roundeditor__toolbar';
         this.element.setAttribute('role', 'toolbar');
@@ -148,6 +150,7 @@ export class Toolbar {
         bridge.wrapper.appendChild(this.footer);
         if (bridge.config.hideToolbar) this.element.hidden = true;
         this.build();
+        this.observeWidth();
     }
 
     build() {
@@ -226,22 +229,56 @@ export class Toolbar {
         for (const more of this.element.querySelectorAll('[data-more-group]')) {
             more.setAttribute('aria-expanded', String(more === trigger));
         }
+        this.refresh(this.bridge.view.state);
     }
 
     moreTools(group) {
         const names = {
-            text: ['fontFamily', 'clearFormatting'],
+            text: this.compact
+                ? [
+                    'italic', 'underline', 'strike', 'fontSize', 'lineHeight',
+                    'textColor', 'backgroundColor', 'fontFamily', 'clearFormatting',
+                ]
+                : ['fontFamily', 'clearFormatting'],
             rich: ['table', 'specialCharacters'],
             paragraph: [
                 'format', 'alignLeft', 'alignCenter', 'alignRight', 'alignJustify', 'orderedList',
                 'bulletList', 'outdent', 'indent', 'quote', 'horizontalRule',
             ],
-            right: ['help'],
+            right: this.compact ? ['source', 'fullscreen', 'help'] : ['help'],
         }[group] || [];
         return names.filter(name => name !== 'source' || this.bridge.config.htmlMode).map(name => {
             if (name === 'format') return button('format', { format: this.labels.normal });
             return button(name, this.labels);
         });
+    }
+
+    observeWidth() {
+        const update = width => {
+            if (!Number.isFinite(width) || width <= 0) return;
+            const compact = width <= 720;
+            const narrow = width <= 480;
+            if (compact === this.compact && narrow === this.narrow) return;
+            this.compact = compact;
+            this.narrow = narrow;
+            this.bridge.wrapper.classList.toggle('roundeditor--compact', compact);
+            this.bridge.wrapper.classList.toggle('roundeditor--narrow', narrow);
+
+            // Rebuild an open overflow row so tools hidden by the new width
+            // remain reachable without closing and reopening the menu.
+            if (this.activeMore) {
+                this.moreRow.replaceChildren(...this.moreTools(this.activeMore));
+            }
+        };
+
+        if (typeof ResizeObserver === 'function') {
+            this.resizeObserver = new ResizeObserver(entries => {
+                const entry = entries[0];
+                update(entry?.contentRect?.width || this.bridge.wrapper.clientWidth);
+            });
+            this.resizeObserver.observe(this.bridge.wrapper);
+        }
+        update(this.bridge.wrapper.getBoundingClientRect().width || this.bridge.wrapper.clientWidth);
     }
 
     closeMore() {
@@ -479,7 +516,7 @@ export class Toolbar {
     refresh(state) {
         const sourceActive = Boolean(this.bridge.sourceMode?.active);
         for (const element of this.element.querySelectorAll('[data-command]')) {
-            const availableInSource = ['source', 'fullscreen', 'help'].includes(element.dataset.command);
+            const availableInSource = ['more', 'source', 'fullscreen', 'help'].includes(element.dataset.command);
             if (sourceActive && !availableInSource) element.disabled = true;
             else if (!['undo', 'redo'].includes(element.dataset.command)) element.disabled = false;
         }

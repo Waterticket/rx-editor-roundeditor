@@ -48,8 +48,25 @@ export function uploadPlaceholderPlugin() {
         state: {
             init: () => DecorationSet.empty,
             apply(transaction, decorations) {
+                const previous = decorations.find();
                 let next = decorations.map(transaction.mapping, transaction.doc);
                 const action = transaction.getMeta(uploadPlaceholderKey);
+
+                // Inserting block media at a position shared by several widget
+                // decorations can make ProseMirror drop every widget at that
+                // boundary. Restore still-active uploads at their mapped
+                // position; the completed ID is removed explicitly below.
+                const mappedIds = new Set(next.find().map(decoration => decoration.spec.id));
+                const restored = previous.flatMap(decoration => {
+                    if (mappedIds.has(decoration.spec.id)) return [];
+                    const position = Math.min(
+                        transaction.doc.content.size,
+                        Math.max(0, transaction.mapping.map(decoration.from, 1))
+                    );
+                    return [placeholderDecoration(position, decoration.spec)];
+                });
+                if (restored.length) next = next.add(transaction.doc, restored);
+
                 if (action?.add) {
                     const { position, ...specification } = action.add;
                     next = next.add(transaction.doc, [placeholderDecoration(position, specification)]);

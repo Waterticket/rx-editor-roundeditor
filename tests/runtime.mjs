@@ -26,6 +26,8 @@ const dom = new JSDOM(`<!doctype html><html><body>
     </form>
 </body></html>`, { url: 'https://example.test/' });
 
+let resizeObserverCallback;
+
 Object.defineProperties(globalThis, {
     window: { value: dom.window, configurable: true },
     document: { value: dom.window.document, configurable: true },
@@ -35,6 +37,14 @@ Object.defineProperties(globalThis, {
     getComputedStyle: { value: dom.window.getComputedStyle, configurable: true },
     innerHeight: { value: 800, configurable: true },
     pageYOffset: { value: 0, configurable: true },
+    ResizeObserver: {
+        value: class ResizeObserver {
+            constructor(callback) { this.callback = callback; resizeObserverCallback = callback; }
+            observe() { this.callback([{ contentRect: { width: 320 } }]); }
+            disconnect() {}
+        },
+        configurable: true,
+    },
 });
 
 window.editorGetContent = sequence => `previous:${sequence}`;
@@ -59,15 +69,47 @@ assert.equal(window.editorGetContentTextarea_xe(7), 'Hello');
 assert.equal(window.editorRelKeys[7].content, form.elements.namedItem('content'));
 assert.equal(window._getCkeInstance(7).mode, 'wysiwyg');
 assert.equal(wrapper.querySelector('.roundeditor__toolbar').getAttribute('role'), 'toolbar');
+assert.equal(wrapper.classList.contains('roundeditor--compact'), true);
+assert.equal(wrapper.classList.contains('roundeditor--narrow'), true);
 assert.equal(
     wrapper.querySelectorAll('.roundeditor__toolbar-primary .roundeditor__tool').length,
     wrapper.querySelectorAll('.roundeditor__toolbar-primary .roundeditor__tool > svg.roundeditor__icon').length
 );
-assert.equal(wrapper.querySelector('[data-command="fontSize"] svg').dataset.icon, 'fontSize');
 assert.equal(wrapper.querySelector('[data-command="link"] svg').dataset.icon, 'link');
 assert.equal(wrapper.querySelector('[data-command="image"]'), null);
 assert.equal(wrapper.querySelector('[data-command="video"]'), null);
 assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 5');
+
+wrapper.querySelector('[data-more-group="text"]').click();
+assert.equal(wrapper.querySelector('.roundeditor__toolbar-more [data-command="fontSize"] svg').dataset.icon, 'fontSize');
+assert.deepEqual(
+    [...wrapper.querySelectorAll('.roundeditor__toolbar-more [data-command]')].map(element => element.dataset.command),
+    ['italic', 'underline', 'strike', 'fontSize', 'lineHeight', 'textColor', 'backgroundColor', 'fontFamily', 'clearFormatting']
+);
+wrapper.querySelector('[data-more-group="text"]').click();
+
+wrapper.querySelector('[data-more-group="right"]').click();
+assert.deepEqual(
+    [...wrapper.querySelectorAll('.roundeditor__toolbar-more [data-command]')].map(element => element.dataset.command),
+    ['fullscreen', 'help']
+);
+wrapper.querySelector('[data-more-group="right"]').click();
+
+resizeObserverCallback([{ contentRect: { width: 1000 } }]);
+assert.equal(wrapper.classList.contains('roundeditor--compact'), false);
+assert.ok(wrapper.querySelector('.roundeditor__tool-group--text [data-command="italic"]'));
+wrapper.querySelector('[data-more-group="text"]').click();
+assert.deepEqual(
+    [...wrapper.querySelectorAll('.roundeditor__toolbar-more [data-command]')].map(element => element.dataset.command),
+    ['fontFamily', 'clearFormatting']
+);
+wrapper.querySelector('[data-more-group="text"]').click();
+wrapper.querySelector('[data-more-group="right"]').click();
+assert.deepEqual(
+    [...wrapper.querySelectorAll('.roundeditor__toolbar-more [data-command]')].map(element => element.dataset.command),
+    ['help']
+);
+wrapper.querySelector('[data-more-group="right"]').click();
 
 wrapper.querySelector('[data-command="selectAll"]').click();
 wrapper.querySelector('[data-command="bold"]').click();

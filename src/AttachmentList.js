@@ -18,12 +18,23 @@ const FALLBACK_LABELS = {
     imageProcessing: 'Processing image…',
     videoProcessing: 'Processing video…',
     videoDuration: 'Video duration',
+    cancel: 'Cancel',
+    cancelUpload: 'Cancel upload',
 };
 
 function mediaType(file) {
     if (imageFiles([file]).length) return 'image';
     if (isVideoFile(file)) return 'video';
     return null;
+}
+
+function displayFileSize(size) {
+    const bytes = Number(size);
+    if (!Number.isFinite(bytes) || bytes < 1) return '0Byte';
+    const units = ['Byte', 'KB', 'MB', 'GB'];
+    const unit = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+    const value = bytes / (1024 ** unit);
+    return `${value >= 10 || unit === 0 ? Math.round(value) : value.toFixed(1)}${units[unit]}`;
 }
 
 function responseResult(data) {
@@ -53,6 +64,7 @@ export class AttachmentList {
         this.uploads = new WeakMap();
         this.fileEntries = new WeakMap();
         this.activeEntries = new Set();
+        this.completedEntries = new Set();
         this.pendingFiles = new Map();
         this.container = bridge.form.querySelector(`#xefu-container-${bridge.sequence}`);
         if (!this.container) return;
@@ -93,6 +105,7 @@ export class AttachmentList {
         const list = this.container.querySelector('.xefu-list');
         if (list && window.MutationObserver) {
             this.listObserver = new MutationObserver(() => {
+                this.syncUploadPreviews();
                 this.decorateVideoItems();
                 this.decorateCoverButtons();
                 this.syncLayout();
@@ -116,12 +129,15 @@ export class AttachmentList {
             if (event.button !== 0) return;
             const item = event.target.closest?.('.xefu-file');
             if (!item || !this.container.contains(item) || event.target.closest?.('button, a')) return;
+            const checkbox = Boolean(event.target.closest?.('input[type="checkbox"]'));
+            if (item.dataset.roundeditorUploadPreview) return;
             event.stopPropagation();
             this.pendingMediaSelection = {
                 item,
                 selected: item.classList.contains('selected'),
                 shiftKey: event.shiftKey,
-                additive: event.ctrlKey || event.metaKey,
+                additive: true,
+                checkbox,
             };
         }, true);
         this.container.addEventListener('click', event => {
@@ -130,12 +146,23 @@ export class AttachmentList {
             event.stopPropagation();
             const pointerGesture = this.pendingMediaSelection;
             this.pendingMediaSelection = null;
+            const checkbox = Boolean(event.target.closest?.('input[type="checkbox"]'));
+            if (item.dataset.roundeditorUploadPreview) return;
+            if (checkbox) event.preventDefault();
             this.selectMediaItem(pointerGesture?.item === item ? pointerGesture : {
                 item,
                 selected: item.classList.contains('selected'),
                 shiftKey: event.shiftKey,
-                additive: event.ctrlKey || event.metaKey,
+                additive: true,
+                checkbox,
             });
+            if (checkbox) {
+                window.setTimeout(() => {
+                    this.setMediaItemSelected(item, item.classList.contains('selected'));
+                    this.syncLegacySelection();
+                    this.syncSelectionActions();
+                }, 0);
+            }
         }, true);
     }
 
@@ -342,6 +369,7 @@ export class AttachmentList {
         if (!imageList || !fileList) return;
         const items = [...imageList.querySelectorAll('li'), ...fileList.querySelectorAll('li')];
         for (const item of items) {
+            if (item.dataset.roundeditorUploadPreview) continue;
             const nameElement = item.querySelector('.xefu-file-name');
             const filename = nameElement?.textContent?.trim() || '';
             if (!/\.(?:mp4|webm|mov)$/i.test(filename) || item.dataset.roundeditorVideo) continue;
@@ -351,7 +379,10 @@ export class AttachmentList {
             const fileSrl = item.dataset.fileSrl
                 || item.querySelector('[data-file-srl]')?.dataset.fileSrl
                 || '';
-            const source = file && window.URL?.createObjectURL
+            const knownDuration = Number(item.dataset.duration);
+            const source = knownDuration > 0
+                ? ''
+                : file && window.URL?.createObjectURL
                 ? window.URL.createObjectURL(file)
                 : fileSrl
                     ? normalizeRhymixVideoUrl(`/index.php?module=file&act=procFileDownload&file_srl=${encodeURIComponent(fileSrl)}`)
@@ -374,9 +405,16 @@ export class AttachmentList {
                 imageList.appendChild(item);
             } else if (source) {
                 metadataVideo = document.createElement('video');
+                metadataVideo.className = 'roundeditor__attachment-video-metadata';
+                metadataVideo.setAttribute('aria-hidden', 'true');
+                metadataVideo.tabIndex = -1;
                 metadataVideo.preload = 'metadata';
                 metadataVideo.muted = true;
                 metadataVideo.src = source;
+                // A detached media element is not guaranteed to fetch metadata
+                // in every browser. Keep the probe in the item so existing
+                // server-generated video thumbnails also receive a duration.
+                item.appendChild(metadataVideo);
             }
             if (!item.querySelector('.xefu-file-video')) {
                 const overlay = document.createElement('span');
@@ -388,21 +426,29 @@ export class AttachmentList {
                 overlay.appendChild(play);
                 item.appendChild(overlay);
             }
-            if (metadataVideo) this.decorateVideoDuration(item, metadataVideo);
+            if (knownDuration > 0) this.decorateVideoDuration(item, null, knownDuration);
+            else if (metadataVideo) this.decorateVideoDuration(item, metadataVideo);
         }
     }
 
-    decorateVideoDuration(item, video) {
+    decorateVideoDuration(item, video, knownDuration = 0) {
         const badge = document.createElement('span');
         badge.className = 'roundeditor__attachment-video-duration';
         badge.hidden = true;
         item.appendChild(badge);
-        video.addEventListener('loadedmetadata', () => {
-            const duration = formatVideoDuration(video.duration);
+        const showDuration = value => {
+            const duration = formatVideoDuration(value);
             badge.textContent = duration;
             badge.hidden = !duration;
-            badge.setAttribute('aria-label', `${this.labels.videoDuration}: ${duration}`);
-        }, { once: true });
+            if (duration) badge.setAttribute('aria-label', `${this.labels.videoDuration}: ${duration}`);
+            else badge.removeAttribute('aria-label');
+        };
+        if (knownDuration > 0) showDuration(knownDuration);
+        else if (video) {
+            video.addEventListener('loadedmetadata', () => showDuration(video.duration), { once: true });
+            if (video.readyState >= 1) showDuration(video.duration);
+            else video.load();
+        }
     }
 
     bindUploader(attempt = 0) {
@@ -440,6 +486,109 @@ export class AttachmentList {
         return Array.from(data?.files || []).flatMap(file => this.fileEntries.get(file) || []);
     }
 
+    createUploadPreview(entry) {
+        const list = this.container.querySelector('.xefu-list-images ul');
+        if (!list) return;
+        const item = document.createElement('li');
+        item.className = 'xefu-file xefu-file-image roundeditor__attachment-upload';
+        item.dataset.roundeditorUploadPreview = 'true';
+        item.setAttribute('aria-busy', 'true');
+
+        const name = document.createElement('strong');
+        name.className = 'xefu-file-name';
+        name.textContent = entry.file.name;
+        const info = document.createElement('span');
+        info.className = 'xefu-file-info';
+        const size = document.createElement('span');
+        size.className = 'xefu-file-size';
+        size.textContent = displayFileSize(entry.file.size);
+        const mediaHost = document.createElement('span');
+        const previewUrl = window.URL?.createObjectURL?.(entry.file) || '';
+        entry.previewUrl = previewUrl;
+        let thumbnail;
+        if (entry.type === 'video' && previewUrl) {
+            thumbnail = document.createElement('video');
+            thumbnail.muted = true;
+            thumbnail.playsInline = true;
+            thumbnail.preload = 'metadata';
+            thumbnail.src = previewUrl;
+            const play = document.createElement('span');
+            play.className = 'xefu-file-video';
+            play.setAttribute('aria-hidden', 'true');
+            const playIcon = document.createElement('span');
+            playIcon.className = 'xefu-file-video-play';
+            playIcon.appendChild(svgIcon('play'));
+            play.appendChild(playIcon);
+            mediaHost.appendChild(play);
+        } else {
+            thumbnail = document.createElement('span');
+            if (previewUrl) thumbnail.style.backgroundImage = `url("${previewUrl.replaceAll('"', '\\"')}")`;
+        }
+        thumbnail.className = 'xefu-thumbnail';
+        thumbnail.setAttribute('aria-hidden', 'true');
+        mediaHost.appendChild(thumbnail);
+        info.append(size, mediaHost);
+
+        const percent = document.createElement('strong');
+        percent.className = 'roundeditor__attachment-upload-percent';
+        percent.textContent = '0%';
+        const progress = document.createElement('span');
+        progress.className = 'roundeditor__attachment-upload-progress';
+        progress.setAttribute('aria-hidden', 'true');
+        const progressBar = document.createElement('span');
+        progress.appendChild(progressBar);
+        const cancel = document.createElement('button');
+        cancel.type = 'button';
+        cancel.className = 'roundeditor__attachment-upload-cancel';
+        cancel.title = this.labels.cancelUpload;
+        cancel.setAttribute('aria-label', `${entry.file.name}: ${this.labels.cancelUpload}`);
+        cancel.appendChild(svgIcon('cancel'));
+        const cancelLabel = document.createElement('span');
+        cancelLabel.textContent = this.labels.cancel;
+        cancel.appendChild(cancelLabel);
+        cancel.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.cancel(entry);
+        });
+        item.append(name, info, percent, progress, cancel);
+        list.appendChild(item);
+        entry.previewItem = item;
+        this.updateUploadPreview(entry, 0);
+        this.syncLayout();
+    }
+
+    updateUploadPreview(entry, progress, label = null) {
+        const item = entry.previewItem;
+        if (!item?.isConnected) return;
+        const percentage = Math.round(Math.min(1, Math.max(0, Number(progress) || 0)) * 100);
+        item.style.setProperty('--roundeditor-attachment-progress', `${percentage}%`);
+        const percent = item.querySelector('.roundeditor__attachment-upload-percent');
+        if (percent) percent.textContent = `${percentage}%`;
+        item.setAttribute('aria-label', `${entry.file.name} ${percentage}%${label ? ` ${label}` : ''}`);
+    }
+
+    removeUploadPreview(entry) {
+        entry.previewItem?.remove();
+        entry.previewItem = null;
+        if (entry.previewUrl) window.URL?.revokeObjectURL?.(entry.previewUrl);
+        entry.previewUrl = '';
+    }
+
+    syncUploadPreviews() {
+        for (const entry of [...this.activeEntries, ...this.completedEntries]) {
+            const fileSrl = entry.previewItem?.dataset.fileSrl;
+            if (!fileSrl) continue;
+            const actual = [...this.container.querySelectorAll('.xefu-file[data-file-srl]')].find(item => (
+                !item.dataset.roundeditorUploadPreview && item.dataset.fileSrl === fileSrl
+            ));
+            if (actual) {
+                this.removeUploadPreview(entry);
+                this.completedEntries.delete(entry);
+            }
+        }
+    }
+
     add(data) {
         const entries = Array.from(data?.files || []).map(file => {
             const type = mediaType(file);
@@ -457,6 +606,7 @@ export class AttachmentList {
             this.pendingFiles.set(entry.file.name, entry.file);
             this.fileEntries.set(entry.file, [entry]);
             this.activeEntries.add(entry);
+            this.createUploadPreview(entry);
         }
         if (entries.length) this.uploads.set(data, entries);
         this.wrapSubmit(data);
@@ -474,10 +624,31 @@ export class AttachmentList {
         data.submit = (...args) => {
             data._roundeditorSubmitted = true;
             const promise = submit.apply(data, args);
+            data._roundeditorRequest = promise;
+            for (const entry of this.entriesFor(data)) entry.request = promise;
             promise?.done?.(() => this.done(data));
             promise?.fail?.(() => this.fail(data));
             return promise;
         };
+    }
+
+    cancel(entry) {
+        if (!entry || !this.activeEntries.has(entry)) return;
+        const data = entry.data;
+        const entries = this.entriesFor(data).filter(candidate => this.activeEntries.has(candidate));
+        for (const candidate of entries) {
+            const button = candidate.previewItem?.querySelector('.roundeditor__attachment-upload-cancel');
+            if (button) button.disabled = true;
+        }
+
+        const request = entry.request || data?._roundeditorRequest;
+        data._roundeditorCancelled = true;
+        if (typeof request?.abort === 'function') request.abort();
+        else if (typeof data?.abort === 'function') data.abort();
+
+        // The uploader may dispatch its failure event asynchronously. Clean up now so
+        // the editor and attachment list respond to the cancel click immediately.
+        this.fail(data);
     }
 
     progress(data) {
@@ -487,6 +658,11 @@ export class AttachmentList {
             updateUploadPlaceholder(
                 this.bridge.view,
                 entry.placeholderId,
+                progress,
+                progress >= 0.99 ? this.processingLabel(entry.type) : null
+            );
+            this.updateUploadPreview(
+                entry,
                 progress,
                 progress >= 0.99 ? this.processingLabel(entry.type) : null
             );
@@ -500,6 +676,11 @@ export class AttachmentList {
                 updateUploadPlaceholder(
                     this.bridge.view,
                     entry.placeholderId,
+                    progress,
+                    progress >= 0.99 ? this.processingLabel(entry.type) : null
+                );
+                this.updateUploadPreview(
+                    entry,
                     progress,
                     progress >= 0.99 ? this.processingLabel(entry.type) : null
                 );
@@ -523,6 +704,7 @@ export class AttachmentList {
         const entry = entries.find(candidate => candidate.file.name === filename) || entries[0];
         if (!entry || !this.activeEntries.has(entry)) return;
         updateUploadPlaceholder(this.bridge.view, entry.placeholderId, 1, this.processingLabel(entry.type));
+        this.updateUploadPreview(entry, 1, this.processingLabel(entry.type));
         if (entry.type === 'image') {
             insertUploadedImages(this.bridge, [upload], { placeholderId: entry.placeholderId });
         } else {
@@ -531,12 +713,15 @@ export class AttachmentList {
         this.activeEntries.delete(entry);
         this.fileEntries.delete(entry.file);
         this.pendingFiles.delete(entry.file.name);
+        if (entry.previewItem) entry.previewItem.dataset.fileSrl = String(upload.file_srl || '');
+        this.completedEntries.add(entry);
         this.uploads.delete(entry.data || data);
     }
 
     fail(data) {
         for (const entry of this.entriesFor(data)) {
             removeUploadPlaceholder(this.bridge.view, entry.placeholderId);
+            this.removeUploadPreview(entry);
             this.activeEntries.delete(entry);
             this.fileEntries.delete(entry.file);
             this.pendingFiles.delete(entry.file.name);

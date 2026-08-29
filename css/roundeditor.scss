@@ -276,8 +276,8 @@ body.color_scheme_dark .roundeditor__attachments {
     gap: 6px;
 }
 
-.roundeditor__choice,
-.roundeditor__button {
+.roundeditor .roundeditor__choice,
+.roundeditor .roundeditor__button {
     min-height: 34px;
     padding: 6px 12px;
     border: 1px solid var(--roundeditor-border);
@@ -288,32 +288,32 @@ body.color_scheme_dark .roundeditor__attachments {
     cursor: pointer;
 }
 
-.roundeditor__choice:hover,
-.roundeditor__choice:focus-visible,
-.roundeditor__button:hover,
-.roundeditor__button:focus-visible {
+.roundeditor .roundeditor__choice:hover,
+.roundeditor .roundeditor__choice:focus-visible,
+.roundeditor .roundeditor__button:hover,
+.roundeditor .roundeditor__button:focus-visible {
     border-color: var(--roundeditor-accent);
     outline: 0;
 }
 
-.roundeditor__button--primary {
+.roundeditor .roundeditor__button--primary {
     border-color: var(--roundeditor-accent);
     background: var(--roundeditor-accent);
     color: #ffffff;
 }
 
-.roundeditor__button--text {
+.roundeditor .roundeditor__button--text {
     border-color: transparent;
     background: transparent;
 }
 
-.roundeditor__palette {
+.roundeditor .roundeditor__palette {
     display: grid;
     grid-template-columns: repeat(7, 32px);
     gap: 6px;
 }
 
-.roundeditor__swatch {
+.roundeditor .roundeditor__swatch {
     width: 32px;
     min-height: 32px;
     padding: 0;
@@ -322,13 +322,13 @@ body.color_scheme_dark .roundeditor__attachments {
     color: transparent;
 }
 
-.roundeditor__swatch--reset {
+.roundeditor .roundeditor__swatch--reset {
     position: relative;
     color: var(--roundeditor-color);
     font-size: 0;
 }
 
-.roundeditor__swatch--reset::after {
+.roundeditor .roundeditor__swatch--reset::after {
     position: absolute;
     width: 38px;
     height: 2px;
@@ -965,7 +965,7 @@ body.color_scheme_dark .roundeditor__attachments {
     line-height: 1.4;
 }
 .roundeditor__attachments-policy[hidden] { display: none; }
-.roundeditor__attachments-actions { display: flex; margin-left: auto; align-items: center; gap: 6px; }
+.roundeditor__attachments-actions { display: flex; margin-left: auto; align-items: center; gap: 6px; flex-wrap: wrap; }
 .roundeditor__attachments-actions[hidden] { display: none; }
 .roundeditor__attachments--has-files .roundeditor__attachments-heading { border-bottom: 1px solid var(--roundeditor-border); }
 .roundeditor__attachments--has-files .roundeditor__attachments-help { display: none; }
@@ -1035,21 +1035,24 @@ body.color_scheme_dark .roundeditor__attachments {
 
 .roundeditor__attachments .xefu-btn {
     display: inline-flex;
+    height: auto !important;
     min-height: 34px;
-    padding: 7px 12px;
+    padding: 7px 12px !important;
     border: 1px solid var(--roundeditor-border);
     border-radius: 6px;
     background: var(--roundeditor-field);
     color: var(--roundeditor-color);
     font: inherit;
     font-size: 12px;
-    line-height: 1.4;
+    line-height: 1.4 !important;
     align-items: center;
     justify-content: center;
     gap: 6px;
     vertical-align: middle;
     cursor: pointer;
     box-sizing: border-box;
+    white-space: nowrap;
+    word-break: keep-all;
 }
 
 .roundeditor__attachments .xefu-btn:hover,
@@ -1183,6 +1186,8 @@ body.color_scheme_dark .roundeditor__attachments {
 .roundeditor__attachments .xefu-controll > div:last-child { display: flex; flex-wrap: wrap; gap: 6px; }
 .roundeditor__attachments .xefu-controll .xefu-btn { min-height: 32px; padding: 5px 10px; }
 .roundeditor__attachments .roundeditor__attachment-action {
+    flex: 0 0 auto;
+    min-width: max-content;
     min-height: 34px;
     border-color: var(--roundeditor-border);
     background: var(--roundeditor-field);

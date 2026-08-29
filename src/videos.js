@@ -1,4 +1,5 @@
 import { normalizeRhymixAssetUrl, normalizeRhymixVideoUrl, uploadFile } from './rhymix/upload.js';
+import { addTrailingParagraphsAfterBlockMedia } from './mediaInsertion.js';
 import { findUploadPlaceholder, removeUploadPlaceholderFrom } from './uploadPlaceholders.js';
 
 export const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
@@ -63,6 +64,7 @@ export function insertUploadedVideo(bridge, upload, { align = null, position = n
         ? state.tr.replaceRangeWith(placeholderPosition ?? position, placeholderPosition ?? position, video)
         : state.tr.replaceSelectionWith(video);
     if (placeholderId) transaction = removeUploadPlaceholderFrom(transaction, placeholderId);
+    transaction = addTrailingParagraphsAfterBlockMedia(transaction, video);
     bridge.view.dispatch(transaction.scrollIntoView());
     bridge.view.focus();
     return true;

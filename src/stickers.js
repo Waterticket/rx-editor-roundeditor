@@ -1,4 +1,3 @@
-import { NodeSelection } from 'prosemirror-state';
 import { normalizeRhymixAssetUrl, normalizeRhymixVideoUrl } from './rhymix/upload.js';
 import { resolveStickerItems } from './rhymix/sticker.js';
 
@@ -25,7 +24,7 @@ export function insertSticker(bridge, item, packTitle = '') {
     if (!item?.sticker_srl || !item?.sticker_file_srl) return false;
     const node = bridge.view.state.schema.nodes.sticker.create(stickerAttrs(item, packTitle));
     const transaction = bridge.view.state.tr.replaceSelectionWith(node);
-    bridge.view.dispatch(transaction.setSelection(NodeSelection.create(transaction.doc, transaction.selection.from - node.nodeSize)).scrollIntoView());
+    bridge.view.dispatch(transaction.scrollIntoView());
     bridge.view.focus();
     return true;
 }

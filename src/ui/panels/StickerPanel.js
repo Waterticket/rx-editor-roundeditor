@@ -42,20 +42,72 @@ function mediaPreview(item, label) {
     return image;
 }
 
+function packPreview(pack) {
+    if (pack?.type === 'video' && pack.url) {
+        const video = document.createElement('video');
+        video.src = pack.url;
+        video.poster = pack.poster || pack.main_image || '';
+        video.autoplay = true;
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.preload = 'metadata';
+        video.setAttribute('aria-hidden', 'true');
+        return video;
+    }
+    const image = document.createElement('img');
+    image.src = pack?.poster || pack?.main_image || '';
+    image.alt = '';
+    image.loading = 'lazy';
+    return image;
+}
+
 export function createStickerPanel(bridge, labels, onClose) {
     const root = document.createElement('div');
     root.className = 'roundeditor__sticker-panel';
+    const main = document.createElement('div');
+    main.className = 'roundeditor__sticker-main';
     const sidebar = document.createElement('div');
     sidebar.className = 'roundeditor__sticker-packs';
     sidebar.setAttribute('role', 'tablist');
     sidebar.setAttribute('aria-label', labels.stickerPacks);
+    const previous = document.createElement('button');
+    previous.type = 'button';
+    previous.className = 'roundeditor__sticker-page';
+    previous.setAttribute('aria-label', labels.stickerPrevious);
+    previous.textContent = '▲';
+    const packList = document.createElement('div');
+    packList.className = 'roundeditor__sticker-pack-list';
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'roundeditor__sticker-page';
+    next.setAttribute('aria-label', labels.stickerNext);
+    next.textContent = '▼';
+    sidebar.append(previous, packList, next);
+    const body = document.createElement('div');
+    body.className = 'roundeditor__sticker-body';
+    const packTitle = document.createElement('span');
+    packTitle.className = 'roundeditor__sticker-pack-title';
     const grid = document.createElement('div');
     grid.className = 'roundeditor__sticker-grid';
     const status = document.createElement('p');
     status.className = 'roundeditor__sticker-status';
     status.textContent = labels.stickerLoading;
     grid.appendChild(status);
-    root.append(sidebar, grid);
+    body.append(packTitle, grid);
+    main.append(sidebar, body);
+    const footer = document.createElement('div');
+    footer.className = 'roundeditor__sticker-footer';
+    for (const [label, href] of [[labels.stickerOrder, '/sticker/mylist'], [labels.stickerList, '/sticker']]) {
+        const link = document.createElement('a');
+        link.className = 'roundeditor__sticker-link';
+        link.href = href;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = label;
+        footer.appendChild(link);
+    }
+    root.append(main, footer);
     const cache = new Map();
     let observer = null;
     let activePack = null;
@@ -90,7 +142,6 @@ export function createStickerPanel(bridge, labels, onClose) {
             button.addEventListener('click', () => {
                 insertSticker(bridge, item, pack?.title || item.title || '');
                 remember(item);
-                onClose();
             });
             grid.appendChild(button);
             if (observer) observer.observe(media);
@@ -100,7 +151,10 @@ export function createStickerPanel(bridge, labels, onClose) {
 
     const selectPack = async (pack, button) => {
         activePack = pack?.sticker_srl || 'recent';
-        for (const candidate of sidebar.querySelectorAll('button')) candidate.setAttribute('aria-selected', String(candidate === button));
+        packTitle.textContent = pack?.title || labels.stickerRecent;
+        for (const candidate of packList.querySelectorAll('.roundeditor__sticker-pack')) {
+            candidate.setAttribute('aria-selected', String(candidate === button));
+        }
         status.textContent = labels.stickerLoading;
         grid.replaceChildren(status);
         try {
@@ -120,17 +174,21 @@ export function createStickerPanel(bridge, labels, onClose) {
         }
     };
 
-    const packButton = (pack, label, imageUrl = '') => {
+    const packButton = (pack, label) => {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'roundeditor__sticker-pack';
         button.setAttribute('role', 'tab');
-        if (imageUrl) {
-            const image = document.createElement('img');
-            image.src = imageUrl;
-            image.alt = '';
-            image.loading = 'lazy';
-            button.appendChild(image);
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        if (pack?.main_image || pack?.poster) {
+            button.appendChild(packPreview(pack));
+        } else {
+            const icon = document.createElement('span');
+            icon.className = 'roundeditor__sticker-pack-icon';
+            icon.textContent = '↺';
+            icon.setAttribute('aria-hidden', 'true');
+            button.appendChild(icon);
         }
         const text = document.createElement('span');
         text.textContent = label;
@@ -139,11 +197,20 @@ export function createStickerPanel(bridge, labels, onClose) {
         return button;
     };
 
+    const updatePaging = () => {
+        previous.disabled = packList.scrollTop <= 0;
+        next.disabled = packList.scrollTop + packList.clientHeight >= packList.scrollHeight - 1;
+    };
+    previous.addEventListener('click', () => packList.scrollBy({ top: -58, behavior: 'smooth' }));
+    next.addEventListener('click', () => packList.scrollBy({ top: 58, behavior: 'smooth' }));
+    packList.addEventListener('scroll', updatePaging, { passive: true });
+
     const recent = packButton(null, labels.stickerRecent);
-    sidebar.appendChild(recent);
+    packList.appendChild(recent);
     pickerPacks(bridge.config).then(packs => {
-        for (const pack of packs) sidebar.appendChild(packButton(pack, pack.title, pack.main_image));
+        for (const pack of packs) packList.appendChild(packButton(pack, pack.title));
         selectPack(null, recent);
+        setTimeout(updatePaging, 0);
     }).catch(error => {
         status.textContent = error.message || labels.stickerError;
     });

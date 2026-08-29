@@ -1,4 +1,5 @@
 import { imageFiles, insertUploadedImages } from './images.js';
+import { svgIcon } from './icons.js';
 import { normalizeRhymixAssetUrl, normalizeRhymixUrl } from './rhymix/upload.js';
 import { addUploadPlaceholder, removeUploadPlaceholder, updateUploadPlaceholder } from './uploadPlaceholders.js';
 import { insertUploadedVideo, isVideoFile } from './videos.js';
@@ -19,19 +20,6 @@ const FALLBACK_LABELS = {
     imageProcessing: 'Processing image…',
     videoProcessing: 'Processing video…',
 };
-
-const ICON_SPRITE_URL = '/modules/editor/skins/roundeditor/assets/attachment-icons.svg';
-
-function svgIcon(name) {
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.classList.add('roundeditor__attachment-icon');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.setAttribute('focusable', 'false');
-    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    use.setAttribute('href', `${ICON_SPRITE_URL}#${name}`);
-    svg.appendChild(use);
-    return svg;
-}
 
 function mediaType(file) {
     if (imageFiles([file]).length) return 'image';
@@ -114,6 +102,7 @@ export class AttachmentList {
             });
             this.listObserver.observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
         }
+        this.bindMediaSelectionFallback();
         this.container.addEventListener('click', event => {
             if (event.target.closest('.xefu-file')) window.setTimeout(() => this.syncSelectionActions(), 0);
         });
@@ -124,6 +113,75 @@ export class AttachmentList {
         this.decorateCoverButtons();
         this.syncSectionHeadings();
         this.syncLayout();
+    }
+
+    bindMediaSelectionFallback() {
+        this.container.addEventListener('mousedown', event => {
+            if (event.button !== 0) return;
+            const item = event.target.closest?.('.xefu-file');
+            if (!item || !this.container.contains(item) || event.target.closest?.('button, a')) return;
+            event.stopPropagation();
+            this.pendingMediaSelection = {
+                item,
+                selected: item.classList.contains('selected'),
+                shiftKey: event.shiftKey,
+                additive: event.ctrlKey || event.metaKey,
+            };
+        }, true);
+        this.container.addEventListener('click', event => {
+            const item = event.target.closest?.('.xefu-file');
+            if (!item || !this.container.contains(item) || event.target.closest?.('button, a')) return;
+            event.stopPropagation();
+            const pointerGesture = this.pendingMediaSelection;
+            this.pendingMediaSelection = null;
+            this.selectMediaItem(pointerGesture?.item === item ? pointerGesture : {
+                item,
+                selected: item.classList.contains('selected'),
+                shiftKey: event.shiftKey,
+                additive: event.ctrlKey || event.metaKey,
+            });
+        }, true);
+    }
+
+    selectMediaItem({ item, selected, shiftKey, additive }) {
+        const items = Array.from(this.container.querySelectorAll('.xefu-file'));
+        const anchor = this.lastSelectedMediaItem && items.includes(this.lastSelectedMediaItem)
+            ? this.lastSelectedMediaItem
+            : items.find(candidate => candidate.classList.contains('selected'));
+
+        if (shiftKey && anchor) {
+            const start = items.indexOf(anchor);
+            const end = items.indexOf(item);
+            if (start !== -1 && end !== -1) {
+                if (!additive) items.forEach(candidate => this.setMediaItemSelected(candidate, false));
+                const rangeStart = Math.min(start, end);
+                const rangeEnd = Math.max(start, end);
+                items.slice(rangeStart, rangeEnd + 1).forEach(candidate => this.setMediaItemSelected(candidate, true));
+            }
+        } else if (additive) {
+            this.setMediaItemSelected(item, !selected);
+        } else {
+            items.forEach(candidate => this.setMediaItemSelected(candidate, candidate === item && !selected));
+        }
+
+        this.lastSelectedMediaItem = item.classList.contains('selected') ? item : null;
+        this.syncLegacySelection();
+        this.syncSelectionActions();
+    }
+
+    setMediaItemSelected(item, selected) {
+        item.classList.toggle('selected', selected);
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (checkbox) checkbox.checked = selected;
+    }
+
+    syncLegacySelection() {
+        const jqueryContainer = window.jQuery?.(this.container);
+        if (!jqueryContainer?.data) return;
+        const selectedItems = typeof jqueryContainer.find === 'function'
+            ? jqueryContainer.find('.xefu-file.selected')
+            : Array.from(this.container.querySelectorAll('.xefu-file.selected'));
+        jqueryContainer.data('selected_files', selectedItems);
     }
 
     decorateDropzone() {
@@ -278,8 +336,11 @@ export class AttachmentList {
 
     decorateCoverButtons() {
         for (const button of this.container.querySelectorAll('.xefu-act-set-cover')) {
-            if (button.querySelector('.roundeditor__attachment-icon')) continue;
-            button.replaceChildren(svgIcon('cover'));
+            if (!button.querySelector('.roundeditor__attachment-icon')) button.replaceChildren(svgIcon('cover'));
+            button.type = 'button';
+            if (!button.classList.contains('roundeditor__thumbnail-checkbox')) button.classList.add('roundeditor__thumbnail-checkbox');
+            button.setAttribute('role', 'checkbox');
+            button.setAttribute('aria-checked', String(button.closest('.xefu-file')?.classList.contains('xefu-is-cover-image')));
         }
         for (const play of this.container.querySelectorAll('.xefu-file-video-play')) {
             if (play.querySelector('.roundeditor__attachment-icon')) continue;

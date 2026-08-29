@@ -1,4 +1,5 @@
 import { NodeSelection } from 'prosemirror-state';
+import { svgIcon } from '../icons.js';
 import { MediaNodeView } from './MediaNodeView.js';
 import { VideoFloatingToolbar } from '../ui/FloatingToolbar.js';
 import { videoAlignmentAttrs } from '../videos.js';
@@ -34,6 +35,7 @@ export class VideoView extends MediaNodeView {
         this.playIndicator.className = 'roundeditor__video-play-indicator';
         this.playIndicator.contentEditable = 'false';
         this.playIndicator.setAttribute('aria-hidden', 'true');
+        this.playIndicator.appendChild(svgIcon('play'));
         this.media.after(this.playIndicator);
         this.toolbar = new VideoFloatingToolbar({
             labels: { ...FALLBACK_LABELS, ...(bridge.config.labels || {}) },

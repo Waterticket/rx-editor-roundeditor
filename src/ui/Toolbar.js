@@ -239,6 +239,7 @@ export class Toolbar {
             return;
         }
         this.panelName = name;
+        this.panel.dataset.panel = name;
         const heading = document.createElement('div');
         heading.className = 'roundeditor__panel-heading';
         const titleElement = document.createElement('strong');
@@ -254,6 +255,7 @@ export class Toolbar {
         this.panel.querySelector('.roundeditor__image-panel, .roundeditor__video-panel, .roundeditor__sticker-panel')
             ?.dispatchEvent(new window.Event('roundeditor:close'));
         this.panelName = null;
+        delete this.panel.dataset.panel;
         this.panel.hidden = true;
         this.panel.replaceChildren();
     }

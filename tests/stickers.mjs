@@ -35,24 +35,28 @@ assert.equal(sticker.type, schema.nodes.sticker);
 assert.equal(sticker.isInline, true);
 assert.equal(sticker.attrs.mediaType, 'video');
 assert.equal(sticker.attrs.videoSrc, null);
+assert.equal(schema.nodes.sticker.spec.selectable, true);
 assert.match(serializeDocument(parsed, schema), /^<p>앞<img/);
 assert.match(serializeDocument(parsed, schema), /data-rx-sticker="10\|20" data-rx-sticker-type="video" \/>뒤<\/p>$/);
 assert.doesNotMatch(serializeDocument(parsed, schema), /videoSrc|\.mp4/);
 
-const bridge = { config: { labels: {}, stickerMaxSize: 100, mid: 'board' }, view: null };
+const bridge = { config: { labels: {}, mid: 'board' }, view: null };
 let stickerView;
 bridge.view = new EditorView(document.querySelector('#editor'), {
     state: EditorState.create({ doc: parsed }),
     nodeViews: { sticker: (node, view, getPos) => (stickerView = new StickerView(node, view, getPos, bridge)) },
 });
+assert.equal(stickerView.handles.length, 0);
+assert.equal(stickerView.dom.querySelector('.roundeditor__media-toolbar'), null);
+assert.equal(stickerView.media.tagName, 'IMG');
 let stickerPosition = null;
 bridge.view.state.doc.descendants((node, position) => {
     if (node.type === schema.nodes.sticker) stickerPosition = position;
 });
 bridge.view.dispatch(bridge.view.state.tr.setSelection(NodeSelection.create(bridge.view.state.doc, stickerPosition)));
-assert.equal(stickerView.handles.length, 4);
-assert.equal(stickerView.toolbar.element.hidden, false);
-assert.equal(stickerView.media.tagName, 'IMG');
+assert.equal(bridge.view.state.selection instanceof NodeSelection, true);
+assert.equal(stickerView.dom.classList.contains('roundeditor__media--selected'), true);
+assert.equal(stickerView.handles.length, 0);
 
 window.exec_json = (action, params, success) => {
     assert.equal(action, 'sticker.resolveStickers');
@@ -71,10 +75,6 @@ assert.equal(stickerView.media.playsInline, true);
 assert.equal(stickerView.media.getAttribute('src'), '/animated.mp4');
 assert.equal(serializeDocument(bridge.view.state.doc, schema).includes('/animated.mp4'), false);
 
-stickerView.updateSize(160, 140);
-const resized = serializeDocument(bridge.view.state.doc, schema);
-assert.match(resized, /width="100" height="100" style="width:100px;height:100px;"/);
-
 bridge.view.destroy();
 document.querySelector('#editor').replaceChildren();
 bridge.view = new EditorView(document.querySelector('#editor'), {
@@ -86,7 +86,12 @@ insertSticker(bridge, {
 }, '팩');
 assert.equal(bridge.view.state.doc.childCount, 1);
 assert.match(serializeDocument(bridge.view.state.doc, schema), /^<p>텍스트<img/);
-assert.equal(bridge.view.state.selection instanceof NodeSelection, true);
+assert.equal(bridge.view.state.selection instanceof TextSelection, true);
+insertSticker(bridge, {
+    sticker_srl: 1, sticker_file_srl: 3, type: 'image', url: '/still-2.png', name: '정지 2',
+}, '팩');
+assert.equal(bridge.view.state.selection instanceof NodeSelection, false);
+assert.equal((serializeDocument(bridge.view.state.doc, schema).match(/data-rx-sticker=/g) || []).length, 2);
 bridge.view.destroy();
 
 window.exec_json = (action, params, success) => {
@@ -102,7 +107,8 @@ bridge.view = new EditorView(document.querySelector('#editor'), {
 });
 const picker = createStickerPanel(bridge, {
     sticker: 'Sticker', stickerPacks: 'Packs', stickerRecent: 'Recent', stickerLoading: 'Loading',
-    stickerEmpty: 'Empty', stickerError: 'Error',
+    stickerEmpty: 'Empty', stickerError: 'Error', stickerPrevious: 'Previous', stickerNext: 'Next',
+    stickerOrder: 'Reorder', stickerList: 'Sticker list',
 }, () => {});
 document.body.appendChild(picker);
 await new Promise(resolve => setTimeout(resolve, 0));
@@ -110,6 +116,12 @@ picker.querySelectorAll('.roundeditor__sticker-pack')[1].click();
 await new Promise(resolve => setTimeout(resolve, 0));
 picker.querySelector('.roundeditor__sticker-item').click();
 assert.match(serializeDocument(bridge.view.state.doc, schema), /data-rx-sticker="10\|20"/);
+assert.equal(picker.isConnected, true);
+assert.equal(picker.hidden, false);
+assert.equal(picker.querySelector('.roundeditor__sticker-pack-title').textContent, '팩');
+assert.equal(picker.querySelectorAll('.roundeditor__sticker-footer a').length, 2);
+picker.querySelector('.roundeditor__sticker-item').click();
+assert.equal((serializeDocument(bridge.view.state.doc, schema).match(/data-rx-sticker="10\|20"/g) || []).length, 2);
 bridge.view.destroy();
 
 console.log('roundeditor Phase 5 sticker contract passed');

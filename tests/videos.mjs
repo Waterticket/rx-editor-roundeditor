@@ -16,7 +16,7 @@ dom.window.HTMLMediaElement.prototype.pause = () => {};
 dom.window.HTMLMediaElement.prototype.load = () => {};
 
 const { gapCursor, GapCursor } = await import('prosemirror-gapcursor');
-const { EditorState, NodeSelection } = await import('prosemirror-state');
+const { EditorState, NodeSelection, TextSelection } = await import('prosemirror-state');
 const { EditorView } = await import('prosemirror-view');
 const { VideoView } = await import('../src/nodeviews/VideoView.js');
 const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
@@ -62,6 +62,7 @@ assert.equal(videoView.media.getAttribute('src'), '/movie.mp4');
 assert.equal(videoView.media.preload, 'metadata');
 assert.equal(videoView.media.getAttribute('loading'), 'lazy');
 assert.ok(videoView.dom.querySelector('.roundeditor__video-play-indicator'));
+assert.match(videoView.dom.querySelector('.roundeditor__video-play-indicator use').getAttribute('href'), /attachment-icons\.svg#play$/);
 assert.equal(videoView.toolbar.row.querySelector('[data-media-action="controls"]').getAttribute('aria-pressed'), 'true');
 
 videoView.resizeFromForm(500, 240);
@@ -131,7 +132,10 @@ serialized = serializeDocument(bridge.view.state.doc, schema);
 assert.equal(document.querySelector('#editor .roundeditor__upload-placeholder'), null);
 assert.match(serialized, /^<video/);
 assert.doesNotMatch(serialized, /<p><video/);
-assert.match(serialized, /<\/video><p>본문<\/p>$/);
+assert.match(serialized, /<\/video><p>\u00a0<\/p><p>\u00a0<\/p><p>본문<\/p>$/);
+assert.equal(bridge.view.state.selection instanceof TextSelection, true);
+assert.equal(bridge.view.state.selection.$from.parent.type, schema.nodes.paragraph);
+assert.equal(bridge.view.state.selection.$from.parentOffset, 0);
 bridge.view.destroy();
 
 const unwrapped = serializeDocument(parseDocument('<p><video src="/core.mp4" controls data-file-srl="10"></video></p><p>\u00a0</p>'), schema);

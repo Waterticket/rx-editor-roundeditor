@@ -6,6 +6,7 @@ import {
     removeUploadPlaceholder,
     removeUploadPlaceholderFrom,
 } from './uploadPlaceholders.js';
+import { addTrailingParagraphsAfterInlineMedia } from './mediaInsertion.js';
 
 export function imageFiles(list) {
     return Array.from(list || []).filter(file => String(file.type || '').startsWith('image/'));
@@ -48,8 +49,11 @@ export function insertUploadedImages(bridge, uploads, { position = null, align =
     const placeholderPosition = placeholderId ? findUploadPlaceholder(state, placeholderId) : null;
     const insertionPosition = placeholderPosition ?? (position === null ? state.selection.from : position);
     const paragraphPosition = textblockPosition(state.doc, insertionPosition);
-    if (position === null) transaction = transaction.replaceSelection(slice);
-    else transaction = transaction.replaceRange(insertionPosition, insertionPosition, slice);
+    if (placeholderPosition !== null || position !== null) {
+        transaction = transaction.replaceRange(insertionPosition, insertionPosition, slice);
+    } else {
+        transaction = transaction.replaceSelection(slice);
+    }
     if (align && paragraphPosition !== null) {
         const paragraph = transaction.doc.nodeAt(paragraphPosition);
         if (paragraph?.isTextblock) {
@@ -57,6 +61,7 @@ export function insertUploadedImages(bridge, uploads, { position = null, align =
         }
     }
     if (placeholderId) transaction = removeUploadPlaceholderFrom(transaction, placeholderId);
+    transaction = addTrailingParagraphsAfterInlineMedia(transaction, nodes);
     bridge.view.dispatch(transaction.scrollIntoView());
     bridge.view.focus();
     return true;

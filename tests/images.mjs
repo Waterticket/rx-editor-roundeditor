@@ -15,7 +15,7 @@ Object.defineProperties(globalThis, {
     XMLHttpRequest: { value: dom.window.XMLHttpRequest, configurable: true, writable: true },
 });
 
-const { EditorState, NodeSelection } = await import('prosemirror-state');
+const { EditorState, NodeSelection, TextSelection } = await import('prosemirror-state');
 const { EditorView } = await import('prosemirror-view');
 const { imageAttrsFromUpload, insertUploadedImages } = await import('../src/images.js');
 const { ImageView } = await import('../src/nodeviews/ImageView.js');
@@ -144,7 +144,13 @@ insertUploadedImages(placeholderBridge, [{
     download_url: '/placeholder.png', source_filename: 'placeholder.png', dimensions: { width: 100, height: 50 },
 }], { placeholderId });
 assert.equal(document.querySelector('#placeholder .roundeditor__upload-placeholder'), null);
-assert.match(serializeDocument(placeholderBridge.view.state.doc, schema), /src="\/placeholder.png"/);
+const placeholderSerialized = serializeDocument(placeholderBridge.view.state.doc, schema);
+assert.match(placeholderSerialized, /src="\/placeholder.png"/);
+assert.match(placeholderSerialized, /<\/p><p>\u00a0<\/p><p>\u00a0<\/p>$/);
+assert.equal(placeholderBridge.view.state.doc.childCount, 3);
+assert.equal(placeholderBridge.view.state.selection instanceof TextSelection, true);
+assert.equal(placeholderBridge.view.state.selection.$from.parent.type, schema.nodes.paragraph);
+assert.equal(placeholderBridge.view.state.selection.$from.parentOffset, 0);
 placeholderBridge.view.destroy();
 
 document.querySelector('#editor').replaceChildren();

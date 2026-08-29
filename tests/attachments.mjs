@@ -54,6 +54,12 @@ let insertProxyClicks = 0;
 document.querySelector('.xefu-act-link-selected').addEventListener('click', () => { insertProxyClicks += 1; });
 new AttachmentList(bridge);
 const uploader = document.querySelector('.roundeditor__attachments');
+async function clickMedia(target) {
+    target.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    target.dispatchEvent(new dom.window.MouseEvent('mouseup', { bubbles: true, button: 0 }));
+    target.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true, button: 0 }));
+    await new Promise(resolve => queueMicrotask(resolve));
+}
 assert.ok(uploader);
 assert.notEqual(uploader.parentElement, wrapper);
 assert.equal(uploader.querySelector('.roundeditor__attachments-heading strong').textContent, '파일 첨부');
@@ -73,6 +79,36 @@ assert.equal(uploader.querySelector('.roundeditor__attachment-action--delete').t
 assert.equal(uploader.querySelector('.roundeditor__attachment-action--insert').hidden, true);
 assert.equal(uploader.querySelector('.roundeditor__attachment-action--delete').hidden, true);
 
+const imageItem = document.createElement('li');
+imageItem.className = 'xefu-file xefu-file-image';
+imageItem.dataset.fileSrl = '77';
+imageItem.innerHTML = '<strong class="xefu-file-name">cover.png</strong><span class="xefu-file-info"><span class="xefu-file-size">10KB</span><span><span class="xefu-thumbnail"></span></span><span><input type="checkbox" data-file-srl="77"></span><button class="xefu-act-set-cover" data-file-srl="77" title="대표 이미지로 설정"></button></span>';
+uploader.querySelector('.xefu-list-images ul')?.appendChild(imageItem);
+await new Promise(resolve => queueMicrotask(resolve));
+const imageCheckbox = imageItem.querySelector('input[type="checkbox"]');
+const thumbnailCheckbox = imageItem.querySelector('.xefu-act-set-cover');
+assert.equal(thumbnailCheckbox.classList.contains('roundeditor__thumbnail-checkbox'), true);
+assert.equal(thumbnailCheckbox.getAttribute('role'), 'checkbox');
+assert.equal(thumbnailCheckbox.getAttribute('aria-checked'), 'false');
+assert.match(thumbnailCheckbox.querySelector('use').getAttribute('href'), /attachment-icons\.svg#cover$/);
+
+await clickMedia(imageItem.querySelector('.xefu-thumbnail'));
+assert.equal(imageItem.classList.contains('selected'), true);
+assert.equal(imageCheckbox.checked, true);
+await clickMedia(imageCheckbox);
+assert.equal(imageItem.classList.contains('selected'), false);
+assert.equal(imageCheckbox.checked, false);
+
+thumbnailCheckbox.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true, button: 0 }));
+await new Promise(resolve => queueMicrotask(resolve));
+assert.equal(imageItem.classList.contains('selected'), false);
+imageItem.classList.add('xefu-is-cover-image');
+await new Promise(resolve => queueMicrotask(resolve));
+assert.equal(thumbnailCheckbox.getAttribute('aria-checked'), 'true');
+imageItem.classList.remove('xefu-is-cover-image');
+await new Promise(resolve => queueMicrotask(resolve));
+assert.equal(thumbnailCheckbox.getAttribute('aria-checked'), 'false');
+
 const videoItem = document.createElement('li');
 videoItem.className = 'xefu-file';
 videoItem.innerHTML = '<span class="xefu-file-name">clip.mov</span><span class="xefu-file-info"><span>1MB</span><input type="checkbox"></span>';
@@ -83,6 +119,10 @@ assert.equal(uploader.querySelector('.xefu-list-images .xefu-file-video-play') !
 assert.match(uploader.querySelector('.xefu-list-images .xefu-file-video-play use').getAttribute('href'), /attachment-icons\.svg#play$/);
 assert.equal(uploader.classList.contains('roundeditor__attachments--has-files'), true);
 assert.equal(uploader.querySelector('.roundeditor__attachments-actions .fileinput-button') !== null, true);
+await clickMedia(videoItem.querySelector('.xefu-thumbnail'));
+assert.equal(videoItem.classList.contains('selected'), true);
+await clickMedia(videoItem.querySelector('.xefu-thumbnail'));
+assert.equal(videoItem.classList.contains('selected'), false);
 const videoCheckbox = videoItem.querySelector('input[type="checkbox"]');
 videoCheckbox.checked = true;
 videoCheckbox.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
@@ -111,7 +151,9 @@ const doneUpload = { files: [file], result: {
 } };
 handlers.fileuploaddone({}, doneUpload);
 assert.equal(wrapper.querySelector('.roundeditor__upload-placeholder'), null);
-assert.match(serializeDocument(bridge.view.state.doc, schema), /src="\/progress.png"/);
+const progressSerialized = serializeDocument(bridge.view.state.doc, schema);
+assert.match(progressSerialized, /src="\/progress.png"/);
+assert.match(progressSerialized, /<\/p><p>\u00a0<\/p><p>\u00a0<\/p>$/);
 assert.match(serializeDocument(bridge.view.state.doc, schema), /data-file-srl="88"/);
 
 bridge.view.destroy();

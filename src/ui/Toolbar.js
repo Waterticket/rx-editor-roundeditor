@@ -38,6 +38,8 @@ import {
 import { createLinkPanel } from './panels/LinkPanel.js';
 import { createTablePanel } from './panels/TablePanel.js';
 import { createStickerPanel } from './panels/StickerPanel.js';
+import { openComponent } from '../rhymix/component.js';
+import { componentToolbarIcon } from '../rhymix/componentPresentation.js';
 
 const FALLBACK_LABELS = {
     toolbar: 'Editor toolbar', more: 'More', close: 'Close', bold: 'Bold', italic: 'Italic',
@@ -52,7 +54,7 @@ const FALLBACK_LABELS = {
     sticker: 'Sticker', stickerPacks: 'Sticker packs', stickerRecent: 'Recent', stickerLoading: 'Loading stickers…',
     stickerEmpty: 'No stickers are available.', stickerError: 'Could not load stickers.',
     undo: 'Undo', redo: 'Redo', selectAll: 'Select all',
-    source: 'Source editing (available in Phase 6)', fullscreen: 'Fullscreen (available in Phase 6)',
+    source: 'Edit HTML source', fullscreen: 'Fullscreen',
     help: 'Keyboard shortcuts', normal: 'Normal', code: 'Code', reset: 'Reset', custom: 'Custom',
     apply: 'Apply', remove: 'Remove', cancel: 'Cancel', insert: 'Insert', url: 'URL',
     newWindow: 'Open in a new window', invalidUrl: 'Enter a safe URL.', rows: 'Rows', columns: 'Columns',
@@ -95,6 +97,24 @@ function choiceButton(label, value, selected = false) {
     element.dataset.value = value;
     element.textContent = label;
     if (selected) element.setAttribute('aria-current', 'true');
+    return element;
+}
+
+function componentButton(name, title) {
+    const element = document.createElement('button');
+    element.type = 'button';
+    element.className = 'roundeditor__tool roundeditor__tool--component';
+    element.dataset.command = `component:${name}`;
+    element.title = title || name;
+    element.setAttribute('aria-label', title || name);
+    const icon = componentToolbarIcon(name, title);
+    if (icon) element.appendChild(icon);
+    else {
+        const label = document.createElement('span');
+        label.className = 'roundeditor__component-label';
+        label.textContent = String(title || name).slice(0, 2);
+        element.appendChild(label);
+    }
     return element;
 }
 
@@ -146,12 +166,23 @@ export class Toolbar {
         const sticker = this.addGroup('sticker');
         sticker.appendChild(button('sticker', this.labels));
 
+        if (this.bridge.config.enableComponent) {
+            const components = this.addGroup('components');
+            for (const [name, configuredTitle] of Object.entries(this.bridge.config.components || {})) {
+                const title = typeof configuredTitle === 'object' ? configuredTitle.title : configuredTitle;
+                components.appendChild(componentButton(name, title));
+            }
+            if (!components.childElementCount) components.remove();
+        }
+
         const spacer = document.createElement('span');
         spacer.className = 'roundeditor__toolbar-spacer';
         this.primaryRow.appendChild(spacer);
 
         const right = this.addGroup('right');
         ['undo', 'redo', 'selectAll'].forEach(name => right.appendChild(button(name, this.labels)));
+        if (this.bridge.config.htmlMode) right.appendChild(button('source', this.labels));
+        right.appendChild(button('fullscreen', this.labels));
         right.appendChild(this.moreButton('right'));
 
         this.element.addEventListener('mousedown', event => {
@@ -205,11 +236,11 @@ export class Toolbar {
                 'format', 'alignLeft', 'alignCenter', 'alignRight', 'alignJustify', 'orderedList',
                 'bulletList', 'outdent', 'indent', 'quote', 'horizontalRule',
             ],
-            right: ['source', 'fullscreen', 'help'],
+            right: ['help'],
         }[group] || [];
-        return names.map(name => {
+        return names.filter(name => name !== 'source' || this.bridge.config.htmlMode).map(name => {
             if (name === 'format') return button('format', { format: this.labels.normal });
-            return button(name, this.labels, { disabled: ['source', 'fullscreen'].includes(name) });
+            return button(name, this.labels);
         });
     }
 
@@ -286,6 +317,18 @@ export class Toolbar {
     }
 
     execute(name) {
+        if (name.startsWith('component:')) {
+            openComponent(this.bridge, name.slice('component:'.length));
+            return;
+        }
+        if (name === 'source') {
+            this.bridge.sourceMode.toggle();
+            return;
+        }
+        if (name === 'fullscreen') {
+            this.bridge.fullscreen.toggle();
+            return;
+        }
         const view = this.bridge.view;
         const { schema } = view.state;
         const commands = {
@@ -434,6 +477,12 @@ export class Toolbar {
     }
 
     refresh(state) {
+        const sourceActive = Boolean(this.bridge.sourceMode?.active);
+        for (const element of this.element.querySelectorAll('[data-command]')) {
+            const availableInSource = ['source', 'fullscreen', 'help'].includes(element.dataset.command);
+            if (sourceActive && !availableInSource) element.disabled = true;
+            else if (!['undo', 'redo'].includes(element.dataset.command)) element.disabled = false;
+        }
         const markNames = { bold: 'strong', italic: 'em', underline: 'underline', strike: 'strike' };
         for (const [command, markName] of Object.entries(markNames)) {
             const element = this.element.querySelector(`[data-command="${command}"]`);
@@ -461,8 +510,16 @@ export class Toolbar {
         }
         const undoButton = this.element.querySelector('[data-command="undo"]');
         const redoButton = this.element.querySelector('[data-command="redo"]');
-        if (undoButton) undoButton.disabled = !undo(state);
-        if (redoButton) redoButton.disabled = !redo(state);
-        this.counter.textContent = `${this.labels.characterCount} : ${state.doc.textContent.length}`;
+        if (undoButton) undoButton.disabled = sourceActive || !undo(state);
+        if (redoButton) redoButton.disabled = sourceActive || !redo(state);
+        const sourceButton = this.element.querySelector('[data-command="source"]');
+        sourceButton?.classList.toggle('roundeditor__tool--active', sourceActive);
+        sourceButton?.setAttribute('aria-pressed', String(sourceActive));
+        const fullscreenButton = this.element.querySelector('[data-command="fullscreen"]');
+        const fullscreenActive = Boolean(this.bridge.fullscreen?.active);
+        fullscreenButton?.classList.toggle('roundeditor__tool--active', fullscreenActive);
+        fullscreenButton?.setAttribute('aria-pressed', String(fullscreenActive));
+        const count = sourceActive ? this.bridge.sourceMode.getData().length : state.doc.textContent.length;
+        this.counter.textContent = `${this.labels.characterCount} : ${count}`;
     }
 }

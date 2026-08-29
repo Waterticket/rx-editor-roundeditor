@@ -230,6 +230,7 @@ export class AttachmentList {
             const policy = uploadInfo.cloneNode(true);
             policy.className = 'roundeditor__attachments-policy';
             this.headingActions.before(policy);
+            this.policy = policy;
         }
         if (!dropzone.querySelector('.roundeditor__dropzone-count')) {
             const summary = this.container.querySelector('.xefu-controll > div:first-child');
@@ -305,6 +306,7 @@ export class AttachmentList {
         this.container.classList.toggle('roundeditor__attachments--empty', !hasFiles);
         this.container.classList.toggle('roundeditor__attachments--has-files', hasFiles);
         if (this.headingActions) this.headingActions.hidden = !hasFiles;
+        if (this.policy) this.policy.hidden = !hasFiles;
         this.syncSelectionActions();
         if (!this.fileButton) return;
         if (hasFiles && this.fileButton.parentElement !== this.headingActions) {

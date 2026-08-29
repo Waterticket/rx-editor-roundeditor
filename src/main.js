@@ -15,7 +15,11 @@ import { imageNodeView } from './nodeviews/ImageView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
 import { videoNodeView } from './nodeviews/VideoView.js';
 import { stickerNodeView } from './nodeviews/StickerView.js';
+import { enableAutosave, restoreSavedDocument } from './rhymix/autosave.js';
+import { installComponentEditing } from './rhymix/component.js';
 import { normalizeForParse, parseDocument, parseSlice, schema, serializeDocument } from './schema/index.js';
+import { Fullscreen } from './ui/Fullscreen.js';
+import { SourceMode } from './ui/SourceMode.js';
 import { Toolbar } from './ui/Toolbar.js';
 import { exitInlineNode, splitEditorEnter } from './ui/commands.js';
 import { uploadPlaceholderPlugin } from './uploadPlaceholders.js';
@@ -99,6 +103,10 @@ function handleMediaDrop(bridge, event, moved) {
 }
 
 function insertHtml(bridge, html) {
+    if (bridge.sourceMode?.insertHtml(html)) {
+        bridge.sourceMode.focus();
+        return bridge.sync();
+    }
     const slice = parseSlice(html);
     bridge.view.dispatch(bridge.view.state.tr.replaceSelection(slice));
     bridge.view.focus();
@@ -106,7 +114,20 @@ function insertHtml(bridge, html) {
 }
 
 function selectedHtml(bridge) {
+    const sourceSelection = bridge.sourceMode?.selectedHtml();
+    if (sourceSelection !== null && sourceSelection !== undefined) return sourceSelection;
     return serializeDocument({ content: bridge.view.state.selection.content().content }, schema);
+}
+
+function plainText(bridge, selected = false) {
+    if (!bridge.sourceMode?.active) {
+        const from = selected ? bridge.view.state.selection.from : 0;
+        const to = selected ? bridge.view.state.selection.to : bridge.view.state.doc.content.size;
+        return bridge.view.state.doc.textBetween(from, to, '\n\n');
+    }
+    const element = document.createElement('div');
+    element.innerHTML = selected ? bridge.sourceMode.selectedHtml() : bridge.sourceMode.getData();
+    return element.textContent || '';
 }
 
 function findBridgeForFrame(frame) {
@@ -143,19 +164,15 @@ function createCompatibilityBridge(bridge) {
         mode: 'wysiwyg',
         getData: () => bridge.sync(),
         setData: html => {
-            bridge.updateDocument(html);
+            bridge.sourceMode?.setData(html);
             return bridge.sync();
         },
         insertHtml: html => insertHtml(bridge, html),
-        getText: () => bridge.view.state.doc.textBetween(0, bridge.view.state.doc.content.size, '\n\n'),
+        getText: () => plainText(bridge),
         getSelection: () => ({
-            getSelectedText: () => bridge.view.state.doc.textBetween(
-                bridge.view.state.selection.from,
-                bridge.view.state.selection.to,
-                '\n\n'
-            ),
+            getSelectedText: () => plainText(bridge, true),
         }),
-        focus: () => bridge.view.focus(),
+        focus: () => bridge.sourceMode?.focus(),
     };
 }
 
@@ -221,7 +238,7 @@ function publishBridge(bridge) {
         pasteHTML: html => insertHtml(bridge, html),
         editor: { getFrame: () => bridge.editable },
     };
-    window.editorMode[bridge.sequence] = null;
+    window.editorMode[bridge.sequence] = bridge.sourceMode?.active ? 'html' : null;
 }
 
 function applyContentStyles(bridge) {
@@ -266,8 +283,11 @@ function initialize(wrapper) {
         contentInput,
         view: null,
         editable: null,
+        surface: wrapper.querySelector('.roundeditor__surface'),
         compat: null,
         toolbar: null,
+        sourceMode: null,
+        fullscreen: null,
         attachments: null,
         rebindControls() {
             const currentForm = this.wrapper.closest('form') || this.form;
@@ -277,16 +297,24 @@ function initialize(wrapper) {
         },
         sync() {
             this.rebindControls();
-            if (this.view) this.contentInput.value = serializeDocument(this.view.state.doc, schema);
+            if (this.view) this.contentInput.value = this.sourceMode?.getData() ?? this.serializeVisual();
             publishBridge(this);
             return this.contentInput.value;
+        },
+        serializeVisual() {
+            return serializeDocument(this.view.state.doc, schema);
+        },
+        prepareSubmit() {
+            this.sourceMode?.commit();
+            return this.sync();
         },
         updateDocument(html) {
             updateEditorDocument(this.view, parseDocument(html));
         },
     };
+    const initialData = restoreSavedDocument(bridge);
     const state = EditorState.create({
-        doc: parseDocument(contentInput.value),
+        doc: parseDocument(initialData),
         plugins: createPlugins(),
     });
     bridge.view = new EditorView(wrapper.querySelector('.roundeditor__surface'), {
@@ -300,7 +328,7 @@ function initialize(wrapper) {
         handlePaste: (view, event) => handleImagePaste(bridge, event),
         handleDrop: (view, event, slice, moved) => handleMediaDrop(bridge, event, moved),
         nodeViews: {
-            ...rawNodeViews(),
+            ...rawNodeViews(bridge),
             image: imageNodeView(bridge),
             video: videoNodeView(bridge),
             sticker: stickerNodeView(bridge),
@@ -317,6 +345,8 @@ function initialize(wrapper) {
     bridge.editable.replaceHTML = html => insertHtml(bridge, html);
     bridge.compat = createCompatibilityBridge(bridge);
     bridge.toolbar = new Toolbar(bridge);
+    bridge.sourceMode = new SourceMode(bridge);
+    bridge.fullscreen = new Fullscreen(bridge);
     if (config.allowUpload) bridge.attachments = new AttachmentList(bridge);
     bridge.toolbar.refresh(bridge.view.state);
     registry[sequence] = bridge;
@@ -326,9 +356,11 @@ function initialize(wrapper) {
     ensureHiddenField(form, 'use_html', 'Y');
     applyContentStyles(bridge);
     publishBridges();
+    installComponentEditing(bridge);
 
-    form.addEventListener('submit', () => bridge.sync(), true);
+    form.addEventListener('submit', () => bridge.prepareSubmit(), true);
     bridge.sync();
+    enableAutosave(bridge);
     resolveDocumentStickers(bridge).catch(error => console.warn('[roundeditor] Sticker resolution failed.', error));
     wrapper.querySelector('.roundeditor__loading')?.remove();
     wrapper.classList.add('roundeditor--ready');
@@ -361,11 +393,11 @@ document.addEventListener('click', event => {
     const submitter = event.target.closest?.('button[type="submit"], input[type="submit"], button:not([type])');
     if (!submitter?.form) return;
     for (const bridge of Object.values(registry)) {
-        if (bridge.wrapper.closest('form') === submitter.form) bridge.sync();
+        if (bridge.wrapper.closest('form') === submitter.form) bridge.prepareSubmit();
     }
 }, true);
 window.addEventListener('submit', event => {
     for (const bridge of Object.values(registry)) {
-        if (bridge.wrapper.closest('form') === event.target) bridge.sync();
+        if (bridge.wrapper.closest('form') === event.target) bridge.prepareSubmit();
     }
 });

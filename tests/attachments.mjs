@@ -68,6 +68,7 @@ assert.equal(uploader.classList.contains('roundeditor__attachments--empty'), tru
 assert.equal(uploader.querySelector('.roundeditor__drop-overlay strong').textContent, '파일 업로드');
 assert.equal(uploader.querySelector('.roundeditor__list-section-heading'), null);
 assert.match(uploader.querySelector('.roundeditor__attachments-policy').textContent, /파일 제한 : 10MB/);
+assert.equal(uploader.querySelector('.roundeditor__attachments-policy').hidden, true);
 assert.equal(uploader.querySelector('.xefu-dropzone .fileinput-button') !== null, true);
 assert.equal(uploader.querySelector('.fileinput-button i'), null);
 assert.match(uploader.querySelector('.fileinput-button use').getAttribute('href'), /attachment-icons\.svg#upload$/);
@@ -118,6 +119,7 @@ await new Promise(resolve => queueMicrotask(resolve));
 assert.equal(uploader.querySelector('.xefu-list-images .xefu-file-video-play') !== null, true);
 assert.match(uploader.querySelector('.xefu-list-images .xefu-file-video-play use').getAttribute('href'), /attachment-icons\.svg#play$/);
 assert.equal(uploader.classList.contains('roundeditor__attachments--has-files'), true);
+assert.equal(uploader.querySelector('.roundeditor__attachments-policy').hidden, false);
 assert.equal(uploader.querySelector('.roundeditor__attachments-actions .fileinput-button') !== null, true);
 await clickMedia(videoItem.querySelector('.xefu-thumbnail'));
 assert.equal(videoItem.classList.contains('selected'), true);

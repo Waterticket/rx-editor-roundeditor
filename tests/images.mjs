@@ -55,6 +55,10 @@ assert.equal(imageView.dom.classList.contains('roundeditor__media--selected'), t
 assert.equal(imageView.toolbar.element.hidden, false);
 assert.equal(imageView.handles.length, 4);
 assert.equal(imageView.toolbar.element.classList.contains('roundeditor__media-toolbar--below'), true);
+assert.equal(
+    imageView.toolbar.row.querySelector('[data-media-action="size"] .roundeditor__icon path').getAttribute('d'),
+    'M6 6l12 12M6 11V6h5M18 13v5h-5'
+);
 assert.ok(imageView.toolbar.row.querySelector('[data-media-action="left"] .roundeditor__align-icon--left'));
 assert.ok(imageView.toolbar.row.querySelector('[data-media-action="center"] .roundeditor__align-icon--center'));
 assert.ok(imageView.toolbar.row.querySelector('[data-media-action="right"] .roundeditor__align-icon--right'));

@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 const dom = new JSDOM(`<!doctype html><html><body><form>
     <div class="roundeditor"><div class="roundeditor__surface"></div></div>
     <div id="xefu-container-7" data-autoinsert-types='{"image":true,"audio":true,"video":true}'>
-        <div class="xefu-dropzone"><p class="xefu-dropzone-message"></p><span class="xefu-btn fileinput-button"><span><i class="xi-icon"></i>선택</span><input type="file"></span></div><div class="xefu-controll"><div>0개 첨부됨</div><div><input type="button" class="xefu-btn xefu-act-link-selected" value="본문 삽입"><input type="button" class="xefu-btn xefu-act-delete-selected" value="선택 삭제"></div></div><div class="xefu-list"><div class="xefu-list-images"><ul></ul></div><div class="xefu-list-files"><ul></ul></div></div>
+        <div class="xefu-dropzone"><p class="xefu-dropzone-message"></p><span class="xefu-btn fileinput-button"><span><i class="xi-icon"></i>선택</span><input type="file"></span><p class="upload_info"><span class="allowed_filesize_container">파일 제한 : <span class="allowed_filesize">10MB</span></span></p></div><div class="xefu-controll"><div>0개 첨부됨 (<span class="attached_size">0Byte</span> / <span class="allowed_attach_size">20MB</span>)</div><div><input type="button" class="xefu-btn xefu-act-link-selected" value="본문 삽입"><input type="button" class="xefu-btn xefu-act-delete-selected" value="선택 삭제"></div></div><div class="xefu-list"><div class="xefu-list-images"><ul></ul></div><div class="xefu-list-files"><ul></ul></div></div>
     </div>
 </form></body></html>`, { url: 'https://example.test/write' });
 
@@ -40,7 +40,6 @@ const bridge = {
         labels: {
             attachments: '파일 첨부',
             attachmentsHelp: '업로드 후 삽입',
-            uploadedImages: '업로드된 미디어',
             attachmentsDropOverlay: '파일 업로드',
             imageUploading: '이미지 첨부중...',
         },
@@ -67,7 +66,8 @@ assert.equal(uploader.dataset.autoinsertTypes, '{"image":false,"audio":true,"vid
 assert.deepEqual(jqueryData.autoinsertTypes, { image: false, audio: true, video: false });
 assert.equal(uploader.classList.contains('roundeditor__attachments--empty'), true);
 assert.equal(uploader.querySelector('.roundeditor__drop-overlay strong').textContent, '파일 업로드');
-assert.equal(uploader.querySelector('.roundeditor__uploaded-images-heading').textContent, '업로드된 미디어');
+assert.equal(uploader.querySelector('.roundeditor__list-section-heading'), null);
+assert.match(uploader.querySelector('.roundeditor__attachments-policy').textContent, /파일 제한 : 10MB/);
 assert.equal(uploader.querySelector('.xefu-dropzone .fileinput-button') !== null, true);
 assert.equal(uploader.querySelector('.fileinput-button i'), null);
 assert.match(uploader.querySelector('.fileinput-button use').getAttribute('href'), /attachment-icons\.svg#upload$/);
@@ -155,6 +155,13 @@ const progressSerialized = serializeDocument(bridge.view.state.doc, schema);
 assert.match(progressSerialized, /src="\/progress.png"/);
 assert.match(progressSerialized, /<\/p><p>\u00a0<\/p><p>\u00a0<\/p>$/);
 assert.match(serializeDocument(bridge.view.state.doc, schema), /data-file-srl="88"/);
+
+const rejectedFile = new dom.window.File(['too large'], 'rejected.mp4', { type: 'video/mp4' });
+const rejectedUpload = { files: [rejectedFile], submit() {} };
+handlers.fileuploadadd({}, rejectedUpload);
+assert.match(wrapper.querySelector('.roundeditor__upload-placeholder').textContent, /0%/);
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(wrapper.querySelector('.roundeditor__upload-placeholder'), null);
 
 bridge.view.destroy();
 console.log('roundeditor attachment list contract passed');

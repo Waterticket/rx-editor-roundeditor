@@ -38,7 +38,7 @@ const UI_ICONS = {
     more: '<circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
     delete: '<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/>',
-    resize: '<path d="M5 12h14M8 9l-3 3 3 3M16 9l3 3-3 3"/>',
+    resize: '<path d="M6 6l12 12M6 11V6h5M18 13v5h-5"/>',
     alt: '<rect x="3" y="5" width="18" height="14" rx="2"/><text x="12" y="15" text-anchor="middle" font-size="8" font-weight="700">ALT</text>',
     play: '<path d="m9 7 8 5-8 5z" fill="currentColor" stroke="none"/>',
     controls: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m8 10 4 2.5L8 15z"/><path d="M14.5 14.5h3"/>',

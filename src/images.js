@@ -67,7 +67,7 @@ export function insertUploadedImages(bridge, uploads, { position = null, align =
     return true;
 }
 
-function uploadFromEvent(bridge, files, position = null) {
+export function uploadImagesAt(bridge, files, position = null) {
     const placeholderId = addUploadPlaceholder(
         bridge.view,
         'image',
@@ -87,7 +87,7 @@ export function handleImagePaste(bridge, event) {
     const files = imageFiles(event.clipboardData?.files);
     if (!files.length) return false;
     event.preventDefault();
-    uploadFromEvent(bridge, files);
+    uploadImagesAt(bridge, files);
     return true;
 }
 
@@ -98,6 +98,6 @@ export function handleImageDrop(bridge, event, moved) {
     event.preventDefault();
     const position = bridge.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
         ?? bridge.view.state.selection.from;
-    uploadFromEvent(bridge, files, position);
+    uploadImagesAt(bridge, files, position);
     return true;
 }

@@ -9,7 +9,7 @@ import { columnResizing, tableEditing } from 'prosemirror-tables';
 import '../css/roundeditor.scss';
 import { AttachmentList } from './AttachmentList.js';
 import { updateEditorDocument } from './documentUpdate.js';
-import { handleImageDrop, handleImagePaste } from './images.js';
+import { handleImagePaste, imageFiles, uploadImagesAt } from './images.js';
 import { mediaSelectionPlugin } from './mediaSelection.js';
 import { imageNodeView } from './nodeviews/ImageView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
@@ -17,9 +17,10 @@ import { videoNodeView } from './nodeviews/VideoView.js';
 import { stickerNodeView } from './nodeviews/StickerView.js';
 import { normalizeForParse, parseDocument, parseSlice, schema, serializeDocument } from './schema/index.js';
 import { Toolbar } from './ui/Toolbar.js';
-import { exitInlineNode, splitAfterInlineNode } from './ui/commands.js';
+import { exitInlineNode, splitEditorEnter } from './ui/commands.js';
 import { uploadPlaceholderPlugin } from './uploadPlaceholders.js';
 import { resolveDocumentStickers } from './stickers.js';
+import { uploadVideosAt, videoFiles } from './videos.js';
 
 const registry = Object.create(null);
 let previousGlobals = null;
@@ -72,7 +73,7 @@ function createPlugins() {
             'Mod-Shift-x': toggleMark(schema.marks.strike),
             ArrowLeft: exitInlineNode(-1),
             ArrowRight: exitInlineNode(1),
-            Enter: splitAfterInlineNode,
+            Enter: splitEditorEnter,
         }),
         keymap(baseKeymap),
         uploadPlaceholderPlugin(),
@@ -82,6 +83,19 @@ function createPlugins() {
         dropCursor(),
         gapCursor(),
     ];
+}
+
+function handleMediaDrop(bridge, event, moved) {
+    if (!bridge.config.allowUpload || moved) return false;
+    const images = imageFiles(event.dataTransfer?.files);
+    const videos = videoFiles(event.dataTransfer?.files);
+    if (!images.length && !videos.length) return false;
+    event.preventDefault();
+    const position = bridge.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
+        ?? bridge.view.state.selection.from;
+    if (images.length) uploadImagesAt(bridge, images, position);
+    if (videos.length) uploadVideosAt(bridge, videos, position);
+    return true;
 }
 
 function insertHtml(bridge, html) {
@@ -284,7 +298,7 @@ function initialize(wrapper) {
         },
         transformPastedHTML: normalizeForParse,
         handlePaste: (view, event) => handleImagePaste(bridge, event),
-        handleDrop: (view, event, slice, moved) => handleImageDrop(bridge, event, moved),
+        handleDrop: (view, event, slice, moved) => handleMediaDrop(bridge, event, moved),
         nodeViews: {
             ...rawNodeViews(),
             image: imageNodeView(bridge),

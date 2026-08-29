@@ -22,6 +22,7 @@ const {
     setTextStyle,
     setTextblockAttrs,
     splitAfterInlineNode,
+    splitEditorEnter,
     toggleBlockquote,
     toggleList,
     toggleTextMark,
@@ -78,6 +79,12 @@ list.run(toggleList(schema.nodes.bulletList, schema.nodes.listItem));
 assert.equal(list.html(), '<ul><li><p>Hello</p></li></ul>');
 list.run(toggleList(schema.nodes.bulletList, schema.nodes.listItem));
 assert.equal(list.html(), '<p>Hello</p>');
+
+const orderedList = editor('<ol><li><p>첫째</p></li></ol>');
+orderedList.dispatch(orderedList.state.tr.setSelection(TextSelection.create(orderedList.state.doc, 5)));
+assert.equal(orderedList.run(splitEditorEnter), true);
+orderedList.dispatch(orderedList.state.tr.insertText('둘째'));
+assert.equal(orderedList.html(), '<ol><li><p>첫째</p></li><li><p>둘째</p></li></ol>');
 
 const link = editor('<p>Hello</p>', true);
 link.run(setLink('https://example.test/', true));

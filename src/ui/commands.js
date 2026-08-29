@@ -9,6 +9,7 @@ import {
 import {
     liftListItem,
     sinkListItem,
+    splitListItem,
     wrapInList,
 } from 'prosemirror-schema-list';
 import { NodeSelection, TextSelection } from 'prosemirror-state';
@@ -45,7 +46,7 @@ export function splitAfterInlineNode(state, dispatch, view) {
         position = selection.to;
     } else if (selection instanceof TextSelection && selection.empty) {
         const previous = selection.$from.nodeBefore;
-        if (previous?.isInline && previous.isAtom) position = selection.from;
+        if (previous?.isInline && previous.isAtom && !previous.isText) position = selection.from;
     }
     if (position === null) return false;
     const $position = state.doc.resolve(position);
@@ -53,6 +54,11 @@ export function splitAfterInlineNode(state, dispatch, view) {
     if (!dispatch) return true;
     const positioned = state.apply(state.tr.setSelection(TextSelection.create(state.doc, position)));
     return splitBlock(positioned, dispatch, view);
+}
+
+export function splitEditorEnter(state, dispatch, view) {
+    return splitAfterInlineNode(state, dispatch, view)
+        || splitListItem(state.schema.nodes.listItem)(state, dispatch, view);
 }
 
 export function markActive(state, type) {

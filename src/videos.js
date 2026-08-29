@@ -1,6 +1,12 @@
 import { normalizeRhymixAssetUrl, normalizeRhymixVideoUrl, uploadFile } from './rhymix/upload.js';
 import { addTrailingParagraphsAfterBlockMedia } from './mediaInsertion.js';
-import { findUploadPlaceholder, removeUploadPlaceholderFrom } from './uploadPlaceholders.js';
+import {
+    addUploadPlaceholder,
+    findUploadPlaceholder,
+    removeUploadPlaceholder,
+    removeUploadPlaceholderFrom,
+    updateUploadPlaceholder,
+} from './uploadPlaceholders.js';
 
 export const MAX_VIDEO_SIZE = 50 * 1024 * 1024;
 
@@ -73,4 +79,23 @@ export function insertUploadedVideo(bridge, upload, { align = null, position = n
 export async function uploadVideoFile(bridge, item, onProgress = () => {}) {
     const response = await uploadFile(bridge, item.file || item, onProgress);
     return { ...response, dimensions: item.dimensions || null };
+}
+
+export function uploadVideosAt(bridge, files, position = null) {
+    for (const file of videoFiles(files)) {
+        const placeholderId = addUploadPlaceholder(
+            bridge.view,
+            'video',
+            bridge.config.labels?.videoUploading || 'Uploading video…',
+            position ?? bridge.view.state.selection.from
+        );
+        uploadVideoFile(bridge, file, progress => {
+            updateUploadPlaceholder(bridge.view, placeholderId, progress);
+        })
+            .then(upload => insertUploadedVideo(bridge, upload, { position, placeholderId }))
+            .catch(error => {
+                removeUploadPlaceholder(bridge.view, placeholderId);
+                window.alert?.(error.message);
+            });
+    }
 }

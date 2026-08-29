@@ -847,6 +847,12 @@ body.color_scheme_dark .roundeditor__attachments {
 
 .roundeditor__attachments-heading strong { flex: 0 0 auto; font-size: 14px; }
 .roundeditor__attachments-heading > span { color: var(--roundeditor-muted); font-size: 12px; text-align: right; }
+.roundeditor__attachments-policy {
+    margin: 0 auto 0 0;
+    color: var(--roundeditor-muted);
+    font-size: 11px;
+    line-height: 1.4;
+}
 .roundeditor__attachments-actions { display: flex; margin-left: auto; align-items: center; gap: 6px; }
 .roundeditor__attachments-actions[hidden] { display: none; }
 .roundeditor__attachments--has-files .roundeditor__attachments-heading { border-bottom: 1px solid var(--roundeditor-border); }
@@ -862,6 +868,7 @@ body.color_scheme_dark .roundeditor__attachments {
     padding: 0 0 10px;
     background: transparent;
 }
+.roundeditor__attachments--empty .roundeditor__attachments-policy { margin-left: auto; }
 .roundeditor__attachments--empty .roundeditor__attachments-help { display: none; }
 .roundeditor__attachments--empty .xefu-controll,
 .roundeditor__attachments--empty .xefu-list { display: none !important; }
@@ -1000,6 +1007,7 @@ body.color_scheme_dark .roundeditor__attachments {
     z-index: 2;
     display: block;
 }
+.roundeditor__attachments--empty .roundeditor__dropzone-actions { pointer-events: none; }
 .roundeditor__attachments--empty .roundeditor__dropzone-or { display: none; }
 .roundeditor__attachments--empty .roundeditor__dropzone-actions .fileinput-button {
     position: absolute;
@@ -1116,16 +1124,6 @@ body.color_scheme_dark .roundeditor__attachments {
     visibility: visible;
 }
 
-.roundeditor__attachments .roundeditor__list-section-heading {
-    display: block;
-    margin: 8px 6px 6px;
-    color: var(--roundeditor-color);
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.roundeditor__attachments .roundeditor__list-section-heading[hidden] { display: none; }
-
 .roundeditor__attachments .xefu-list-images,
 .roundeditor__attachments .xefu-list-files { float: none; width: 100%; margin: 0; padding: 0; border: 0; background: transparent; }
 
@@ -1154,6 +1152,12 @@ body.color_scheme_dark .roundeditor__attachments {
     color: var(--roundeditor-color);
     box-sizing: border-box;
     cursor: pointer;
+}
+
+.roundeditor__attachments .xefu-list-files .xefu-file {
+    min-height: 36px;
+    padding-top: 3px;
+    padding-bottom: 3px;
 }
 
 .roundeditor__attachments .xefu-list-images .xefu-file {

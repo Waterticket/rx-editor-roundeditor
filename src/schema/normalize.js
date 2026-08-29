@@ -141,8 +141,18 @@ function splitParagraphAtBlocks(paragraph) {
 }
 
 function removeEmptyParagraphFiller(paragraph) {
-    if (paragraph.childNodes.length !== 1 || paragraph.firstChild.nodeType !== Node.TEXT_NODE) return;
-    if (paragraph.firstChild.nodeValue === '\u00a0') paragraph.replaceChildren();
+    if (paragraph.children.length || !/^[\s\u00a0]*$/u.test(paragraph.textContent)) return;
+    paragraph.replaceChildren();
+}
+
+function trimBlockBoundaryWhitespace(element) {
+    const textNodes = [];
+    const walker = document.createTreeWalker(element, 4);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) textNodes.push(node);
+    if (!textNodes.length) return;
+    textNodes[0].nodeValue = textNodes[0].nodeValue.replace(/^[\s\u00a0]+/u, '');
+    const last = textNodes.at(-1);
+    last.nodeValue = last.nodeValue.replace(/[\s\u00a0]+$/u, '');
 }
 
 function wrapInlineRuns(container, createEmpty = false) {
@@ -173,12 +183,15 @@ export function normalizeForParse(html) {
     template.innerHTML = String(html || '');
 
     for (const element of Array.from(template.content.children)) visitElement(element);
-    for (const paragraph of Array.from(template.content.querySelectorAll('p'))) removeEmptyParagraphFiller(paragraph);
     for (const paragraph of Array.from(template.content.querySelectorAll('p'))) splitParagraphAtBlocks(paragraph);
     for (const container of Array.from(template.content.querySelectorAll('li,td,th,blockquote'))) {
         wrapInlineRuns(container, true);
     }
     wrapInlineRuns(template.content, false);
+    for (const block of Array.from(template.content.querySelectorAll('p,h1,h2,h3,h4,h5,h6'))) {
+        trimBlockBoundaryWhitespace(block);
+    }
+    for (const paragraph of Array.from(template.content.querySelectorAll('p'))) removeEmptyParagraphFiller(paragraph);
 
     if (!template.content.childNodes.length) template.innerHTML = '<p></p>';
     return template.innerHTML;

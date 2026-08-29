@@ -57,6 +57,10 @@ bridge.view = new EditorView(document.querySelector('#editor'), {
 bridge.view.dispatch(bridge.view.state.tr.setSelection(NodeSelection.create(bridge.view.state.doc, videoPosition)));
 assert.equal(videoView.dom.classList.contains('roundeditor__media--selected'), true);
 assert.equal(videoView.toolbar.element.hidden, false);
+assert.equal(
+    videoView.toolbar.row.querySelector('[data-media-action="size"] .roundeditor__icon path').getAttribute('d'),
+    'M6 6l12 12M6 11V6h5M18 13v5h-5'
+);
 assert.equal(videoView.handles.length, 4);
 assert.equal(videoView.media.controls, false);
 assert.equal(videoView.media.autoplay, false);

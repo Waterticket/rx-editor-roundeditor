@@ -10,8 +10,6 @@ const FALLBACK_LABELS = {
     attachmentsDropTitle: 'Drag files here or click to upload',
     attachmentsDropOr: 'or',
     attachmentsSelectFile: 'Choose files',
-    uploadedImages: 'Uploaded media',
-    uploadedFiles: 'Uploaded files',
     attachmentsDropOverlay: 'Upload files',
     attachmentsCountCurrent: 'Current',
     attachmentsCountSuffix: ' files',
@@ -90,14 +88,12 @@ export class AttachmentList {
         this.container.prepend(heading);
         this.decorateDropzone();
         this.mergeControlsIntoHeading();
-        this.addSectionHeadings();
         this.addDropOverlay();
         const list = this.container.querySelector('.xefu-list');
         if (list && window.MutationObserver) {
             this.listObserver = new MutationObserver(() => {
                 this.decorateVideoItems();
                 this.decorateCoverButtons();
-                this.syncSectionHeadings();
                 this.syncLayout();
             });
             this.listObserver.observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
@@ -111,7 +107,6 @@ export class AttachmentList {
         });
         this.decorateVideoItems();
         this.decorateCoverButtons();
-        this.syncSectionHeadings();
         this.syncLayout();
     }
 
@@ -190,6 +185,18 @@ export class AttachmentList {
         const message = dropzone.querySelector('.xefu-dropzone-message');
         const button = dropzone.querySelector('.fileinput-button');
         this.fileButton = button;
+        this.fileInput = button?.querySelector('input[type="file"]') || null;
+        dropzone.setAttribute('role', 'button');
+        dropzone.tabIndex = 0;
+        dropzone.addEventListener('click', event => {
+            if (!this.fileInput || event.target === this.fileInput) return;
+            this.fileInput.click();
+        });
+        dropzone.addEventListener('keydown', event => {
+            if (!this.fileInput || !['Enter', ' '].includes(event.key)) return;
+            event.preventDefault();
+            this.fileInput.click();
+        });
         if (message && !dropzone.querySelector('.roundeditor__dropzone-icon')) {
             const icon = svgIcon('upload');
             icon.classList.add('roundeditor__dropzone-icon');
@@ -218,6 +225,12 @@ export class AttachmentList {
             buttonLabel.append(svgIcon('upload'), document.createTextNode(this.labels.attachmentsSelectFile));
         }
         dropzone.querySelector('.upload_info')?.classList.add('roundeditor__dropzone-hint');
+        const uploadInfo = dropzone.querySelector('.upload_info');
+        if (uploadInfo && this.headingActions && !this.container.querySelector('.roundeditor__attachments-policy')) {
+            const policy = uploadInfo.cloneNode(true);
+            policy.className = 'roundeditor__attachments-policy';
+            this.headingActions.before(policy);
+        }
         if (!dropzone.querySelector('.roundeditor__dropzone-count')) {
             const summary = this.container.querySelector('.xefu-controll > div:first-child');
             if (summary) {
@@ -285,34 +298,6 @@ export class AttachmentList {
         label.textContent = this.labels.attachmentsDropOverlay;
         overlay.appendChild(label);
         list.appendChild(overlay);
-    }
-
-    addSectionHeadings() {
-        const list = this.container.querySelector('.xefu-list');
-        if (!list) return;
-        const imageList = list.querySelector('.xefu-list-images');
-        const fileList = list.querySelector('.xefu-list-files');
-        if (imageList && !list.querySelector('.roundeditor__uploaded-images-heading')) {
-            const heading = document.createElement('strong');
-            heading.className = 'roundeditor__list-section-heading roundeditor__uploaded-images-heading';
-            heading.textContent = this.labels.uploadedImages;
-            imageList.before(heading);
-            this.imageSectionHeading = heading;
-        }
-        if (fileList && !list.querySelector('.roundeditor__uploaded-files-heading')) {
-            const heading = document.createElement('strong');
-            heading.className = 'roundeditor__list-section-heading roundeditor__uploaded-files-heading';
-            heading.textContent = this.labels.uploadedFiles;
-            fileList.before(heading);
-            this.fileSectionHeading = heading;
-        }
-    }
-
-    syncSectionHeadings() {
-        const imageList = this.container.querySelector('.xefu-list-images ul');
-        const fileList = this.container.querySelector('.xefu-list-files ul');
-        if (this.imageSectionHeading) this.imageSectionHeading.hidden = !(imageList?.children.length);
-        if (this.fileSectionHeading) this.fileSectionHeading.hidden = !(fileList?.children.length);
     }
 
     syncLayout() {
@@ -398,6 +383,20 @@ export class AttachmentList {
         container.on('fileuploadprogressall.roundeditorAttachments', (event, data) => this.progressAll(data));
         container.on('fileuploaddone.roundeditorAttachments', (event, data) => this.done(data));
         container.on('fileuploadfail.roundeditorAttachments', (event, data) => this.fail(data));
+        container.on('fileuploadprocessfail.roundeditorAttachments', (event, data) => this.fail(data));
+        this.bindDropzoneState();
+    }
+
+    bindDropzoneState() {
+        if (this.dropzoneStateBound) return;
+        this.dropzoneStateBound = true;
+        const clear = () => this.container.classList.remove('in', 'hover');
+        this.container.addEventListener('dragenter', () => this.container.classList.add('in', 'hover'));
+        this.container.addEventListener('dragover', () => this.container.classList.add('in', 'hover'));
+        this.container.addEventListener('dragleave', event => {
+            if (!event.relatedTarget || !this.container.contains(event.relatedTarget)) clear();
+        });
+        this.container.addEventListener('drop', () => window.setTimeout(clear, 0));
     }
 
     entriesFor(data) {
@@ -426,6 +425,11 @@ export class AttachmentList {
         }
         if (entries.length) this.uploads.set(data, entries);
         this.wrapSubmit(data);
+        if (entries.length && typeof data?.submit === 'function') {
+            window.setTimeout(() => {
+                if (!data._roundeditorSubmitted) this.fail(data);
+            }, 0);
+        }
     }
 
     wrapSubmit(data) {
@@ -433,6 +437,7 @@ export class AttachmentList {
         const submit = data.submit;
         data._roundeditorSubmitWrapped = true;
         data.submit = (...args) => {
+            data._roundeditorSubmitted = true;
             const promise = submit.apply(data, args);
             promise?.done?.(() => this.done(data));
             promise?.fail?.(() => this.fail(data));
@@ -490,6 +495,7 @@ export class AttachmentList {
         }
         this.activeEntries.delete(entry);
         this.fileEntries.delete(entry.file);
+        this.pendingFiles.delete(entry.file.name);
         this.uploads.delete(entry.data || data);
     }
 
@@ -498,6 +504,7 @@ export class AttachmentList {
             removeUploadPlaceholder(this.bridge.view, entry.placeholderId);
             this.activeEntries.delete(entry);
             this.fileEntries.delete(entry.file);
+            this.pendingFiles.delete(entry.file.name);
             this.uploads.delete(entry.data || data);
         }
         this.uploads.delete(data);

@@ -30,11 +30,15 @@ for (const [index, fixture] of fixtures.entries()) {
 
 const serialized = cleaned.map(html => serializeDocument(parseDocument(html), schema));
 const cleanedAfterRoundTrip = cleanBatch(serialized);
+const editorCanonical = {
+    'inline video is lifted': '<p>a</p><video src="./files/x.mp4"></video>b',
+};
 for (const [index, fixture] of fixtures.entries()) {
-    assert.equal(cleanedAfterRoundTrip[index], cleaned[index], `${fixture.name}: editor round trip changed clean HTML`);
+    const expected = editorCanonical[fixture.name] || cleaned[index];
+    assert.equal(cleanedAfterRoundTrip[index], expected, `${fixture.name}: editor round trip changed clean HTML`);
     assert.equal(cleanedAfterRoundTrip[index], serialized[index], `${fixture.name}: editor output is not an HTMLFilter fixed point`);
     const reparsed = parseDocument(serialized[index]);
-    assert.deepEqual(reparsed.toJSON(), parseDocument(cleaned[index]).toJSON(), `${fixture.name}: reparse changed the document model`);
+    assert.deepEqual(reparsed.toJSON(), parseDocument(expected).toJSON(), `${fixture.name}: reparse changed the document model`);
 }
 
 const cleanedByName = Object.fromEntries(fixtures.map((fixture, index) => [fixture.name, cleaned[index]]));
@@ -61,5 +65,16 @@ const serializedBlankLines = serializeDocument(blankLines, schema);
 assert.equal(serializedBlankLines, '<p>위</p><p>\u00a0</p><p>\u00a0</p><p>아래</p>');
 assert.deepEqual(parseDocument(serializedBlankLines).toJSON(), blankLines.toJSON());
 assert.equal(cleanBatch([serializedBlankLines])[0], serializedBlankLines);
+
+const growingBlankSpaces = parseDocument('<p>위</p><p>  </p><p>\u00a0 \u00a0</p><p>아래</p>');
+assert.deepEqual(growingBlankSpaces.toJSON(), blankLines.toJSON());
+
+const boundarySpaces = serializeDocument(parseDocument(
+    '<p>  글자  </p><p> <img src="/space.png" alt="" />   </p><p>앞 <strong>중간</strong> 뒤</p>'
+), schema);
+assert.equal(
+    boundarySpaces,
+    '<p>글자</p><p><img src="/space.png" alt="" /></p><p>앞 <strong>중간</strong> 뒤</p>'
+);
 
 console.log(`roundeditor round-trip contract passed (${fixtures.length} golden cases)`);

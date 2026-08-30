@@ -88,6 +88,46 @@ function structurallyEditable(element) {
 
 function visitElement(element) {
     const tagName = element.tagName.toLowerCase();
+    if (tagName === 'span' && element.hasAttribute('data-roundeditor-video')) {
+        const video = element.querySelector('video');
+        if (!video) {
+            element.remove();
+            return;
+        }
+        const caption = element.querySelector('.roundeditor-content-media__caption, .roundeditor-content-image__caption')
+            || Array.from(element.children).find(child => child !== video && child.tagName === 'SPAN');
+        if (caption) video.setAttribute('data-rx-roundeditor-caption', caption.textContent || '');
+        element.replaceWith(video);
+        visitElement(video);
+        return;
+    }
+    if (tagName === 'span' && element.hasAttribute('data-roundeditor-image')) {
+        const image = element.querySelector('img:not([data-rx-sticker])');
+        const video = element.querySelector('video');
+        if (!image && video) {
+            const caption = element.hasAttribute('data-roundeditor-caption')
+                ? element.querySelector('.roundeditor-content-image__caption')
+                : null;
+            if (caption) video.setAttribute('data-rx-roundeditor-caption', caption.textContent || '');
+            element.replaceWith(video);
+            visitElement(video);
+            return;
+        }
+        if (!image) {
+            element.remove();
+            return;
+        }
+        const explicitCaption = element.hasAttribute('data-roundeditor-caption');
+        const caption = explicitCaption
+            ? element.querySelector('.roundeditor-content-image__caption')
+            : null;
+        const baseAlt = element.getAttribute('data-roundeditor-alt');
+        if (baseAlt !== null) image.setAttribute('alt', baseAlt);
+        if (caption) image.setAttribute('data-rx-roundeditor-caption', caption.textContent || '');
+        element.replaceWith(image);
+        visitElement(image);
+        return;
+    }
     if (DANGEROUS_TAGS.has(tagName)) {
         element.remove();
         return;

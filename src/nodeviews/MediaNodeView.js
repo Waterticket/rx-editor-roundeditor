@@ -149,7 +149,7 @@ export class MediaNodeView {
     }
 
     stopEvent(event) {
-        return Boolean(event.target.closest('.roundeditor__media-toolbar, .roundeditor__media-handle'));
+        return Boolean(event.target.closest('.roundeditor__media-toolbar, .roundeditor__media-handle, .roundeditor__image-cover, .roundeditor__image-caption, .roundeditor__image-edge'));
     }
 
     ignoreMutation() {

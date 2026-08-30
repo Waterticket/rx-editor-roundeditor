@@ -80,6 +80,17 @@ function fillEmptyParagraphs(container) {
     }
 }
 
+function normalizeInlineStyles(container) {
+    for (const element of Array.from(container.querySelectorAll('[style]'))) {
+        const style = styleDeclarations(element.getAttribute('style'))
+            .map(([property, value]) => `${property}:${element.matches('.roundeditor-content-image__caption, .roundeditor-content-media__caption')
+                ? value.replace(/rgba?\(([^)]*)\)/gi, match => match.replace(/\s*,\s*/g, ','))
+                : value}`).join(';');
+        if (style) element.setAttribute('style', `${style};`);
+        else element.removeAttribute('style');
+    }
+}
+
 function useXhtmlVoidTags(html) {
     const names = Array.from(VOID_TAGS).join('|');
     return html.replace(new RegExp(`<(${names})(\\s[^<>]*?)?>`, 'gi'), match => (
@@ -98,5 +109,6 @@ export function serializeDocument(doc, schema) {
     mergeNestedStyleSpans(container);
     unwrapInternalNodes(container);
     fillEmptyParagraphs(container);
+    normalizeInlineStyles(container);
     return useFilterStableEntities(useXhtmlVoidTags(container.innerHTML));
 }

@@ -50,6 +50,7 @@ export function videoAttrsFromUpload(upload, maxWidth = Infinity, align = null) 
     return {
         src: normalizeRhymixVideoUrl(upload.download_url),
         poster: normalizeRhymixAssetUrl(upload.thumbnail_filename) || null,
+        caption: '',
         width: null,
         height: null,
         displayWidth: null,

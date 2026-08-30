@@ -346,6 +346,7 @@ function initialize(wrapper) {
         sourceMode: null,
         fullscreen: null,
         attachments: null,
+        imageViews: new Set(),
         rebindControls() {
             const currentForm = this.wrapper.closest('form') || this.form;
             this.form = currentForm;

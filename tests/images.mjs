@@ -32,7 +32,7 @@ const {
 assert.deepEqual(imageAttrsFromUpload({
     download_url: '/image.jpg', file_srl: 77, source_filename: '사진.jpg', dimensions: { width: 1200, height: 600 },
 }, 600), {
-    src: '/image.jpg', alt: '사진.jpg', width: null, height: null,
+    src: '/image.jpg', alt: '', caption: '', width: null, height: null,
     displayWidth: null, displayHeight: null, fileSrl: '77', editorComponent: 'image_link',
 });
 assert.equal(normalizeRhymixUrl('/download?a=1&amp;b=2'), '/download?a=1&b=2');
@@ -44,7 +44,7 @@ window.default_url = 'https://example.test/subdir/';
 assert.equal(normalizeRhymixAssetUrl('./files/poster.jpg'), '/subdir/files/poster.jpg');
 
 const compiledCss = readFileSync(new URL('../dist/roundeditor.css', import.meta.url), 'utf8');
-assert.match(compiledCss, /@media \(max-width:720px\)\{\.roundeditor__media--image>img\{height:auto!important\}/);
+assert.match(compiledCss, /@media \(max-width:720px\).*\.roundeditor__image-frame>img\{height:auto!important\}/);
 
 const initial = parseDocument('<p><img src="/old.jpg" alt="기존" width="320" height="180" style="width:320px;height:180px;" data-file-srl="41" editor_component="image_link" /></p>');
 assert.equal(initial.firstChild.firstChild.type.name, 'image');
@@ -58,6 +58,10 @@ bridge.view.dispatch(bridge.view.state.tr.setSelection(NodeSelection.create(brid
 assert.equal(imageView.dom.classList.contains('roundeditor__media--selected'), true);
 assert.equal(imageView.toolbar.element.hidden, false);
 assert.equal(imageView.handles.length, 4);
+assert.ok(imageView.imageFrame);
+assert.ok(imageView.cover);
+assert.ok(imageView.captionInput);
+assert.ok(imageView.edge);
 assert.equal(imageView.toolbar.element.classList.contains('roundeditor__media-toolbar--below'), true);
 assert.equal(
     imageView.toolbar.row.querySelector('[data-media-action="size"] .roundeditor__icon path').getAttribute('d'),
@@ -91,8 +95,12 @@ assert.equal(bridge.view.state.selection instanceof NodeSelection, true);
 assert.match(serializeDocument(bridge.view.state.doc, schema), /width="240" height="135" style="width:240px;height:135px;"/);
 imageView.setAlt('새 대체 텍스트');
 assert.match(serializeDocument(bridge.view.state.doc, schema), /alt="새 대체 텍스트"/);
+assert.doesNotMatch(serializeDocument(bridge.view.state.doc, schema), /roundeditor-content-image__caption/);
+imageView.setCaption('새 캡션');
+assert.match(serializeDocument(bridge.view.state.doc, schema), /alt="새 캡션"/);
+assert.match(serializeDocument(bridge.view.state.doc, schema), /roundeditor-content-image__caption[^>]*>새 캡션<\/span>/);
 imageView.setLink('https://example.test/image');
-assert.match(serializeDocument(bridge.view.state.doc, schema), /<a href="https:\/\/example.test\/image" target="_blank" rel="noreferrer noopener"><img/);
+assert.match(serializeDocument(bridge.view.state.doc, schema), /<a href="https:\/\/example.test\/image" target="_blank" rel="noreferrer noopener"><span class="roundeditor-content-image"/);
 imageView.setAlign('center');
 assert.match(serializeDocument(bridge.view.state.doc, schema), /^<p style="text-align:center;">/);
 imageView.setAlign('right');
@@ -101,7 +109,7 @@ imageView.toolbar.openForm('size');
 assert.equal(imageView.toolbar.formHost.querySelector('button[type="button"]').textContent, 'Remove explicit size');
 imageView.toolbar.formHost.querySelector('button[type="button"]').click();
 assert.doesNotMatch(serializeDocument(bridge.view.state.doc, schema), /(?:width|height)="/);
-assert.doesNotMatch(serializeDocument(bridge.view.state.doc, schema), /style="[^"]*(?:width|height):/);
+assert.doesNotMatch(serializeDocument(bridge.view.state.doc, schema), /<img[^>]*style="[^"]*(?:width|height):/);
 
 window.request_uri = '/index.php';
 let sentData;
@@ -168,8 +176,53 @@ insertUploadedImages(bridge, [{
 }], { align: 'right' });
 const inserted = serializeDocument(bridge.view.state.doc, schema);
 assert.match(inserted, /^<p style="text-align:right;">/);
-assert.match(inserted, /<img src="\/new.png" alt="new.png" data-file-srl="99" editor_component="image_link" \/>/);
+assert.match(inserted, /<img src="\/new.png" alt="" data-file-srl="99" editor_component="image_link" \/>/);
 assert.doesNotMatch(inserted, /(?:width|height)="|style="[^"]*(?:width|height):/);
+bridge.view.destroy();
+
+const captionDocument = parseDocument('<p><img src="/caption.jpg" alt="" data-file-srl="77" /></p>');
+const captionBridge = { config: { labels: {} }, imageViews: new Set(), view: null, attachments: {
+    findFileItem: fileSrl => fileSrl === '77' ? document.createElement('li') : null,
+    isCover: () => false,
+    toggleCover: () => { captionBridge.coverToggles = (captionBridge.coverToggles || 0) + 1; },
+} };
+let captionView;
+captionBridge.view = new EditorView(document.querySelector('#editor'), {
+    state: EditorState.create({ doc: captionDocument }),
+    nodeViews: { image: (node, view, getPos) => (captionView = new ImageView(node, view, getPos, captionBridge)) },
+});
+assert.equal(captionView.caption.hidden, true);
+captionBridge.view.dispatch(captionBridge.view.state.tr.setSelection(NodeSelection.create(captionBridge.view.state.doc, 1)));
+assert.equal(captionView.caption.hidden, false);
+captionView.captionInput.value = '호시노111';
+captionView.captionInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+const captionHtml = serializeDocument(captionBridge.view.state.doc, schema);
+assert.match(captionHtml, /alt="호시노111"/);
+assert.match(captionHtml, /roundeditor-content-image__caption[^>]*>호시노111<\/span>/);
+captionView.captionInput.click();
+assert.equal(document.activeElement, captionView.captionInput);
+captionView.captionInput.dispatchEvent(new dom.window.MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+assert.equal(captionView.captionInput.selectionStart, 0);
+assert.equal(captionView.captionInput.selectionEnd, '호시노111'.length);
+captionView.cover.click();
+assert.equal(captionBridge.coverToggles, 1);
+assert.equal(captionView.edge.hidden, false);
+captionView.edge.click();
+assert.equal(captionBridge.view.state.selection instanceof TextSelection, true);
+assert.match(serializeDocument(captionBridge.view.state.doc, schema), /^<p>\u00a0<\/p><p>\u00a0<\/p><p>/);
+assert.equal(captionView.edge.hidden, true);
+captionBridge.view.destroy();
+
+document.querySelector('#editor').replaceChildren();
+const filenameAltDocument = parseDocument('<p><img src="/filename.jpg" alt="filename.jpg" /></p>');
+let filenameAltView;
+bridge.view = new EditorView(document.querySelector('#editor'), {
+    state: EditorState.create({ doc: filenameAltDocument }),
+    nodeViews: { image: (node, view, getPos) => (filenameAltView = new ImageView(node, view, getPos, bridge)) },
+});
+assert.equal(filenameAltView.captionInput.value, '');
+assert.equal(filenameAltView.caption.hidden, true);
+assert.equal(serializeDocument(bridge.view.state.doc, schema), '<p><img src="/filename.jpg" alt="filename.jpg" /></p>');
 bridge.view.destroy();
 
 document.querySelector('#editor').replaceChildren();
@@ -209,6 +262,25 @@ insertUploadedImages(bridge, [{
 }], { insertionMode: 'inline' });
 assert.match(serializeDocument(bridge.view.state.doc, schema), /^<p>A<img [^>]*src="\/inline.png"[^>]* \/>B<\/p>$/);
 assert.equal(bridge.view.state.doc.childCount, 1);
+bridge.view.destroy();
+
+document.querySelector('#editor').replaceChildren();
+const adjacentImageViews = [];
+bridge.view = new EditorView(document.querySelector('#editor'), {
+    state: EditorState.create({ doc: parseDocument('<p><img src="/one.jpg" /><img src="/two.jpg" /></p>') }),
+    nodeViews: { image: (node, view, getPos) => {
+        const instance = new ImageView(node, view, getPos, bridge);
+        adjacentImageViews.push(instance);
+        return instance;
+    } },
+});
+assert.equal(adjacentImageViews[0].edge.hidden, false);
+assert.equal(adjacentImageViews[1].edge.hidden, false);
+adjacentImageViews[1].edge.click();
+assert.equal(
+    serializeDocument(bridge.view.state.doc, schema),
+    '<p><img src="/one.jpg" alt="" /></p><p>\u00a0</p><p>\u00a0</p><p><img src="/two.jpg" alt="" /></p>'
+);
 bridge.view.destroy();
 
 console.log('roundeditor Phase 3 image contract passed');

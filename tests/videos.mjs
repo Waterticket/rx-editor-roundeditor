@@ -51,9 +51,19 @@ assert.equal(parsedVideo.attrs.controls, true);
 assert.equal(parsedVideo.attrs.preload, 'none');
 
 const compiledCss = readFileSync(new URL('../dist/roundeditor.css', import.meta.url), 'utf8');
-assert.match(compiledCss, /\.roundeditor__media--video>video\{[^}]*height:auto!important/);
+assert.match(compiledCss, /\.roundeditor__media--video>\.roundeditor__video-frame>video\{[^}]*height:auto!important/);
 
-const bridge = { config: { labels: {} }, view: null };
+let coverToggles = 0;
+const bridge = {
+    config: { labels: {} },
+    imageViews: new Set(),
+    view: null,
+    attachments: {
+        findFileItem: fileSrl => fileSrl === '71' ? document.createElement('li') : null,
+        isCover: () => false,
+        toggleCover: () => { coverToggles++; },
+    },
+};
 let videoView;
 bridge.view = new EditorView(document.querySelector('#editor'), {
     state: EditorState.create({ doc: initial, plugins: [gapCursor(), mediaSelectionPlugin()] }),
@@ -73,6 +83,10 @@ assert.equal(videoView.media.getAttribute('src'), '/movie.mp4');
 assert.equal(videoView.media.preload, 'metadata');
 assert.equal(videoView.media.getAttribute('loading'), 'lazy');
 assert.equal(videoView.media.style.aspectRatio, '640 / 360');
+assert.ok(videoView.videoFrame);
+assert.ok(videoView.captionInput);
+assert.ok(videoView.cover);
+assert.equal(videoView.edge.hidden, true);
 Object.defineProperty(videoView.media, 'duration', { value: 83.6, configurable: true });
 videoView.media.dispatchEvent(new dom.window.Event('loadedmetadata'));
 assert.equal(videoView.dom.querySelector('.roundeditor__video-duration').textContent, '1:24');
@@ -132,12 +146,24 @@ const withoutLeadingParagraph = parseDocument(serializeDocument(bridge.view.stat
 updateEditorDocument(bridge.view, withoutLeadingParagraph);
 assert.equal(videoView.media, activeVideoMedia);
 assert.equal(videoView.media.getAttribute('src'), '/movie.mp4');
+videoView.captionInput.value = '동영상 설명';
+videoView.captionInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+serialized = serializeDocument(bridge.view.state.doc, schema);
+assert.match(serialized, /data-roundeditor-image/);
+assert.match(serialized, /roundeditor-content-image__caption[^>]*>동영상 설명<\/span>/);
+videoView.captionInput.click();
+assert.equal(document.activeElement, videoView.captionInput);
+videoView.captionInput.dispatchEvent(new dom.window.MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+assert.equal(videoView.captionInput.selectionStart, 0);
+assert.equal(videoView.captionInput.selectionEnd, '동영상 설명'.length);
+videoView.cover.click();
+assert.equal(coverToggles, 1);
 
 assert.deepEqual(videoAttrsFromUpload({
     download_url: '/files/download/7', thumbnail_filename: '/poster.jpg', file_srl: 77,
     dimensions: { width: 1280, height: 720 }, original_type: 'video/quicktime',
 }, 640, 'center'), {
-    src: '/files/download/7', poster: '/poster.jpg', width: null, height: null,
+    src: '/files/download/7', poster: '/poster.jpg', caption: '', width: null, height: null,
     displayWidth: null, displayHeight: null, fileSrl: '77', preload: 'metadata',
     controls: true, muted: false, autoplay: false, loop: false, playsinline: false,
     align: 'center', display: 'block', marginLeft: 'auto', marginRight: 'auto',
@@ -185,5 +211,24 @@ assert.equal(unwrapped, '<p><video src="/core.mp4" controls="" data-file-srl="10
 const videoOnly = parseDocument('<video src="/gap.mp4" controls></video>');
 assert.equal(videoOnly.firstChild.type, schema.nodes.paragraph);
 assert.equal(videoOnly.firstChild.firstChild.type, schema.nodes.video);
+
+document.querySelector('#editor').replaceChildren();
+const adjacentVideoViews = [];
+bridge.view = new EditorView(document.querySelector('#editor'), {
+    state: EditorState.create({ doc: parseDocument('<video src="/one.mp4"></video><video src="/two.mp4"></video>') }),
+    nodeViews: { video: (node, view, getPos) => {
+        const instance = new VideoView(node, view, getPos, bridge);
+        adjacentVideoViews.push(instance);
+        return instance;
+    } },
+});
+assert.equal(adjacentVideoViews[0].edge.hidden, false);
+assert.equal(adjacentVideoViews[1].edge.hidden, false);
+adjacentVideoViews[1].edge.click();
+assert.match(
+    serializeDocument(bridge.view.state.doc, schema),
+    /^<video[^>]*one\.mp4[^>]*><\/video><p>\u00a0<\/p><p>\u00a0<\/p><video[^>]*two\.mp4/
+);
+bridge.view.destroy();
 
 console.log('roundeditor Phase 4 video contract passed');

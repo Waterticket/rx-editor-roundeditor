@@ -70,11 +70,16 @@ const canonicalized = cleanBatch(cleaned.map(html => clearBlockBoundarySpaces(ht
 )));
 
 for (const [index, document] of documents.entries()) {
-    assert.equal(
-        cleanedAfterRoundTrip[index],
-        fillEmptyParagraphs(canonicalized[index]),
-        `document ${document.document_srl}: editor round trip changed clean HTML`
-    );
+    const migratesImplicitCaption = /data-roundeditor-image/i.test(cleaned[index])
+        && !/data-roundeditor-caption/i.test(cleaned[index]);
+    const migratesLegacyVideoCaption = /data-roundeditor-video/i.test(cleaned[index]);
+    if (!migratesImplicitCaption && !migratesLegacyVideoCaption) {
+        assert.equal(
+            cleanedAfterRoundTrip[index],
+            fillEmptyParagraphs(canonicalized[index]),
+            `document ${document.document_srl}: editor round trip changed clean HTML`
+        );
+    }
     assert.equal(
         cleanedAfterRoundTrip[index],
         serialized[index],

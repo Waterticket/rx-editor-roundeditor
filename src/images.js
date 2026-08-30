@@ -15,7 +15,8 @@ export function imageFiles(list) {
 export function imageAttrsFromUpload(upload) {
     return {
         src: normalizeRhymixUrl(upload.download_url),
-        alt: upload.source_filename || '',
+        alt: '',
+        caption: '',
         width: null,
         height: null,
         displayWidth: null,

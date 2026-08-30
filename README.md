@@ -13,3 +13,5 @@
 4. 장식용 SVG에는 `aria-hidden="true"`를 지정하고 버튼 텍스트 또는 접근 가능한 이름은 별도로 유지한다.
 
 이 규칙의 현재 적용 범위는 파일첨부 UI로 한정한다. 에디터의 기존 다른 아이콘은 의도적으로 변경하지 않았다.
+
+이미지 NodeView의 `대표` 버튼은 `fileSrl`로 하단 xefu 목록의 `.xefu-act-set-cover`를 재사용한다. 캡션은 `<img alt>`와 `.roundeditor-content-image__caption`에 같은 값으로 저장되며, 대표 아이콘도 기존 attachment SVG sprite를 사용한다.

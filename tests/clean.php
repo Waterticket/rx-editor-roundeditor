@@ -7,7 +7,9 @@ require dirname(__DIR__, 5) . '/common/autoload.php';
 
 $input = json_decode(stream_get_contents(STDIN), true, 512, JSON_THROW_ON_ERROR);
 $output = array_map(
-    static fn(string $html): string => \Rhymix\Framework\Filters\HTMLFilter::clean($html),
+    static fn(string $html): string => \Rhymix\Framework\Filters\HTMLFilter::clean($html, [
+        'roundeditor-content-image', 'roundeditor-content-image__caption',
+    ]),
     $input
 );
 

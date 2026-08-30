@@ -398,6 +398,27 @@ export class AttachmentList {
             if (play.querySelector('.roundeditor__attachment-icon')) continue;
             play.replaceChildren(svgIcon('play'));
         }
+        this.refreshImageCoverViews();
+    }
+
+    findFileItem(fileSrl) {
+        const target = String(fileSrl || '');
+        if (!target || !this.container) return null;
+        return Array.from(this.container.querySelectorAll('.xefu-file')).find(item => (
+            String(item.dataset.fileSrl || item.querySelector('[data-file-srl]')?.dataset.fileSrl || '') === target
+        )) || null;
+    }
+
+    isCover(fileSrl) {
+        return Boolean(this.findFileItem(fileSrl)?.classList.contains('xefu-is-cover-image'));
+    }
+
+    toggleCover(fileSrl) {
+        this.findFileItem(fileSrl)?.querySelector('.xefu-act-set-cover')?.click();
+    }
+
+    refreshImageCoverViews() {
+        for (const imageView of this.bridge.imageViews || []) imageView.refreshCoverState();
     }
 
     decorateVideoItems() {

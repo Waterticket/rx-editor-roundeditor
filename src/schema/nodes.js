@@ -1,4 +1,5 @@
 import { tableNodes } from 'prosemirror-tables';
+import { Fragment } from 'prosemirror-model';
 import { normalizeRhymixUrl, normalizeRhymixVideoUrl } from '../rhymix/upload.js';
 import { collectExtraAttributes, domAttributes, mergeStyle } from './attributes.js';
 import {
@@ -39,6 +40,35 @@ function mediaBooleanAttrs(node, names) {
     return Object.fromEntries(names.map(name => [name, node.attrs[name]]));
 }
 
+function imageAttrs(element, caption = null, alt = null) {
+    return {
+        src: normalizeRhymixUrl(element.getAttribute('src') || ''),
+        alt: alt ?? (element.getAttribute('alt') || ''),
+        caption: caption ?? (element.getAttribute('data-rx-roundeditor-caption') || ''),
+        width: element.getAttribute('width'),
+        height: element.getAttribute('height'),
+        displayWidth: element.style.getPropertyValue('width') || null,
+        displayHeight: element.style.getPropertyValue('height') || null,
+        fileSrl: element.getAttribute('data-file-srl'),
+        editorComponent: element.getAttribute('editor_component'),
+        extra: extraAttrs(element, ['src', 'alt', 'width', 'height', 'data-file-srl', 'editor_component', 'data-rx-roundeditor-caption']),
+    };
+}
+
+function imageDom(node, alt = node.attrs.alt) {
+    return ['img', mergeStyle(node.attrs.extra, {
+        width: node.attrs.displayWidth,
+        height: node.attrs.displayHeight,
+    }, {
+        src: node.attrs.src,
+        alt,
+        width: node.attrs.width,
+        height: node.attrs.height,
+        'data-file-srl': node.attrs.fileSrl,
+        editor_component: node.attrs.editorComponent,
+    })];
+}
+
 function videoAlignment(element) {
     const marginLeft = element.style.getPropertyValue('margin-left') || null;
     const marginRight = element.style.getPropertyValue('margin-right') || null;
@@ -46,6 +76,51 @@ function videoAlignment(element) {
     if (marginLeft === 'auto') return 'right';
     if (marginRight === 'auto') return 'left';
     return null;
+}
+
+function videoAttrs(element, caption = null) {
+    return {
+        src: normalizeRhymixVideoUrl(element.getAttribute('src') || ''),
+        poster: element.getAttribute('poster'),
+        caption: caption ?? (element.getAttribute('data-rx-roundeditor-caption') || ''),
+        width: element.getAttribute('width'),
+        height: element.getAttribute('height'),
+        displayWidth: element.style.getPropertyValue('width') || null,
+        displayHeight: element.style.getPropertyValue('height') || null,
+        fileSrl: element.getAttribute('data-file-srl'),
+        preload: element.getAttribute('preload'),
+        controls: element.hasAttribute('controls'),
+        muted: element.hasAttribute('muted'),
+        autoplay: element.hasAttribute('autoplay'),
+        loop: element.hasAttribute('loop'),
+        playsinline: element.hasAttribute('playsinline'),
+        align: videoAlignment(element),
+        display: element.style.getPropertyValue('display') || null,
+        marginLeft: element.style.getPropertyValue('margin-left') || null,
+        marginRight: element.style.getPropertyValue('margin-right') || null,
+        extra: extraAttrs(element, [
+            'src', 'poster', 'width', 'height', 'data-file-srl',
+            'preload', 'controls', 'muted', 'autoplay', 'loop', 'playsinline', 'data-rx-roundeditor-caption',
+        ]),
+    };
+}
+
+function videoDom(node) {
+    return ['video', mergeStyle(node.attrs.extra, {
+        width: node.attrs.displayWidth,
+        height: node.attrs.displayHeight,
+        display: node.attrs.display,
+        'margin-left': node.attrs.marginLeft,
+        'margin-right': node.attrs.marginRight,
+    }, {
+        src: node.attrs.src,
+        poster: node.attrs.poster,
+        width: node.attrs.width,
+        height: node.attrs.height,
+        'data-file-srl': node.attrs.fileSrl,
+        preload: node.attrs.preload,
+        ...mediaBooleanAttrs(node, ['controls', 'muted', 'autoplay', 'loop', 'playsinline']),
+    })];
 }
 
 const tableSpecs = tableNodes({
@@ -233,6 +308,7 @@ export const nodes = {
         attrs: {
             src: { default: '' },
             alt: { default: '' },
+            caption: { default: '' },
             width: { default: null },
             height: { default: null },
             displayWidth: { default: null },
@@ -242,30 +318,37 @@ export const nodes = {
             extra: { default: null },
         },
         parseDOM: [{
-            tag: 'img:not([data-rx-sticker])',
-            getAttrs: element => ({
-                src: normalizeRhymixUrl(element.getAttribute('src') || ''),
-                alt: element.getAttribute('alt') || '',
-                width: element.getAttribute('width'),
-                height: element.getAttribute('height'),
-                displayWidth: element.style.getPropertyValue('width') || null,
-                displayHeight: element.style.getPropertyValue('height') || null,
-                fileSrl: element.getAttribute('data-file-srl'),
-                editorComponent: element.getAttribute('editor_component'),
-                extra: extraAttrs(element, ['src', 'alt', 'width', 'height', 'data-file-srl', 'editor_component']),
-            }),
-        }],
-        toDOM: node => ['img', mergeStyle(node.attrs.extra, {
-            width: node.attrs.displayWidth,
-            height: node.attrs.displayHeight,
+            tag: 'span[data-roundeditor-image]',
+            priority: 100,
+            getContent: () => Fragment.empty,
+            getAttrs: element => {
+                const image = element.querySelector('img:not([data-rx-sticker])');
+                if (!image) return false;
+                const explicitCaption = element.hasAttribute('data-roundeditor-caption');
+                const caption = explicitCaption
+                    ? (element.querySelector('.roundeditor-content-image__caption')?.textContent || '')
+                    : '';
+                return imageAttrs(image, caption, element.getAttribute('data-roundeditor-alt'));
+            },
         }, {
-            src: node.attrs.src,
-            alt: node.attrs.alt,
-            width: node.attrs.width,
-            height: node.attrs.height,
-            'data-file-srl': node.attrs.fileSrl,
-            editor_component: node.attrs.editorComponent,
-        })],
+            tag: 'img:not([data-rx-sticker])',
+            getAttrs: element => imageAttrs(element),
+        }],
+        toDOM: node => {
+            const caption = String(node.attrs.caption || '').trim();
+            const image = imageDom(node, caption || node.attrs.alt || '');
+            if (!caption) return image;
+            return ['span', {
+                class: 'roundeditor-content-image',
+                style: 'display:inline-flex;flex-direction:column;align-items:center;',
+                'data-roundeditor-image': '',
+                'data-roundeditor-caption': '',
+                'data-roundeditor-alt': node.attrs.alt || '',
+            }, image, ['span', {
+                class: 'roundeditor-content-image__caption',
+                style: 'display:block;margin-top:8px;color:rgb(85,85,85);font-size:13px;line-height:1.5;text-align:center;',
+            }, caption]];
+        },
     },
     audio: {
         inline: true,
@@ -324,6 +407,7 @@ export const nodes = {
         attrs: {
             src: { default: '' },
             poster: { default: null },
+            caption: { default: '' },
             width: { default: null },
             height: { default: null },
             displayWidth: { default: null },
@@ -342,46 +426,35 @@ export const nodes = {
             extra: { default: null },
         },
         parseDOM: [{
-            tag: 'video',
-            getAttrs: element => ({
-                src: normalizeRhymixVideoUrl(element.getAttribute('src') || ''),
-                poster: element.getAttribute('poster'),
-                width: element.getAttribute('width'),
-                height: element.getAttribute('height'),
-                displayWidth: element.style.getPropertyValue('width') || null,
-                displayHeight: element.style.getPropertyValue('height') || null,
-                fileSrl: element.getAttribute('data-file-srl'),
-                preload: element.getAttribute('preload'),
-                controls: element.hasAttribute('controls'),
-                muted: element.hasAttribute('muted'),
-                autoplay: element.hasAttribute('autoplay'),
-                loop: element.hasAttribute('loop'),
-                playsinline: element.hasAttribute('playsinline'),
-                align: videoAlignment(element),
-                display: element.style.getPropertyValue('display') || null,
-                marginLeft: element.style.getPropertyValue('margin-left') || null,
-                marginRight: element.style.getPropertyValue('margin-right') || null,
-                extra: extraAttrs(element, [
-                    'src', 'poster', 'width', 'height', 'data-file-srl',
-                    'preload', 'controls', 'muted', 'autoplay', 'loop', 'playsinline',
-                ]),
-            }),
-        }],
-        toDOM: node => ['video', mergeStyle(node.attrs.extra, {
-            width: node.attrs.displayWidth,
-            height: node.attrs.displayHeight,
-            display: node.attrs.display,
-            'margin-left': node.attrs.marginLeft,
-            'margin-right': node.attrs.marginRight,
+            tag: 'span[data-roundeditor-image]',
+            priority: 100,
+            getContent: () => Fragment.empty,
+            getAttrs: element => {
+                const video = element.querySelector('video');
+                if (!video) return false;
+                return videoAttrs(
+                    video,
+                    element.querySelector('.roundeditor-content-image__caption')?.textContent || ''
+                );
+            },
         }, {
-            src: node.attrs.src,
-            poster: node.attrs.poster,
-            width: node.attrs.width,
-            height: node.attrs.height,
-            'data-file-srl': node.attrs.fileSrl,
-            preload: node.attrs.preload,
-            ...mediaBooleanAttrs(node, ['controls', 'muted', 'autoplay', 'loop', 'playsinline']),
-        })],
+            tag: 'video',
+            getAttrs: element => videoAttrs(element),
+        }],
+        toDOM: node => {
+            const caption = String(node.attrs.caption || '').trim();
+            const video = videoDom(node);
+            if (!caption) return video;
+            return ['span', {
+                class: 'roundeditor-content-image',
+                style: 'display:inline-flex;flex-direction:column;align-items:center;',
+                'data-roundeditor-image': '',
+                'data-roundeditor-caption': '',
+            }, video, ['span', {
+                class: 'roundeditor-content-image__caption',
+                style: 'display:block;margin-top:8px;color:rgb(85,85,85);font-size:13px;line-height:1.5;text-align:center;',
+            }, caption]];
+        },
     },
     hardBreak: {
         inline: true,

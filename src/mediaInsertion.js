@@ -3,6 +3,8 @@ import { TextSelection } from 'prosemirror-state';
 import { canSplit } from 'prosemirror-transform';
 
 const TRAILING_BLANK_PARAGRAPH_COUNT = 2;
+const LEADING_BLANK_PARAGRAPH_COUNT = 2;
+const INLINE_MEDIA_NAMES = new Set(['image', 'audio', 'video']);
 
 function findNodePosition(doc, target) {
     let position = null;
@@ -78,4 +80,60 @@ export function addTrailingParagraphsAfterBlockMedia(transaction, mediaNode) {
     const mediaPosition = findNodePosition(transaction.doc, mediaNode);
     if (mediaPosition === null) return transaction;
     return insertTrailingBlankParagraphs(transaction, mediaPosition + mediaNode.nodeSize);
+}
+
+export function insertBlankParagraphBeforeMedia(view, mediaPosition) {
+    const target = view.state.doc.nodeAt(mediaPosition);
+    const resolved = view.state.doc.resolve(mediaPosition);
+    let paragraphStart = null;
+    let paragraphDepth = null;
+    for (let depth = resolved.depth; depth > 0; depth--) {
+        if (resolved.node(depth).type === view.state.schema.nodes.paragraph) {
+            paragraphStart = resolved.before(depth);
+            paragraphDepth = depth;
+            break;
+        }
+    }
+    if (paragraphStart === null) return false;
+    let transaction = view.state.tr;
+    if (paragraphDepth !== null && resolved.index(paragraphDepth) > 0) {
+        if (!canSplit(transaction.doc, mediaPosition)) return false;
+        transaction = transaction.split(mediaPosition);
+        const movedMediaPosition = target ? findNodePosition(transaction.doc, target) : null;
+        paragraphStart = movedMediaPosition === null ? null : paragraphPosition(transaction.doc, movedMediaPosition);
+        if (paragraphStart === null) return false;
+    }
+    transaction = transaction.insert(
+        paragraphStart,
+        Fragment.fromArray(blankParagraphs(view.state.schema, LEADING_BLANK_PARAGRAPH_COUNT))
+    );
+    view.dispatch(transaction.setSelection(TextSelection.create(transaction.doc, paragraphStart + 1)).scrollIntoView());
+    view.focus();
+    return true;
+}
+
+function endsWithInlineMedia(node) {
+    let current = node;
+    while (current?.childCount) current = current.lastChild;
+    return Boolean(current && INLINE_MEDIA_NAMES.has(current.type.name));
+}
+
+export function mediaNeedsLeadingParagraph(doc, mediaPosition) {
+    const resolved = doc.resolve(mediaPosition);
+    let paragraphDepth = null;
+    for (let depth = resolved.depth; depth > 0; depth--) {
+        if (resolved.node(depth).type.name === 'paragraph') {
+            paragraphDepth = depth;
+            break;
+        }
+    }
+    if (paragraphDepth === null) return false;
+
+    const paragraph = resolved.node(paragraphDepth);
+    const mediaIndex = resolved.index(paragraphDepth);
+    if (mediaIndex > 0) return INLINE_MEDIA_NAMES.has(paragraph.child(mediaIndex - 1).type.name);
+
+    const paragraphPosition = resolved.before(paragraphDepth);
+    if (paragraphPosition === 0) return true;
+    return endsWithInlineMedia(doc.resolve(paragraphPosition).nodeBefore);
 }

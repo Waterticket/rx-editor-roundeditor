@@ -118,6 +118,13 @@ function handleMediaDrop(bridge, event, moved) {
     event.preventDefault();
     const position = bridge.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
         ?? bridge.view.state.selection.from;
+    const media = Array.from(event.dataTransfer?.files || []).filter(file => (
+        images.includes(file) || videos.includes(file)
+    ));
+    // Use Rhymix's attachment uploader for editor drops. It applies the site's
+    // chunk size (important for large videos), updates the attachment list, and
+    // AttachmentList inserts the completed media at this drop position.
+    if (bridge.attachments?.uploadFiles(media, position)) return true;
     if (images.length) uploadImagesAt(bridge, images, position);
     if (videos.length) uploadVideosAt(bridge, videos, position);
     return true;

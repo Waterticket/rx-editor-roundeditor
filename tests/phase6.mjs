@@ -79,7 +79,7 @@ window.reloadUploader = sequence => { calls.reload = sequence; };
 window.editorEnableAutoSave = (form, sequence) => calls.autosave.push({ form, sequence });
 window.openComponent = (name, sequence) => calls.component.push({ name, sequence });
 
-await import('../dist/roundeditor.js');
+await import('../dist/roundeditor.min.js');
 
 const wrapper = document.querySelector('.roundeditor');
 const form = document.querySelector('form');

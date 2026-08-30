@@ -1,5 +1,45 @@
 # Roundeditor 스킨
 
+## 빌드 및 배포
+
+### 요구 사항
+
+- Node.js 20.19 이상 또는 22.12 이상 (LTS 권장)
+- npm 10 이상
+
+`package-lock.json`을 포함해 배포하므로, 의존성 설치는 항상 `npm ci`를 사용한다.
+
+```bash
+cd public/modules/editor/skins/roundeditor
+npm ci
+```
+
+### 배포용 빌드
+
+아래 명령은 JavaScript를 Terser로 3회 최적화하고 이름까지 축약해 `dist/roundeditor.min.js`를 만든다. 디버깅을 위해 원본 소스와 연결되는 `dist/roundeditor.min.js.map`도 함께 생성한다. CSS도 Vite가 압축하여 `dist/roundeditor.css`로 생성한다.
+
+```bash
+npm run build
+```
+
+생성된 두 파일을 스킨과 함께 배포한다.
+
+```text
+dist/roundeditor.min.js
+dist/roundeditor.min.js.map
+dist/roundeditor.css
+```
+
+`editor.blade.php`는 이미 압축된 `roundeditor.min.js`를 불러오도록 설정되어 있다. 브라우저 개발자 도구는 필요할 때만 `.map` 파일을 내려받아 오류 위치와 스택 트레이스를 `src/`의 원본 코드로 보여 준다. 따라서 일반 사용자의 JavaScript 전송량은 최소화하면서 디버깅도 가능하다.
+
+빌드 결과를 확인하려면 다음을 실행한다.
+
+```bash
+npm test
+```
+
+소스나 `package-lock.json`을 수정했을 때는 다시 `npm ci && npm run build`를 실행해 `dist/` 산출물을 갱신한다.
+
 ## 파일첨부 아이콘 규칙
 
 파일첨부 UI는 `assets/attachment-icons.svg` 로컬 SVG 스프라이트만 사용한다.

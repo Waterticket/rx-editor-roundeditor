@@ -3,7 +3,7 @@
 @load('^/common/css/xeicon/xeicon.min.css')
 @load('../../tpl/js/editor_common.js')
 @load('dist/roundeditor.css')
-@load('dist/roundeditor.js', 'module')
+@load('dist/roundeditor.min.js', 'module')
 
 <div id="roundeditor_instance_{{ $editor_sequence }}"
     class="roundeditor roundeditor--{{ $roundeditor_colorset }}"

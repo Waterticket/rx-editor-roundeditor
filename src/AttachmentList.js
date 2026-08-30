@@ -72,6 +72,7 @@ export class AttachmentList {
         this.activeEntries = new Set();
         this.completedEntries = new Set();
         this.pendingFiles = new Map();
+        this.insertionPositions = new WeakMap();
         this.container = bridge.form.querySelector(`#xefu-container-${bridge.sequence}`);
         if (!this.container) return;
 
@@ -581,6 +582,21 @@ export class AttachmentList {
         return Array.from(data?.files || []).flatMap(file => this.fileEntries.get(file) || []);
     }
 
+    uploadFiles(files, position = null) {
+        const accepted = Array.from(files || []).filter(file => mediaType(file));
+        if (!accepted.length || !window.jQuery) return false;
+        const container = window.jQuery(this.container);
+        if (typeof container.fileupload !== 'function') return false;
+        for (const file of accepted) this.insertionPositions.set(file, position);
+        try {
+            container.fileupload('add', { files: accepted });
+            return true;
+        } catch (error) {
+            for (const file of accepted) this.insertionPositions.delete(file);
+            return false;
+        }
+    }
+
     createUploadPreview(entry) {
         const list = this.container.querySelector('.xefu-list-images ul');
         if (!list) return;
@@ -690,12 +706,16 @@ export class AttachmentList {
             if (!type) return null;
             const autoInsert = Boolean(this.autoinsertTypes?.[type]);
             const label = type === 'image' ? this.labels.imageUploading : this.labels.videoUploading;
+            const position = this.insertionPositions.get(file);
+            this.insertionPositions.delete(file);
             return {
                 file,
                 type,
                 autoInsert,
                 progressSeen: false,
-                placeholderId: autoInsert ? addUploadPlaceholder(this.bridge.view, type, label) : null,
+                placeholderId: autoInsert
+                    ? addUploadPlaceholder(this.bridge.view, type, label, position ?? this.bridge.view.state.selection.from)
+                    : null,
             };
         }).filter(Boolean);
         for (const entry of entries) {

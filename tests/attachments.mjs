@@ -21,6 +21,7 @@ dom.window.HTMLMediaElement.prototype.load = () => {};
 
 const handlers = {};
 const jqueryData = {};
+const fileuploadAdds = [];
 window.jQuery = () => ({
     data(name, value) {
         if (arguments.length === 0) return jqueryData;
@@ -30,6 +31,13 @@ window.jQuery = () => ({
     },
     off() { return this; },
     on(name, handler) { handlers[name.split('.')[0]] = handler; return this; },
+    fileupload(command, data) {
+        if (command === 'add') {
+            fileuploadAdds.push(data);
+            handlers.fileuploadadd?.({}, data);
+        }
+        return this;
+    },
 });
 
 const { EditorState } = await import('prosemirror-state');
@@ -101,6 +109,13 @@ originalFileInput.remove();
 uploader.querySelector('.fileinput-button').click();
 assert.equal(originalInputClicks, 0);
 assert.equal(replacementInputClicks, 1);
+
+const droppedVideo = new dom.window.File(['dropped'], 'dropped.mp4', { type: 'video/mp4' });
+assert.equal(attachmentList.uploadFiles([droppedVideo], 0), true);
+assert.deepEqual(fileuploadAdds[0].files, [droppedVideo]);
+assert.equal(wrapper.querySelectorAll('.roundeditor__upload-placeholder--video').length, 1);
+attachmentList.fail(fileuploadAdds[0]);
+assert.equal(wrapper.querySelector('.roundeditor__upload-placeholder'), null);
 
 const imageItem = document.createElement('li');
 imageItem.className = 'xefu-file xefu-file-image';

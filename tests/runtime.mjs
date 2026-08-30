@@ -53,7 +53,7 @@ Object.defineProperties(globalThis, {
 window.editorGetContent = sequence => `previous:${sequence}`;
 window.editorGetIFrame = sequence => `previous-frame:${sequence}`;
 
-await import('../dist/roundeditor.js');
+await import('../dist/roundeditor.min.js');
 
 const wrapper = document.querySelector('.roundeditor');
 const form = document.querySelector('form');

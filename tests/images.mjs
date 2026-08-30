@@ -145,6 +145,22 @@ assert.equal(sentData.get('upload_target_srl'), '20');
 assert.equal(sentData.get('_rx_csrf_token'), 'token');
 assert.equal(sentData.get('Filedata').name, '업로드.png');
 
+class HtmlErrorXHR extends FakeXHR {
+    constructor() {
+        super();
+        this.status = 413;
+        this.response = null;
+    }
+    get responseText() {
+        throw new dom.window.DOMException('Unavailable for json responses', 'InvalidStateError');
+    }
+}
+globalThis.XMLHttpRequest = HtmlErrorXHR;
+await assert.rejects(
+    uploadFile({ sequence: 7, config: { mid: 'board', moduleSrl: 10, uploadTargetSrl: 20 } }, file),
+    /\(413\)/
+);
+
 bridge.view.destroy();
 
 const placeholderBridge = { view: null };

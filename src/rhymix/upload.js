@@ -66,9 +66,22 @@ export function uploadFile(bridge, file, onProgress = () => {}) {
         });
         request.addEventListener('load', () => {
             let response = request.response;
-            if (!response && request.responseText) {
-                try { response = JSON.parse(request.responseText); }
-                catch (error) { reject(new Error('업로드 응답을 읽을 수 없습니다.')); return; }
+            if (!response) {
+                // responseText throws InvalidStateError when responseType is
+                // "json" (for example, nginx returns an HTML 413 response).
+                // Never let that exception strand the upload promise at 100%.
+                let responseText = '';
+                try { responseText = request.responseText || ''; }
+                catch (error) { /* responseType=json does not expose responseText */ }
+                if (responseText) {
+                    try { response = JSON.parse(responseText); }
+                    catch (error) {
+                        reject(new Error(request.status
+                            ? `파일 업로드에 실패했습니다. (${request.status})`
+                            : '업로드 응답을 읽을 수 없습니다.'));
+                        return;
+                    }
+                }
             }
             const errorCode = Number(response?.error || 0);
             if (request.status < 200 || request.status >= 300 || errorCode !== 0 || !response?.download_url) {
@@ -78,8 +91,11 @@ export function uploadFile(bridge, file, onProgress = () => {}) {
             response.download_url = normalizeRhymixUrl(response.download_url);
             response.source_filename = normalizeRhymixUrl(response.source_filename);
             response.thumbnail_filename = normalizeRhymixAssetUrl(response.thumbnail_filename);
-            refreshUploader(bridge.sequence, response);
             resolve(response);
+            // A legacy uploader refresh must not prevent the completed upload
+            // from resolving and replacing its editor placeholder.
+            try { refreshUploader(bridge.sequence, response); }
+            catch (error) { console.warn('[roundeditor] Attachment list refresh failed.', error); }
         });
         request.addEventListener('error', () => reject(new Error('파일 업로드 중 네트워크 오류가 발생했습니다.')));
         request.addEventListener('abort', () => reject(new Error('파일 업로드가 취소되었습니다.')));

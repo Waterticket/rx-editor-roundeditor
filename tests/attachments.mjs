@@ -133,6 +133,14 @@ bridge.view.updateState(EditorState.create({
 }));
 attachmentList.refreshUsageState();
 assert.equal(imageItem.classList.contains('roundeditor__attachment--unused'), true);
+const oembedItem = document.createElement('li');
+oembedItem.className = 'xefu-file xefu-file-image';
+oembedItem.dataset.fileSrl = '78';
+oembedItem.innerHTML = '<strong class="xefu-file-name">oembed_preview.png</strong><span class="xefu-file-info"><span class="xefu-file-size">10KB</span></span>';
+uploader.querySelector('.xefu-list-images ul')?.appendChild(oembedItem);
+await new Promise(resolve => queueMicrotask(resolve));
+assert.equal(oembedItem.classList.contains('roundeditor__attachment--unused'), false);
+assert.equal(oembedItem.querySelector('.roundeditor__attachment-unused-overlay').hidden, true);
 const imageCheckbox = imageItem.querySelector('input[type="checkbox"]');
 const thumbnailCheckbox = imageItem.querySelector('.xefu-act-set-cover');
 assert.equal(thumbnailCheckbox.classList.contains('roundeditor__thumbnail-checkbox'), true);

@@ -58,6 +58,11 @@ function normalizedUpload(result) {
     };
 }
 
+function isOembedAttachment(item) {
+    const filename = item.querySelector('.xefu-file-name')?.textContent?.trim() || '';
+    return /^oembed_/i.test(filename);
+}
+
 export class AttachmentList {
     constructor(bridge) {
         this.bridge = bridge;
@@ -435,7 +440,9 @@ export class AttachmentList {
             const fileSrl = String(
                 item.dataset.fileSrl || item.querySelector('[data-file-srl]')?.dataset.fileSrl || ''
             );
-            const unused = Boolean(fileSrl && !usedFileSrls.has(fileSrl));
+            // oEmbed-generated previews are attached to the document but their
+            // file SRLs are not present in the serialized editor HTML.
+            const unused = Boolean(fileSrl && !usedFileSrls.has(fileSrl) && !isOembedAttachment(item));
             item.classList.toggle('roundeditor__attachment--unused', unused);
             const overlayHost = item.querySelector('.xefu-file-info') || item;
             let overlay = item.querySelector('.roundeditor__attachment-unused-overlay');

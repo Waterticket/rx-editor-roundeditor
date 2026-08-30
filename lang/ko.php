@@ -124,6 +124,7 @@ $lang->roundeditor_labels = [
     'attachmentsDropOverlay' => '파일 업로드',
     'attachmentsCountCurrent' => '현재',
     'attachmentsCountSuffix' => '개',
+    'attachmentNotUsed' => '본문에 삽입되지 않은 미디어입니다.',
     'componentPollTitle' => '설문 제목',
     'componentPollLoading' => '불러오는 중...',
     'componentPollUnavailable' => '불러올 수 없습니다.',

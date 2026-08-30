@@ -124,6 +124,7 @@ $lang->roundeditor_labels = [
     'attachmentsDropOverlay' => 'Upload files',
     'attachmentsCountCurrent' => 'Current',
     'attachmentsCountSuffix' => ' files',
+    'attachmentNotUsed' => 'This media is not inserted in the body.',
     'componentPollTitle' => 'Poll title',
     'componentPollLoading' => 'Loading…',
     'componentPollUnavailable' => 'Unavailable',

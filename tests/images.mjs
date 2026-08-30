@@ -20,6 +20,7 @@ const { EditorState, NodeSelection, TextSelection } = await import('prosemirror-
 const { EditorView } = await import('prosemirror-view');
 const { imageAttrsFromUpload, insertUploadedImages } = await import('../src/images.js');
 const { ImageView } = await import('../src/nodeviews/ImageView.js');
+const { nearestTextOffset } = await import('../src/nodeviews/MediaNodeView.js');
 const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
 const { normalizeRhymixAssetUrl, normalizeRhymixUrl, normalizeRhymixVideoUrl, uploadFile } = await import('../src/rhymix/upload.js');
 const {
@@ -45,6 +46,8 @@ assert.equal(normalizeRhymixAssetUrl('./files/poster.jpg'), '/subdir/files/poste
 
 const compiledCss = readFileSync(new URL('../dist/roundeditor.css', import.meta.url), 'utf8');
 assert.match(compiledCss, /@media \(max-width:720px\).*\.roundeditor__image-frame>img\{height:auto!important\}/);
+assert.equal(nearestTextOffset('테스트', 11, text => Array.from(text).length * 10), 1);
+assert.equal(nearestTextOffset('테스트', 21, text => Array.from(text).length * 10), 2);
 
 const initial = parseDocument('<p><img src="/old.jpg" alt="기존" width="320" height="180" style="width:320px;height:180px;" data-file-srl="41" editor_component="image_link" /></p>');
 assert.equal(initial.firstChild.firstChild.type.name, 'image');
@@ -195,7 +198,11 @@ assert.equal(captionView.caption.hidden, true);
 captionBridge.view.dispatch(captionBridge.view.state.tr.setSelection(NodeSelection.create(captionBridge.view.state.doc, 1)));
 assert.equal(captionView.caption.hidden, false);
 captionView.captionInput.value = '호시노111';
+captionView.captionInput.focus();
+captionView.captionInput.setSelectionRange(3, 3);
 captionView.captionInput.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+assert.equal(captionView.captionInput.selectionStart, 3);
+assert.equal(captionView.captionInput.selectionEnd, 3);
 const captionHtml = serializeDocument(captionBridge.view.state.doc, schema);
 assert.match(captionHtml, /alt="호시노111"/);
 assert.match(captionHtml, /roundeditor-content-image__caption[^>]*>호시노111<\/span>/);

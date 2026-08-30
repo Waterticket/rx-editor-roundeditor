@@ -397,6 +397,7 @@ function initialize(wrapper) {
         dispatchTransaction(transaction) {
             bridge.view.updateState(bridge.view.state.apply(transaction));
             bridge.sync();
+            bridge.attachments?.refreshUsageState();
             bridge.toolbar?.refresh(bridge.view.state);
         },
     });

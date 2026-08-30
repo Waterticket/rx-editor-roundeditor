@@ -110,6 +110,29 @@ uploader.querySelector('.xefu-list').style.display = 'none';
 uploader.querySelector('.xefu-list-images ul')?.appendChild(imageItem);
 await new Promise(resolve => queueMicrotask(resolve));
 assert.equal(uploader.querySelector('.xefu-list').style.display, 'block');
+assert.equal(imageItem.classList.contains('roundeditor__attachment--unused'), true);
+assert.equal(imageItem.querySelector('.roundeditor__attachment-unused-overlay').hidden, false);
+assert.equal(
+    imageItem.querySelector('.roundeditor__attachment-unused-overlay').parentElement,
+    imageItem.querySelector('.xefu-file-info')
+);
+assert.equal(
+    imageItem.querySelector('.roundeditor__attachment-unused-overlay').getAttribute('aria-label'),
+    'This media is not inserted in the body.'
+);
+bridge.view.updateState(EditorState.create({
+    doc: parseDocument('<p><img src="/cover.png" data-file-srl="77" /></p>'),
+    plugins: [uploadPlaceholderPlugin()],
+}));
+attachmentList.refreshUsageState();
+assert.equal(imageItem.classList.contains('roundeditor__attachment--unused'), false);
+assert.equal(imageItem.querySelector('.roundeditor__attachment-unused-overlay').hidden, true);
+bridge.view.updateState(EditorState.create({
+    doc: parseDocument('<p></p>'),
+    plugins: [uploadPlaceholderPlugin()],
+}));
+attachmentList.refreshUsageState();
+assert.equal(imageItem.classList.contains('roundeditor__attachment--unused'), true);
 const imageCheckbox = imageItem.querySelector('input[type="checkbox"]');
 const thumbnailCheckbox = imageItem.querySelector('.xefu-act-set-cover');
 assert.equal(thumbnailCheckbox.classList.contains('roundeditor__thumbnail-checkbox'), true);
@@ -159,6 +182,7 @@ await new Promise(resolve => queueMicrotask(resolve));
 assert.equal(thumbnailVideoItem.querySelector('video.roundeditor__attachment-video-metadata'), null);
 assert.equal(thumbnailVideoItem.querySelector('.roundeditor__attachment-video-duration').textContent, '1:01:01');
 assert.equal(thumbnailVideoItem.querySelector('.roundeditor__attachment-video-duration').hidden, false);
+assert.equal(thumbnailVideoItem.classList.contains('roundeditor__attachment--unused'), true);
 assert.equal(uploader.classList.contains('roundeditor__attachments--has-files'), true);
 assert.equal(uploader.querySelector('.roundeditor__attachments-policy').hidden, false);
 assert.equal(uploader.querySelector('.roundeditor__attachments-actions .fileinput-button') !== null, true);
@@ -333,6 +357,8 @@ assert.match(compiledCss, /\.roundeditor \.roundeditor__swatch\{/);
 assert.match(compiledCss, /\.roundeditor \.roundeditor__swatch--reset\{/);
 assert.match(compiledCss, /\.roundeditor__attachments \.xefu-btn\{[^}]*height:auto!important/);
 assert.match(compiledCss, /\.roundeditor__attachments \.xefu-btn\{[^}]*white-space:nowrap/);
+assert.match(compiledCss, /\.roundeditor__attachments \.xefu-list-images \.xefu-file-name\{[^}]*display:none/);
+assert.match(compiledCss, /\.roundeditor__attachments \.roundeditor__attachment-unused-overlay\{[^}]*#4b556380/);
 
 bridge.view.destroy();
 console.log('roundeditor attachment list contract passed');

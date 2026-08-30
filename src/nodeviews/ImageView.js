@@ -64,21 +64,22 @@ export class ImageView extends MediaNodeView {
         this.composingCaption = false;
         this.captionInput.addEventListener('focus', () => { this.captionEditing = true; this.renderCaption(); });
         this.captionInput.addEventListener('compositionstart', () => { this.composingCaption = true; });
-        this.captionInput.addEventListener('compositionend', () => { this.composingCaption = false; this.setCaption(this.captionInput.value, { select: false }); });
+        this.captionInput.addEventListener('compositionend', () => {
+            this.composingCaption = false;
+            this.setCaptionFromInput();
+        });
         this.captionInput.addEventListener('input', () => {
-            if (!this.composingCaption) this.setCaption(this.captionInput.value, { select: false });
+            if (!this.composingCaption) this.setCaptionFromInput();
         });
         this.captionInput.addEventListener('blur', () => {
             this.captionEditing = false;
             this.setCaption(this.captionInput.value.trim(), { select: false });
             this.renderCaption();
         });
+        this.captionInput.addEventListener('pointerdown', event => this.placeInputCaretAtPointer(event, this.captionInput));
         for (const type of ['pointerdown', 'mousedown', 'click']) {
             this.captionInput.addEventListener(type, event => event.stopPropagation());
         }
-        this.captionInput.addEventListener('click', () => {
-            if (document.activeElement !== this.captionInput) this.captionInput.focus();
-        });
         this.captionInput.addEventListener('dblclick', event => {
             event.preventDefault();
             event.stopPropagation();
@@ -222,6 +223,16 @@ export class ImageView extends MediaNodeView {
 
     setCaption(caption, options = {}) {
         this.updateAttrs({ caption: String(caption || '') }, this.node.marks, options);
+    }
+
+    setCaptionFromInput() {
+        const start = this.captionInput.selectionStart;
+        const end = this.captionInput.selectionEnd;
+        const direction = this.captionInput.selectionDirection;
+        this.setCaption(this.captionInput.value, { select: false });
+        if (document.activeElement === this.captionInput && start !== null && end !== null) {
+            this.captionInput.setSelectionRange(start, end, direction || 'none');
+        }
     }
 
     setLink(value) {

@@ -9639,6 +9639,7 @@ var ed = {
 	attachmentsDropOverlay: "Upload files",
 	attachmentsCountCurrent: "Current",
 	attachmentsCountSuffix: " files",
+	attachmentNotUsed: "This media is not inserted in the body.",
 	imageUploading: "Uploading image…",
 	videoUploading: "Uploading video…",
 	imageProcessing: "Processing image…",
@@ -9716,7 +9717,7 @@ var ad = class {
 		i.className = "roundeditor__attachments-actions", i.hidden = !0, t.append(n, r, i), this.headingActions = i, this.container.prepend(t), this.decorateDropzone(), this.mergeControlsIntoHeading(), this.addDropOverlay();
 		let a = this.container.querySelector(".xefu-list");
 		a && window.MutationObserver && (this.listObserver = new MutationObserver(() => {
-			this.syncUploadPreviews(), this.decorateVideoItems(), this.decorateCoverButtons(), this.syncLayout();
+			this.syncUploadPreviews(), this.decorateVideoItems(), this.decorateCoverButtons(), this.refreshUsageState(), this.syncLayout();
 		}), this.listObserver.observe(a, {
 			childList: !0,
 			subtree: !0,
@@ -9726,7 +9727,7 @@ var ad = class {
 			e.target.closest(".xefu-file") && window.setTimeout(() => this.syncSelectionActions(), 0);
 		}), this.container.addEventListener("change", (e) => {
 			e.target.matches(".xefu-file input[type=\"checkbox\"]") && this.syncSelectionActions();
-		}), this.decorateVideoItems(), this.decorateCoverButtons(), this.syncLayout();
+		}), this.decorateVideoItems(), this.decorateCoverButtons(), this.refreshUsageState(), this.syncLayout();
 	}
 	bindMediaSelectionFallback() {
 		this.container.addEventListener("mousedown", (e) => {
@@ -9882,6 +9883,20 @@ var ad = class {
 	}
 	refreshImageCoverViews() {
 		for (let e of this.bridge.imageViews || []) e.refreshCoverState();
+	}
+	refreshUsageState() {
+		if (!this.container || !this.bridge.view) return;
+		let e = /* @__PURE__ */ new Set();
+		this.bridge.view.state.doc.descendants((t) => {
+			t.attrs?.fileSrl && e.add(String(t.attrs.fileSrl));
+		});
+		for (let t of this.container.querySelectorAll(".xefu-list-images .xefu-file")) {
+			if (t.dataset.roundeditorUploadPreview) continue;
+			let n = String(t.dataset.fileSrl || t.querySelector("[data-file-srl]")?.dataset.fileSrl || ""), r = !!(n && !e.has(n));
+			t.classList.toggle("roundeditor__attachment--unused", r);
+			let i = t.querySelector(".xefu-file-info") || t, a = t.querySelector(".roundeditor__attachment-unused-overlay");
+			a || (a = document.createElement("span"), a.className = "roundeditor__attachment-unused-overlay", a.setAttribute("role", "img"), a.setAttribute("aria-label", this.labels.attachmentNotUsed), a.title = this.labels.attachmentNotUsed), a.parentElement !== i && i.appendChild(a), a.hidden = !r;
+		}
 	}
 	decorateVideoItems() {
 		let e = this.container?.querySelector(".xefu-list-images ul"), t = this.container?.querySelector(".xefu-list-files ul");
@@ -11700,11 +11715,32 @@ function lp(e, t) {
 //#endregion
 //#region src/nodeviews/MediaNodeView.js
 var up = 24;
-function dp(e) {
+function dp(e, t) {
+	if (!t) return 0;
+	let n = window.getComputedStyle(e), r = document.createElement("span");
+	r.style.position = "fixed", r.style.top = "-10000px", r.style.left = "0", r.style.visibility = "hidden", r.style.whiteSpace = "pre", r.style.font = n.font, r.style.fontKerning = n.fontKerning, r.style.fontVariant = n.fontVariant, r.style.letterSpacing = n.letterSpacing, r.style.textTransform = n.textTransform, r.textContent = t, document.body.appendChild(r);
+	let i = r.getBoundingClientRect().width;
+	return r.remove(), i;
+}
+function fp(e, t, n) {
+	let r = [0], i = 0;
+	for (let t of String(e || "")) i += t.length, r.push(i);
+	let a = 0, o = Math.abs(t);
+	for (let i of r.slice(1)) {
+		let r = Math.abs(n(String(e || "").slice(0, i)) - t);
+		r >= o || (a = i, o = r);
+	}
+	return a;
+}
+function pp(e, t, n = (t) => dp(e, t)) {
+	let r = window.getComputedStyle(e), i = e.getBoundingClientRect(), a = Number.parseFloat(r.borderLeftWidth) || 0, o = Number.parseFloat(r.borderRightWidth) || 0, s = Number.parseFloat(r.paddingLeft) || 0, c = Number.parseFloat(r.paddingRight) || 0, l = Math.max(0, i.width - a - o - s - c), u = n(e.value), d = i.left + a + s - e.scrollLeft;
+	return u < l && (r.textAlign === "center" ? d += (l - u) / 2 : (r.textAlign === "right" || r.textAlign === "end") && (d += l - u)), fp(e.value, t - d, n);
+}
+function mp(e) {
 	let t = Number.parseFloat(String(e || ""));
 	return Number.isFinite(t) && t > 0 ? t : 0;
 }
-var fp = class {
+var hp = class {
 	constructor(e, t, n, r) {
 		this.node = e, this.view = t, this.getPos = n, this.media = r, this.dom = document.createElement(e.type.isInline ? "span" : "div"), this.dom.className = "roundeditor__media", this.dom.contentEditable = "false", this.dom.draggable = !0, this.dom.appendChild(r), this.handles = [
 			"nw",
@@ -11718,14 +11754,14 @@ var fp = class {
 	}
 	currentSize() {
 		return {
-			width: dp(this.node.attrs.displayWidth || this.node.attrs.width || this.media.width),
-			height: dp(this.node.attrs.displayHeight || this.node.attrs.height || this.media.height)
+			width: mp(this.node.attrs.displayWidth || this.node.attrs.width || this.media.width),
+			height: mp(this.node.attrs.displayHeight || this.node.attrs.height || this.media.height)
 		};
 	}
 	maxWidth() {
 		let e = this.dom.closest(".ProseMirror");
 		if (!e) return 640;
-		let t = window.getComputedStyle(e), n = dp(t.paddingLeft) + dp(t.paddingRight), r = e.clientWidth || e.getBoundingClientRect().width;
+		let t = window.getComputedStyle(e), n = mp(t.paddingLeft) + mp(t.paddingRight), r = e.clientWidth || e.getBoundingClientRect().width;
 		return Math.max(up, r > n ? r - n : 640);
 	}
 	previewSize(e, t) {
@@ -11767,10 +11803,21 @@ var fp = class {
 			return null;
 		}
 	}
+	placeInputCaretAtPointer(e, t) {
+		if (e.button !== void 0 && e.button !== 0 || e.isPrimary === !1) return;
+		e.preventDefault(), e.stopPropagation();
+		try {
+			t.focus({ preventScroll: !0 });
+		} catch {
+			t.focus();
+		}
+		let n = pp(t, e.clientX);
+		t.setSelectionRange(n, n, "none");
+	}
 	renderSize() {
-		let e = dp(this.node.attrs.width), t = dp(this.node.attrs.height);
+		let e = mp(this.node.attrs.width), t = mp(this.node.attrs.height);
 		this.media.style.width = this.node.attrs.displayWidth || (e ? `${e}px` : ""), this.media.style.height = this.node.attrs.displayHeight || (t ? `${t}px` : "");
-		let n = dp(this.media.style.width), r = dp(this.media.style.height);
+		let n = mp(this.media.style.width), r = mp(this.media.style.height);
 		this.media.style.aspectRatio = n && r ? `${n} / ${r}` : "", this.dom.style.width = this.media.style.width;
 	}
 	selectNode() {
@@ -11792,10 +11839,10 @@ function Z(e, t, n = e) {
 	let r = document.createElement("button");
 	return r.type = "button", r.dataset.mediaAction = e, r.title = t, r.setAttribute("aria-label", t), r.appendChild(Uu(n)), r;
 }
-function pp(e, t) {
+function gp(e, t) {
 	return Z(e, t, `align${e[0].toUpperCase()}${e.slice(1)}`);
 }
-function mp(e, t, n = "text") {
+function _p(e, t, n = "text") {
 	let r = document.createElement("label");
 	r.className = "roundeditor__media-field";
 	let i = document.createElement("span");
@@ -11806,7 +11853,7 @@ function mp(e, t, n = "text") {
 		input: a
 	};
 }
-var hp = class {
+var vp = class {
 	constructor({ labels: e, values: t, onDelete: n, onSize: r, onResetSize: i, onLink: a, onAlt: o, onAlign: s }) {
 		this.labels = e, this.values = t, this.handlers = {
 			onDelete: n,
@@ -11815,7 +11862,7 @@ var hp = class {
 			onLink: a,
 			onAlt: o,
 			onAlign: s
-		}, this.element = document.createElement("div"), this.element.className = "roundeditor__media-toolbar", this.element.hidden = !0, this.element.contentEditable = "false", this.row = document.createElement("div"), this.row.className = "roundeditor__media-toolbar-row", this.row.append(Z("delete", e.imageDelete), Z("size", e.imageSize, "resize"), Z("link", e.imageLink), Z("alt", e.imageAlt), pp("left", e.alignLeft), pp("center", e.alignCenter), pp("right", e.alignRight)), this.formHost = document.createElement("div"), this.formHost.className = "roundeditor__media-toolbar-form", this.element.append(this.row, this.formHost), this.element.addEventListener("click", (e) => this.execute(e));
+		}, this.element = document.createElement("div"), this.element.className = "roundeditor__media-toolbar", this.element.hidden = !0, this.element.contentEditable = "false", this.row = document.createElement("div"), this.row.className = "roundeditor__media-toolbar-row", this.row.append(Z("delete", e.imageDelete), Z("size", e.imageSize, "resize"), Z("link", e.imageLink), Z("alt", e.imageAlt), gp("left", e.alignLeft), gp("center", e.alignCenter), gp("right", e.alignRight)), this.formHost = document.createElement("div"), this.formHost.className = "roundeditor__media-toolbar-form", this.element.append(this.row, this.formHost), this.element.addEventListener("click", (e) => this.execute(e));
 	}
 	show() {
 		this.element.hidden = !1;
@@ -11834,7 +11881,7 @@ var hp = class {
 	openForm(e) {
 		let t = this.values(), n = document.createElement("form");
 		if (e === "size") {
-			let e = mp(this.labels.imageWidth, "width", "number"), r = mp(this.labels.imageHeight, "height", "number");
+			let e = _p(this.labels.imageWidth, "width", "number"), r = _p(this.labels.imageHeight, "height", "number");
 			for (let t of [e, r]) t.input.min = "24", t.input.inputMode = "numeric";
 			e.input.value = t.width || "", r.input.value = t.height || "", n.append(e.wrapper, r.wrapper), n.addEventListener("submit", (t) => {
 				t.preventDefault(), this.handlers.onSize(Number(e.input.value), Number(r.input.value)), this.formHost.replaceChildren();
@@ -11844,12 +11891,12 @@ var hp = class {
 				this.handlers.onResetSize(), this.formHost.replaceChildren();
 			}), n.appendChild(i);
 		} else if (e === "link") {
-			let e = mp(this.labels.url, "href", "url");
+			let e = _p(this.labels.url, "href", "url");
 			e.input.value = t.href || "", e.input.placeholder = "https://", n.appendChild(e.wrapper), n.addEventListener("submit", (t) => {
 				t.preventDefault(), this.handlers.onLink(e.input.value.trim()), this.formHost.replaceChildren();
 			});
 		} else {
-			let e = mp(this.labels.imageAlt, "alt");
+			let e = _p(this.labels.imageAlt, "alt");
 			e.input.value = t.alt || "", n.appendChild(e.wrapper), n.addEventListener("submit", (t) => {
 				t.preventDefault(), this.handlers.onAlt(e.input.value), this.formHost.replaceChildren();
 			});
@@ -11857,7 +11904,7 @@ var hp = class {
 		let r = document.createElement("button");
 		r.type = "submit", r.textContent = this.labels.apply, n.appendChild(r), this.formHost.replaceChildren(n), n.querySelector("input")?.focus();
 	}
-}, gp = class {
+}, yp = class {
 	constructor({ labels: e, values: t, onDelete: n, onSize: r, onResetSize: i, onToggleAutoplay: a, onToggleControls: o, onAlign: s }) {
 		this.labels = e, this.values = t, this.handlers = {
 			onDelete: n,
@@ -11866,7 +11913,7 @@ var hp = class {
 			onToggleAutoplay: a,
 			onToggleControls: o,
 			onAlign: s
-		}, this.element = document.createElement("div"), this.element.className = "roundeditor__media-toolbar", this.element.hidden = !0, this.element.contentEditable = "false", this.row = document.createElement("div"), this.row.className = "roundeditor__media-toolbar-row", this.row.append(Z("delete", e.videoDelete), Z("size", e.videoSize, "resize"), Z("autoplay", e.videoAutoplay, "play"), Z("controls", e.videoControls), pp("left", e.alignLeft), pp("center", e.alignCenter), pp("right", e.alignRight)), this.formHost = document.createElement("div"), this.formHost.className = "roundeditor__media-toolbar-form", this.element.append(this.row, this.formHost), this.element.addEventListener("click", (e) => this.execute(e));
+		}, this.element = document.createElement("div"), this.element.className = "roundeditor__media-toolbar", this.element.hidden = !0, this.element.contentEditable = "false", this.row = document.createElement("div"), this.row.className = "roundeditor__media-toolbar-row", this.row.append(Z("delete", e.videoDelete), Z("size", e.videoSize, "resize"), Z("autoplay", e.videoAutoplay, "play"), Z("controls", e.videoControls), gp("left", e.alignLeft), gp("center", e.alignCenter), gp("right", e.alignRight)), this.formHost = document.createElement("div"), this.formHost.className = "roundeditor__media-toolbar-form", this.element.append(this.row, this.formHost), this.element.addEventListener("click", (e) => this.execute(e));
 	}
 	show() {
 		this.element.hidden = !1, this.refresh();
@@ -11892,7 +11939,7 @@ var hp = class {
 		].includes(t) ? this.handlers.onAlign(t) : this.openSizeForm(), this.refresh());
 	}
 	openSizeForm() {
-		let e = this.values(), t = document.createElement("form"), n = mp(this.labels.videoWidth, "width", "number"), r = mp(this.labels.videoHeight, "height", "number");
+		let e = this.values(), t = document.createElement("form"), n = _p(this.labels.videoWidth, "width", "number"), r = _p(this.labels.videoHeight, "height", "number");
 		for (let e of [n, r]) e.input.min = "24", e.input.inputMode = "numeric";
 		n.input.value = e.width || "", r.input.value = e.height || "", t.append(n.wrapper, r.wrapper), t.addEventListener("submit", (e) => {
 			e.preventDefault(), this.handlers.onSize(Number(n.input.value), Number(r.input.value)), this.formHost.replaceChildren();
@@ -11904,7 +11951,7 @@ var hp = class {
 		let a = document.createElement("button");
 		a.type = "submit", a.textContent = this.labels.apply, t.appendChild(a), this.formHost.replaceChildren(t), n.input.focus();
 	}
-}, _p = class {
+}, bp = class {
 	constructor({ labels: e, values: t, onDelete: n, onSource: r, onToggleAutoplay: i, onToggleControls: a, onToggleLoop: o, onToggleMuted: s }) {
 		this.labels = e, this.values = t, this.handlers = {
 			onDelete: n,
@@ -11935,7 +11982,7 @@ var hp = class {
 		t && (e.preventDefault(), e.stopPropagation(), t === "delete" ? this.handlers.onDelete() : t === "source" ? this.openSourceForm() : t === "autoplay" ? this.handlers.onToggleAutoplay() : t === "controls" ? this.handlers.onToggleControls() : t === "loop" ? this.handlers.onToggleLoop() : t === "muted" && this.handlers.onToggleMuted(), this.refresh());
 	}
 	openSourceForm() {
-		let e = document.createElement("form"), t = mp(this.labels.audioSource, "src");
+		let e = document.createElement("form"), t = _p(this.labels.audioSource, "src");
 		t.input.value = this.values().src || "", t.input.placeholder = "/path/to/audio.mp3", e.appendChild(t.wrapper), e.addEventListener("submit", (e) => {
 			e.preventDefault();
 			let n = t.input.value.trim();
@@ -11948,7 +11995,7 @@ var hp = class {
 		let n = document.createElement("button");
 		n.type = "submit", n.textContent = this.labels.apply, e.appendChild(n), this.formHost.replaceChildren(e), t.input.focus();
 	}
-}, vp = {
+}, xp = {
 	imageDelete: "Delete image",
 	imageSize: "Image size",
 	imageLink: "Image link",
@@ -11967,15 +12014,15 @@ var hp = class {
 	imageCoverUnset: "Unset representative image",
 	imageInsertParagraphBefore: "Insert an empty paragraph above image"
 };
-function yp(e) {
+function Sp(e) {
 	let t = String(e || "").trim();
 	return /^\s*(?:javascript|vbscript|data):/i.test(t) ? "" : t;
 }
-var bp = class extends fp {
+var Cp = class extends hp {
 	constructor(e, t, n, r) {
 		let i = document.createElement("img");
 		i.draggable = !1, super(e, t, n, i), this.bridge = r, this.dom.classList.add("roundeditor__media--image"), this.labels = {
-			...vp,
+			...xp,
 			...r.config.labels || {}
 		}, this.imageFrame = document.createElement("span"), this.imageFrame.className = "roundeditor__image-frame", this.imageFrame.append(this.media, ...this.handles), this.dom.appendChild(this.imageFrame), this.edge = document.createElement("button"), this.edge.type = "button", this.edge.className = "roundeditor__image-edge roundeditor__image-edge--top", this.edge.setAttribute("aria-label", this.labels.imageInsertParagraphBefore), this.edge.addEventListener("click", () => {
 			let e = this.position();
@@ -11985,24 +12032,22 @@ var bp = class extends fp {
 		}), this.captionInput.addEventListener("compositionstart", () => {
 			this.composingCaption = !0;
 		}), this.captionInput.addEventListener("compositionend", () => {
-			this.composingCaption = !1, this.setCaption(this.captionInput.value, { select: !1 });
+			this.composingCaption = !1, this.setCaptionFromInput();
 		}), this.captionInput.addEventListener("input", () => {
-			this.composingCaption || this.setCaption(this.captionInput.value, { select: !1 });
+			this.composingCaption || this.setCaptionFromInput();
 		}), this.captionInput.addEventListener("blur", () => {
 			this.captionEditing = !1, this.setCaption(this.captionInput.value.trim(), { select: !1 }), this.renderCaption();
-		});
+		}), this.captionInput.addEventListener("pointerdown", (e) => this.placeInputCaretAtPointer(e, this.captionInput));
 		for (let e of [
 			"pointerdown",
 			"mousedown",
 			"click"
 		]) this.captionInput.addEventListener(e, (e) => e.stopPropagation());
-		this.captionInput.addEventListener("click", () => {
-			document.activeElement !== this.captionInput && this.captionInput.focus();
-		}), this.captionInput.addEventListener("dblclick", (e) => {
+		this.captionInput.addEventListener("dblclick", (e) => {
 			e.preventDefault(), e.stopPropagation(), this.captionInput.focus(), this.captionInput.select();
 		}), this.captionInput.addEventListener("dragstart", (e) => e.preventDefault()), this.captionInput.addEventListener("keydown", (e) => {
 			["Enter", "Escape"].includes(e.key) && (e.preventDefault(), this.setCaption(this.captionInput.value.trim(), { select: !1 }), this.captionInput.blur(), this.view.focus());
-		}), r.imageViews?.add(this), this.toolbar = new hp({
+		}), r.imageViews?.add(this), this.toolbar = new vp({
 			labels: this.labels,
 			values: () => this.values(),
 			onDelete: () => this.remove(),
@@ -12084,8 +12129,12 @@ var bp = class extends fp {
 	setCaption(e, t = {}) {
 		this.updateAttrs({ caption: String(e || "") }, this.node.marks, t);
 	}
+	setCaptionFromInput() {
+		let e = this.captionInput.selectionStart, t = this.captionInput.selectionEnd, n = this.captionInput.selectionDirection;
+		this.setCaption(this.captionInput.value, { select: !1 }), document.activeElement === this.captionInput && e !== null && t !== null && this.captionInput.setSelectionRange(e, t, n || "none");
+	}
 	setLink(e) {
-		let t = yp(e), n = this.view.state.schema.marks.link, r = this.node.marks.filter((e) => e.type !== n);
+		let t = Sp(e), n = this.view.state.schema.marks.link, r = this.node.marks.filter((e) => e.type !== n);
 		t && r.push(n.create({
 			href: t,
 			target: "_blank",
@@ -12115,12 +12164,12 @@ var bp = class extends fp {
 		this.surface?.removeEventListener("scroll", this.placeToolbarOnScroll), this.dom.removeEventListener("pointerenter", this.refreshEdgeOnPointerEnter), this.bridge.imageViews?.delete(this);
 	}
 };
-function xp(e) {
-	return (t, n, r) => new bp(t, n, r, e);
+function wp(e) {
+	return (t, n, r) => new Cp(t, n, r, e);
 }
 //#endregion
 //#region src/nodeviews/AudioView.js
-var Sp = {
+var Tp = {
 	audio: "Audio",
 	audioDelete: "Delete audio",
 	audioSource: "Audio source",
@@ -12130,11 +12179,11 @@ var Sp = {
 	audioMuted: "Muted",
 	apply: "Apply",
 	invalidUrl: "Enter a safe URL."
-}, Cp = class extends fp {
+}, Ep = class extends hp {
 	constructor(e, t, n, r) {
 		let i = document.createElement("audio");
 		i.draggable = !1, super(e, t, n, i), this.bridge = r, this.labels = {
-			...Sp,
+			...Tp,
 			...r.config.labels || {}
 		}, this.dom.classList.add("roundeditor__media--audio"), this.suppressPlaybackClick = !1, this.selectForEditing = () => {
 			let e = this.position();
@@ -12146,7 +12195,7 @@ var Sp = {
 			!this.suppressPlaybackClick && !t || t && !this.selectForEditing() || (this.suppressPlaybackClick = !0, e.preventDefault(), e.stopImmediatePropagation(), e.type === "click" && (this.suppressPlaybackClick = !1));
 		}, this.media.addEventListener("pointerdown", this.selectBeforePlayback, !0), this.media.addEventListener("mousedown", this.blockFirstPlayback, !0), this.media.addEventListener("click", this.blockFirstPlayback, !0), this.selectionCover = document.createElement("span"), this.selectionCover.className = "roundeditor__audio-selection-cover", this.selectionCover.contentEditable = "false", this.selectionCover.setAttribute("aria-hidden", "true"), this.selectFromCover = (e) => {
 			e.preventDefault(), e.stopImmediatePropagation(), this.suppressPlaybackClick = !0, this.selectForEditing();
-		}, this.selectionCover.addEventListener("mousedown", this.selectFromCover, !0), this.dom.appendChild(this.selectionCover), this.toolbar = new _p({
+		}, this.selectionCover.addEventListener("mousedown", this.selectFromCover, !0), this.dom.appendChild(this.selectionCover), this.toolbar = new bp({
 			labels: this.labels,
 			values: () => this.values(),
 			onDelete: () => this.remove(),
@@ -12205,22 +12254,22 @@ var Sp = {
 		this.surface?.removeEventListener("scroll", this.placeToolbarOnScroll), this.media.removeEventListener("pointerdown", this.selectBeforePlayback, !0), this.media.removeEventListener("mousedown", this.blockFirstPlayback, !0), this.media.removeEventListener("click", this.blockFirstPlayback, !0), this.selectionCover.removeEventListener("mousedown", this.selectFromCover, !0), this.media.pause();
 	}
 };
-function wp(e) {
-	return (t, n, r) => new Cp(t, n, r, e);
+function Dp(e) {
+	return (t, n, r) => new Ep(t, n, r, e);
 }
 //#endregion
 //#region src/rhymix/componentPresentation.js
-var Tp = { poll_maker: {
+var Op = { poll_maker: {
 	icon: {
 		type: "ui",
 		name: "poll"
 	},
 	fallbackDetails: !1,
-	resolveDetails: Fp,
-	pendingDetails: (e) => [Ip(e, e.componentPollLoading || "Loading…")],
-	unavailableDetails: (e) => [Ip(e, e.componentPollUnavailable || "Unavailable")],
-	invalidateDetails: Lp
-} }, Ep = /* @__PURE__ */ new Map(), Dp = /* @__PURE__ */ new Set([
+	resolveDetails: Rp,
+	pendingDetails: (e) => [zp(e, e.componentPollLoading || "Loading…")],
+	unavailableDetails: (e) => [zp(e, e.componentPollUnavailable || "Unavailable")],
+	invalidateDetails: Bp
+} }, kp = /* @__PURE__ */ new Map(), Ap = /* @__PURE__ */ new Set([
 	"class",
 	"contenteditable",
 	"editor_component",
@@ -12229,19 +12278,19 @@ var Tp = { poll_maker: {
 	"style",
 	"width"
 ]);
-function Op(e) {
+function jp(e) {
 	let t = document.createElement("template");
 	return t.innerHTML = String(e || ""), t.content.querySelector("[editor_component]");
 }
-function kp(e, t, n, r = {}) {
-	let i = Tp[e] || {}, a = (i.details || []).flatMap((e) => {
+function Mp(e, t, n, r = {}) {
+	let i = Op[e] || {}, a = (i.details || []).flatMap((e) => {
 		let t = n?.getAttribute(e.attribute);
 		return t ? [{
 			label: e.label(r),
 			value: t
 		}] : [];
 	});
-	return !a.length && n && i.fallbackDetails !== !1 && (a = Array.from(n.attributes).filter((e) => !Dp.has(e.name) && !e.name.startsWith("data-roundeditor-")).slice(0, 3).map((e) => ({
+	return !a.length && n && i.fallbackDetails !== !1 && (a = Array.from(n.attributes).filter((e) => !Ap.has(e.name) && !e.name.startsWith("data-roundeditor-")).slice(0, 3).map((e) => ({
 		label: e.name,
 		value: e.value
 	}))), {
@@ -12254,20 +12303,20 @@ function kp(e, t, n, r = {}) {
 		unavailableDetails: i.unavailableDetails?.(r) || []
 	};
 }
-function Ap(e, t, n = {}) {
+function Np(e, t, n = {}) {
 	return e.resolveDetails ? e.resolveDetails(t, n) : Promise.resolve(e.details);
 }
-function jp(e, t) {
-	Tp[e]?.invalidateDetails?.(t);
-}
-function Mp(e, t) {
-	let n = kp(e, t, null);
-	return n.icon ? Pp(n.icon, "roundeditor__component-icon") : null;
-}
-function Np(e) {
-	return e ? Pp(e, "roundeditor__component-card-icon") : null;
-}
 function Pp(e, t) {
+	Op[e]?.invalidateDetails?.(t);
+}
+function Fp(e, t) {
+	let n = Mp(e, t, null);
+	return n.icon ? Lp(n.icon, "roundeditor__component-icon") : null;
+}
+function Ip(e) {
+	return e ? Lp(e, "roundeditor__component-card-icon") : null;
+}
+function Lp(e, t) {
 	if (e.type === "ui") {
 		let n = Uu(e.name);
 		return n.classList.add(t), n;
@@ -12275,22 +12324,22 @@ function Pp(e, t) {
 	let n = document.createElement("img");
 	return n.className = t, n.src = e.url, n.alt = "", n.setAttribute("aria-hidden", "true"), n;
 }
-function Fp(e, t) {
+function Rp(e, t) {
 	let n = e?.getAttribute("poll_srl");
-	return n ? Rp(n).then((e) => e.map((e) => Ip(t, e))) : Promise.resolve([]);
+	return n ? Vp(n).then((e) => e.map((e) => zp(t, e))) : Promise.resolve([]);
 }
-function Ip(e, t) {
+function zp(e, t) {
 	return {
 		label: e.componentPollTitle || "Poll title",
 		value: t
 	};
 }
-function Lp(e) {
+function Bp(e) {
 	let t = e?.getAttribute("poll_srl");
-	t && Ep.delete(t);
+	t && kp.delete(t);
 }
-function Rp(e) {
-	if (Ep.has(e)) return Ep.get(e);
+function Vp(e) {
+	if (kp.has(e)) return kp.get(e);
 	let t = new Promise((t, n) => {
 		if (typeof window.exec_json != "function") {
 			n(/* @__PURE__ */ Error("The Rhymix poll API is unavailable."));
@@ -12305,22 +12354,22 @@ function Rp(e) {
 			t(i);
 		}, (e) => (n(Error(e?.message || "The poll request failed.")), !1));
 	});
-	return Ep.set(e, t), t;
+	return kp.set(e, t), t;
 }
 //#endregion
 //#region src/nodeviews/RawView.js
-var zp = "script,style,form,input,button,select,textarea,object,embed", Bp = /* @__PURE__ */ new Set([
+var Hp = "script,style,form,input,button,select,textarea,object,embed", Up = /* @__PURE__ */ new Set([
 	"href",
 	"src",
 	"poster",
 	"data"
-]), Vp = /* @__PURE__ */ new Map(), Hp = /* @__PURE__ */ new Map(), Up = /* @__PURE__ */ new Set(), Wp = /* @__PURE__ */ new Map([
+]), Wp = /* @__PURE__ */ new Map(), Gp = /* @__PURE__ */ new Map(), Kp = /* @__PURE__ */ new Set(), qp = /* @__PURE__ */ new Map([
 	["https://platform.twitter.com/widgets.js", (e) => typeof window.twttr?.widgets?.load == "function" && (window.twttr.widgets.load(e), !0)],
 	["https://www.instagram.com/embed.js", () => typeof window.instgrm?.Embeds?.process == "function" && (window.instgrm.Embeds.process(), !0)],
 	["https://connect.facebook.net/ko_KR/sdk.js#xfbml=1&version=v18.0", (e) => typeof window.FB?.XFBML?.parse == "function" && (window.FB.XFBML.parse(e), !0)]
 ]);
-function Gp(e, t) {
-	let n = Wp.get(e.script);
+function Jp(e, t) {
+	let n = qp.get(e.script);
 	if (!n) return !1;
 	try {
 		return n(t);
@@ -12328,66 +12377,66 @@ function Gp(e, t) {
 		return !1;
 	}
 }
-function Kp(e, t) {
+function Yp(e, t) {
 	for (let n of Array.isArray(t?.normalize) ? t.normalize : []) if (!(!n || typeof n.detect != "string" || typeof n.addClass != "string" || !n.addClass)) try {
 		e.matches(n.detect) && e.classList.add(n.addClass);
 		for (let t of e.querySelectorAll(n.detect)) t.classList.add(n.addClass);
 	} catch {}
 }
-function qp(e, t) {
+function Xp(e, t) {
 	try {
 		return e.matches(t) || !!e.querySelector(t);
 	} catch {
 		return !1;
 	}
 }
-function Jp(e, t = !1) {
+function Zp(e, t = !1) {
 	let n = e.script;
-	if (!t && Vp.has(n)) return Vp.get(n);
-	if (t && Hp.has(n)) return Hp.get(n);
+	if (!t && Wp.has(n)) return Wp.get(n);
+	if (t && Gp.has(n)) return Gp.get(n);
 	let r = new Promise((r, i) => {
 		let a = t ? null : Array.from(document.scripts).find((e) => e.src === n);
 		if (a?.dataset.roundeditorLoaded === "true") {
-			Up.add(n), r();
+			Kp.add(n), r();
 			return;
 		}
 		a || (a = document.createElement("script"), a.async = !0, a.src = n, a.dataset.roundeditorOembedSdk = n, e.crossorigin === !0 && (a.crossOrigin = "anonymous"), (document.head || document.documentElement).appendChild(a)), a.addEventListener("load", () => {
-			a.dataset.roundeditorLoaded = "true", Up.add(n);
+			a.dataset.roundeditorLoaded = "true", Kp.add(n);
 			for (let e of document.querySelectorAll("script[data-roundeditor-oembed-sdk]")) e !== a && e.dataset.roundeditorOembedSdk === n && e.remove();
 			r();
 		}, { once: !0 }), a.addEventListener("error", () => i(/* @__PURE__ */ Error("The oEmbed SDK failed to load.")), { once: !0 });
 	}).catch((e) => {
-		throw Vp.delete(n), e;
+		throw Wp.delete(n), e;
 	});
-	return t ? (Hp.set(n, r), r.then(() => Hp.delete(n), () => Hp.delete(n))) : Vp.set(n, r), r;
+	return t ? (Gp.set(n, r), r.then(() => Gp.delete(n), () => Gp.delete(n))) : Wp.set(n, r), r;
 }
-function Yp(e, t) {
-	for (let n of Array.isArray(t) ? t : []) Kp(e, n);
-	let n = (Array.isArray(t) ? t : []).filter((t) => t && typeof t.script == "string" && typeof t.selector == "string" && qp(e, t.selector));
+function Qp(e, t) {
+	for (let n of Array.isArray(t) ? t : []) Yp(e, n);
+	let n = (Array.isArray(t) ? t : []).filter((t) => t && typeof t.script == "string" && typeof t.selector == "string" && Xp(e, t.selector));
 	n.length && Promise.resolve().then(() => {
-		for (let t of n) Gp(t, e) || Jp(t, Up.has(t.script)).then(() => {
-			Gp(t, e);
+		for (let t of n) Jp(t, e) || Zp(t, Kp.has(t.script)).then(() => {
+			Jp(t, e);
 		}).catch(() => {});
 	});
 }
-function Xp(e) {
+function $p(e) {
 	let t = document.createElement("template");
 	t.innerHTML = String(e || "");
 	let n = t.content.firstElementChild;
 	if (!n || n.tagName !== "DIV" || n.getAttribute("editor_component") !== "oembed") return null;
-	for (let e of n.querySelectorAll(zp)) e.remove();
+	for (let e of n.querySelectorAll(Hp)) e.remove();
 	for (let e of [n, ...n.querySelectorAll("*")]) for (let t of Array.from(e.attributes)) {
 		let n = t.name.toLowerCase();
-		(n.startsWith("on") || n === "srcdoc" || Bp.has(n) && /^\s*(?:javascript|vbscript|data:text\/html)/i.test(t.value)) && e.removeAttribute(t.name);
+		(n.startsWith("on") || n === "srcdoc" || Up.has(n) && /^\s*(?:javascript|vbscript|data:text\/html)/i.test(t.value)) && e.removeAttribute(t.name);
 	}
 	return n.contentEditable = "false", n.classList.add("roundeditor__oembed"), n.dataset.roundeditorRawNode = "rhymixComponentBlock", n;
 }
-var Zp = class {
+var em = class {
 	constructor(e, t) {
 		if (this.node = e, this.dom = document.createElement(e.type.isInline ? "span" : "div"), this.dom.className = `roundeditor__raw roundeditor__raw--${e.type.isInline ? "inline" : "block"}`, this.dom.contentEditable = "false", this.dom.dataset.roundeditorRawNode = e.type.name, e.type.name.startsWith("rhymixComponent")) {
-			if (Op(e.attrs.html)?.getAttribute("editor_component") === "oembed") {
-				let n = Xp(e.attrs.html);
-				n && (this.dom = n, this.isOembed = !0, t?.config.oembedAvailable && Yp(this.dom, t.config.oembedAssets));
+			if (jp(e.attrs.html)?.getAttribute("editor_component") === "oembed") {
+				let n = $p(e.attrs.html);
+				n && (this.dom = n, this.isOembed = !0, t?.config.oembedAvailable && Qp(this.dom, t.config.oembedAssets));
 				return;
 			}
 			this.renderComponent(t);
@@ -12397,14 +12446,14 @@ var Zp = class {
 		n.className = "roundeditor__raw-label", n.textContent = "이 영역은 현재 편집할 수 없습니다 · 원본 유지됨", this.dom.appendChild(n);
 	}
 	renderComponent(e) {
-		let t = Op(this.node.attrs.html), n = t?.getAttribute("editor_component") || "", r = e?.config.components?.[n], i = typeof r == "object" ? r.title : r, a = e?.config.labels || {}, o = kp(n, i, t, a);
+		let t = jp(this.node.attrs.html), n = t?.getAttribute("editor_component") || "", r = e?.config.components?.[n], i = typeof r == "object" ? r.title : r, a = e?.config.labels || {}, o = Mp(n, i, t, a);
 		this.dom.classList.add("roundeditor__component-card"), this.dom.dataset.componentName = n;
-		let s = Np(o.icon);
+		let s = Ip(o.icon);
 		s && this.dom.appendChild(s);
 		let c = document.createElement("span");
 		c.className = "roundeditor__component-card-body";
 		let l = document.createElement("strong");
-		l.textContent = o.title, c.appendChild(l), this.details = document.createElement("span"), this.details.className = "roundeditor__component-details", c.appendChild(this.details), this.renderDetails(o.details), o.resolveDetails && (this.renderDetails(o.pendingDetails), Ap(o, t, a).then((e) => {
+		l.textContent = o.title, c.appendChild(l), this.details = document.createElement("span"), this.details.className = "roundeditor__component-details", c.appendChild(this.details), this.renderDetails(o.details), o.resolveDetails && (this.renderDetails(o.pendingDetails), Np(o, t, a).then((e) => {
 			this.destroyed || this.renderDetails(e);
 		}).catch(() => {
 			this.destroyed || this.renderDetails(o.unavailableDetails);
@@ -12428,18 +12477,18 @@ var Zp = class {
 		this.destroyed = !0;
 	}
 };
-function Qp(e) {
+function tm(e) {
 	return Object.fromEntries([
 		"embed",
 		"rawBlock",
 		"rawInline",
 		"rhymixComponentBlock",
 		"rhymixComponentInline"
-	].map((t) => [t, (t) => new Zp(t, e)]));
+	].map((t) => [t, (t) => new em(t, e)]));
 }
 //#endregion
 //#region src/nodeviews/VideoView.js
-var $p = {
+var nm = {
 	videoDelete: "Delete video",
 	videoSize: "Video size",
 	videoAutoplay: "Autoplay",
@@ -12457,11 +12506,11 @@ var $p = {
 	videoCoverSet: "Set as representative media",
 	videoCoverUnset: "Unset representative media",
 	videoInsertParagraphBefore: "Insert empty paragraphs above video"
-}, em = class extends fp {
+}, rm = class extends hp {
 	constructor(e, t, n, r) {
 		let i = document.createElement("video");
 		i.draggable = !1, i.tabIndex = -1, super(e, t, n, i), this.bridge = r, this.previewLoaded = !1, this.labels = {
-			...$p,
+			...nm,
 			...r.config.labels || {}
 		}, this.pausePlayback = () => this.media.pause(), this.showMetadata = () => {
 			let e = Ju(this.media.duration);
@@ -12478,24 +12527,22 @@ var $p = {
 		}), this.captionInput.addEventListener("compositionstart", () => {
 			this.composingCaption = !0;
 		}), this.captionInput.addEventListener("compositionend", () => {
-			this.composingCaption = !1, this.setCaption(this.captionInput.value, { select: !1 });
+			this.composingCaption = !1, this.setCaptionFromInput();
 		}), this.captionInput.addEventListener("input", () => {
-			this.composingCaption || this.setCaption(this.captionInput.value, { select: !1 });
+			this.composingCaption || this.setCaptionFromInput();
 		}), this.captionInput.addEventListener("blur", () => {
 			this.captionEditing = !1, this.setCaption(this.captionInput.value.trim(), { select: !1 }), this.renderCaption();
-		});
+		}), this.captionInput.addEventListener("pointerdown", (e) => this.placeInputCaretAtPointer(e, this.captionInput));
 		for (let e of [
 			"pointerdown",
 			"mousedown",
 			"click"
 		]) this.captionInput.addEventListener(e, (e) => e.stopPropagation());
-		this.captionInput.addEventListener("click", () => {
-			document.activeElement !== this.captionInput && this.captionInput.focus();
-		}), this.captionInput.addEventListener("dblclick", (e) => {
+		this.captionInput.addEventListener("dblclick", (e) => {
 			e.preventDefault(), e.stopPropagation(), this.captionInput.focus(), this.captionInput.select();
 		}), this.captionInput.addEventListener("dragstart", (e) => e.preventDefault()), this.captionInput.addEventListener("keydown", (e) => {
 			["Enter", "Escape"].includes(e.key) && (e.preventDefault(), this.setCaption(this.captionInput.value.trim(), { select: !1 }), this.captionInput.blur(), this.view.focus());
-		}), r.imageViews?.add(this), this.toolbar = new gp({
+		}), r.imageViews?.add(this), this.toolbar = new yp({
 			labels: this.labels,
 			values: () => this.values(),
 			onDelete: () => this.remove(),
@@ -12583,6 +12630,10 @@ var $p = {
 	setCaption(e, t = {}) {
 		this.updateAttrs({ caption: String(e || "") }, t);
 	}
+	setCaptionFromInput() {
+		let e = this.captionInput.selectionStart, t = this.captionInput.selectionEnd, n = this.captionInput.selectionDirection;
+		this.setCaption(this.captionInput.value, { select: !1 }), document.activeElement === this.captionInput && e !== null && t !== null && this.captionInput.setSelectionRange(e, t, n || "none");
+	}
 	toggleAutoplay() {
 		let e = !this.node.attrs.autoplay;
 		this.updateAttrs({
@@ -12602,12 +12653,12 @@ var $p = {
 		this.surface?.removeEventListener("scroll", this.placeToolbarOnScroll), this.observer?.disconnect(), this.dom.removeEventListener("pointerenter", this.refreshEdgeOnPointerEnter), this.bridge.imageViews?.delete(this), this.media.removeEventListener("play", this.pausePlayback), this.media.removeEventListener("loadedmetadata", this.showMetadata), this.media.pause();
 	}
 };
-function tm(e) {
-	return (t, n, r) => new em(t, n, r, e);
+function im(e) {
+	return (t, n, r) => new rm(t, n, r, e);
 }
 //#endregion
 //#region src/nodeviews/StickerView.js
-var nm = class extends fp {
+var am = class extends hp {
 	constructor(e, t, n, r) {
 		let i = document.createElement(e.attrs.mediaType === "video" ? "video" : "img");
 		i.draggable = !1, super(e, t, n, i), this.bridge = r, this.dom.classList.add("roundeditor__media--sticker");
@@ -12632,20 +12683,20 @@ var nm = class extends fp {
 		this.observer?.disconnect(), this.media.tagName === "VIDEO" && this.media.pause();
 	}
 };
-function rm(e) {
-	return (t, n, r) => new nm(t, n, r, e);
+function om(e) {
+	return (t, n, r) => new am(t, n, r, e);
 }
 //#endregion
 //#region src/rhymix/autosave.js
-function im(e, t) {
+function sm(e, t) {
 	return Array.from(e.querySelectorAll("[name]")).find((e) => e.name === t) || null;
 }
-function am(e) {
-	let t = im(e.form, "_saved_doc_title"), n = im(e.form, "_saved_doc_content"), r = im(e.form, "_saved_doc_message"), i = e.config.savedDocument, a = t?.value ?? i?.title ?? "", o = n?.value ?? i?.content ?? "";
+function cm(e) {
+	let t = sm(e.form, "_saved_doc_title"), n = sm(e.form, "_saved_doc_content"), r = sm(e.form, "_saved_doc_message"), i = e.config.savedDocument, a = t?.value ?? i?.title ?? "", o = n?.value ?? i?.content ?? "";
 	if (!a && !o) return e.contentInput.value || "";
 	let s = r?.value || i?.message || "Load the autosaved document?";
 	if (!window.confirm(s)) return window.editorRemoveSavedDoc?.(), e.contentInput.value || "";
-	let c = im(e.form, "title");
+	let c = sm(e.form, "title");
 	return c && (c.value = a), typeof window.exec_json == "function" && window.exec_json("editor.procEditorLoadSavedDocument", {
 		editor_sequence: e.sequence,
 		primary_key: e.config.primaryKeyName,
@@ -12654,7 +12705,7 @@ function am(e) {
 		t?.document_srl && e.primaryInput && (e.primaryInput.value = t.document_srl), window.reloadUploader?.(e.sequence);
 	}), o;
 }
-function om(e) {
+function lm(e) {
 	if (e.config.enableAutosave && typeof window.editorEnableAutoSave == "function") {
 		let t = e.form.querySelector(`#editor_autosaved_message_${e.sequence}`);
 		t && (t.textContent = "", t.classList.add("roundeditor__autosave"), t.setAttribute("role", "status"), t.setAttribute("aria-live", "polite"), e.toolbar.footer.prepend(t)), window.auto_saved_msg = e.config.autosavedMessage || window.auto_saved_msg || "", window.editorEnableAutoSave(e.form, e.sequence);
@@ -12662,17 +12713,17 @@ function om(e) {
 }
 //#endregion
 //#region src/rhymix/component.js
-var sm = /* @__PURE__ */ new Set(["rhymixComponentBlock", "rhymixComponentInline"]);
-function cm(e) {
+var um = /* @__PURE__ */ new Set(["rhymixComponentBlock", "rhymixComponentInline"]);
+function dm(e) {
 	let t = document.createElement("template");
-	return sm.has(e.type.name) ? t.innerHTML = e.attrs.html : t.content.appendChild($e.fromSchema(X).serializeNode(e)), t.content.querySelector("[editor_component]")?.getAttribute("editor_component") || "";
+	return um.has(e.type.name) ? t.innerHTML = e.attrs.html : t.content.appendChild($e.fromSchema(X).serializeNode(e)), t.content.querySelector("[editor_component]")?.getAttribute("editor_component") || "";
 }
-function lm(e) {
-	if (sm.has(e.type.name)) return e.attrs.html;
+function fm(e) {
+	if (um.has(e.type.name)) return e.attrs.html;
 	let t = document.createElement("div");
 	return t.appendChild($e.fromSchema(X).serializeNode(e)), t.innerHTML;
 }
-function um(e, t) {
+function pm(e, t) {
 	let n = t.closest?.("[data-roundeditor-raw-node^=\"rhymixComponent\"]"), r = t.closest?.("[editor_component]"), i = n || r;
 	if (!i || !e.editable.contains(i)) return null;
 	let a;
@@ -12688,29 +12739,29 @@ function um(e, t) {
 	].filter((e) => e >= 0);
 	for (let t of o) {
 		let n = e.view.state.doc.nodeAt(t);
-		if (n && (sm.has(n.type.name) || n.attrs?.editorComponent)) return {
+		if (n && (um.has(n.type.name) || n.attrs?.editorComponent)) return {
 			node: n,
 			position: t
 		};
 	}
 	return null;
 }
-function dm(e, t) {
+function mm(e, t) {
 	!t || e.sourceMode?.active || typeof window.openComponent != "function" || (window.editorPrevNode = null, e.view.focus(), window.openComponent(t, e.sequence));
 }
-function fm(e) {
+function hm(e) {
 	e.config.enableComponent && e.editable.addEventListener("dblclick", (t) => {
-		let n = um(e, t.target);
+		let n = pm(e, t.target);
 		if (!n) return;
-		let r = cm(n.node);
+		let r = dm(n.node);
 		if (!r || !Object.prototype.hasOwnProperty.call(e.config.components || {}, r)) return;
 		t.preventDefault(), t.stopPropagation();
 		let i = document.createElement("div");
-		i.className = "roundeditor__component-proxy", i.innerHTML = lm(n.node), e.wrapper.appendChild(i), window.editorPrevNode = i.firstElementChild, e.view.dispatch(e.view.state.tr.setSelection(T.create(e.view.state.doc, n.position)));
+		i.className = "roundeditor__component-proxy", i.innerHTML = fm(n.node), e.wrapper.appendChild(i), window.editorPrevNode = i.firstElementChild, e.view.dispatch(e.view.state.tr.setSelection(T.create(e.view.state.doc, n.position)));
 		let a = !1, o = null, s = new MutationObserver(() => {
 			a || !i.isConnected || (a = !0, queueMicrotask(() => {
 				if (a = !1, i.isConnected) try {
-					jp(r, i.querySelector("[editor_component]"));
+					Pp(r, i.querySelector("[editor_component]"));
 					let t = Rf(i.innerHTML), a = e.view.state.tr.replaceRange(n.position, n.position + n.node.nodeSize, t);
 					e.view.dispatch(a), s.disconnect(), window.clearTimeout(o), i.remove(), window.editorPrevNode && !window.editorPrevNode.isConnected && (window.editorPrevNode = null);
 				} catch (e) {
@@ -12730,7 +12781,7 @@ function fm(e) {
 }
 //#endregion
 //#region src/ui/Fullscreen.js
-var pm = class {
+var gm = class {
 	constructor(e) {
 		this.bridge = e, this.onKeydown = (e) => {
 			e.key === "Escape" && this.active && this.toggle(!1);
@@ -12745,56 +12796,56 @@ var pm = class {
 };
 //#endregion
 //#region src/htmlFormatting.js
-function mm(e) {
+function _m(e) {
 	return !!e && e.nodeType === Node.ELEMENT_NODE && bd.has(e.tagName.toLowerCase());
 }
-function hm(e) {
+function vm(e) {
 	let t = `roundeditor-${Math.random().toString(36).slice(2)}`, n = e.cloneNode(!1);
 	n.appendChild(document.createTextNode(t));
 	let r = n.outerHTML, i = r.indexOf(t);
 	return [r.slice(0, i), r.slice(i + t.length)];
 }
-function gm(e) {
+function ym(e) {
 	return e.nodeType === Node.TEXT_NODE ? e.nodeValue : e.nodeType === Node.COMMENT_NODE ? `<!--${e.nodeValue}-->` : e.outerHTML || "";
 }
-function _m(e, t) {
+function bm(e, t) {
 	let n = [], r = "", i = () => {
 		r && (n.push(`${"  ".repeat(t)}${r}`), r = "");
 	};
 	for (let a of e.childNodes) {
-		if (!mm(a)) {
-			r += gm(a);
+		if (!_m(a)) {
+			r += ym(a);
 			continue;
 		}
-		i(), n.push(...vm(a, t));
+		i(), n.push(...xm(a, t));
 	}
 	return i(), n;
 }
-function vm(e, t) {
-	let n = "  ".repeat(t), r = e.tagName.toLowerCase(), i = Array.from(e.children).some(mm);
+function xm(e, t) {
+	let n = "  ".repeat(t), r = e.tagName.toLowerCase(), i = Array.from(e.children).some(_m);
 	if (xd.has(r) || !i || ["pre", "code"].includes(r)) return [`${n}${e.outerHTML}`];
-	let [a, o] = hm(e);
+	let [a, o] = vm(e);
 	return [
 		`${n}${a}`,
-		..._m(e, t + 1),
+		...bm(e, t + 1),
 		`${n}${o}`
 	];
 }
-function ym(e) {
+function Sm(e) {
 	let t = document.createElement("template");
-	return t.innerHTML = String(e || ""), _m(t.content, 0).join("\n");
+	return t.innerHTML = String(e || ""), bm(t.content, 0).join("\n");
 }
-function bm(e) {
-	let t = Array.from(e.children || []).some(mm);
-	for (let n of Array.from(e.childNodes)) n.nodeType === Node.TEXT_NODE ? /^[\t\n\r ]+$/u.test(n.nodeValue) && n.nodeValue.includes("\n") && (e.nodeType === Node.DOCUMENT_FRAGMENT_NODE || t || mm(n.previousSibling) || mm(n.nextSibling)) && n.remove() : n.nodeType === Node.ELEMENT_NODE && bm(n);
+function Cm(e) {
+	let t = Array.from(e.children || []).some(_m);
+	for (let n of Array.from(e.childNodes)) n.nodeType === Node.TEXT_NODE ? /^[\t\n\r ]+$/u.test(n.nodeValue) && n.nodeValue.includes("\n") && (e.nodeType === Node.DOCUMENT_FRAGMENT_NODE || t || _m(n.previousSibling) || _m(n.nextSibling)) && n.remove() : n.nodeType === Node.ELEMENT_NODE && Cm(n);
 }
-function xm(e) {
+function wm(e) {
 	let t = document.createElement("template");
-	return t.innerHTML = String(e || ""), bm(t.content), t.innerHTML;
+	return t.innerHTML = String(e || ""), Cm(t.content), t.innerHTML;
 }
 //#endregion
 //#region src/ui/SourceMode.js
-var Sm = class {
+var Tm = class {
 	constructor(e) {
 		this.bridge = e, this.textarea = document.createElement("textarea"), this.textarea.className = "roundeditor__source", this.textarea.hidden = !0, this.textarea.spellcheck = !1, this.textarea.setAttribute("aria-label", e.config.labels?.source || "HTML source"), this.textarea.addEventListener("input", () => e.sync()), e.wrapper.insertBefore(this.textarea, e.toolbar.footer);
 	}
@@ -12805,19 +12856,19 @@ var Sm = class {
 		this.active ? this.close() : this.open();
 	}
 	open() {
-		!this.bridge.config.htmlMode || this.bridge.config.allowHtml === !1 || this.active || (this.bridge.toolbar.closePanel(), this.bridge.toolbar.closeMore(), this.textarea.value = ym(this.bridge.serializeVisual()), this.bridge.surface.hidden = !0, this.textarea.hidden = !1, this.bridge.wrapper.classList.add("roundeditor--source"), window.editorMode[this.bridge.sequence] = "html", this.bridge.compat.mode = "html", this.textarea.focus(), this.bridge.toolbar.refresh(this.bridge.view.state), this.bridge.sync());
+		!this.bridge.config.htmlMode || this.bridge.config.allowHtml === !1 || this.active || (this.bridge.toolbar.closePanel(), this.bridge.toolbar.closeMore(), this.textarea.value = Sm(this.bridge.serializeVisual()), this.bridge.surface.hidden = !0, this.textarea.hidden = !1, this.bridge.wrapper.classList.add("roundeditor--source"), window.editorMode[this.bridge.sequence] = "html", this.bridge.compat.mode = "html", this.textarea.focus(), this.bridge.toolbar.refresh(this.bridge.view.state), this.bridge.sync());
 	}
 	close() {
 		this.active && (this.commit(), this.textarea.hidden = !0, this.bridge.surface.hidden = !1, this.bridge.wrapper.classList.remove("roundeditor--source"), window.editorMode[this.bridge.sequence] = null, this.bridge.compat.mode = "wysiwyg", this.bridge.view.focus(), this.bridge.toolbar.refresh(this.bridge.view.state), this.bridge.sync());
 	}
 	commit() {
-		this.active && (this.bridge.updateDocument(xm(this.textarea.value)), this.textarea.value = ym(this.bridge.serializeVisual()));
+		this.active && (this.bridge.updateDocument(wm(this.textarea.value)), this.textarea.value = Sm(this.bridge.serializeVisual()));
 	}
 	getData() {
-		return this.active ? xm(this.textarea.value) : this.bridge.serializeVisual();
+		return this.active ? wm(this.textarea.value) : this.bridge.serializeVisual();
 	}
 	setData(e) {
-		this.active ? this.textarea.value = ym(e) : this.bridge.updateDocument(e);
+		this.active ? this.textarea.value = Sm(e) : this.bridge.updateDocument(e);
 	}
 	insertHtml(e) {
 		if (!this.active) return !1;
@@ -12833,15 +12884,15 @@ var Sm = class {
 };
 //#endregion
 //#region node_modules/prosemirror-schema-list/dist/index.js
-function Cm(e, t = null) {
+function Em(e, t = null) {
 	return function(n, r) {
 		let { $from: i, $to: a } = n.selection, o = i.blockRange(a);
 		if (!o) return !1;
 		let s = r ? n.tr : null;
-		return wm(s, o, e, t) ? (r && r(s.scrollIntoView()), !0) : !1;
+		return Dm(s, o, e, t) ? (r && r(s.scrollIntoView()), !0) : !1;
 	};
 }
-function wm(e, t, n, r = null) {
+function Dm(e, t, n, r = null) {
 	let i = !1, a = t, o = t.$from.doc;
 	if (t.depth >= 2 && t.$from.node(t.depth - 1).type.compatibleContent(n) && t.startIndex == 0) {
 		if (t.$from.index(t.depth - 1) == 0) return !1;
@@ -12849,9 +12900,9 @@ function wm(e, t, n, r = null) {
 		a = new ce(e, e, t.depth), t.endIndex < t.parent.childCount && (t = new ce(t.$from, o.resolve(t.$to.end(t.depth)), t.depth)), i = !0;
 	}
 	let s = Mt(a, n, r, t);
-	return s ? (e && Tm(e, t, s, i, n), !0) : !1;
+	return s ? (e && Om(e, t, s, i, n), !0) : !1;
 }
-function Tm(e, t, n, r, i) {
+function Om(e, t, n, r, i) {
 	let o = a.empty;
 	for (let e = n.length - 1; e >= 0; e--) o = a.from(n[e].type.create(n[e].attrs, o));
 	e.step(new S(t.start - (r ? 2 : 0), t.end, t.start, t.end, new d(o, 0, 0), n.length, !0));
@@ -12861,7 +12912,7 @@ function Tm(e, t, n, r, i) {
 	for (let n = t.startIndex, r = t.endIndex, i = !0; n < r; n++, i = !1) !i && Ht(e.doc, l, c) && (e.split(l, c), l += 2 * c), l += u.child(n).nodeSize;
 	return e;
 }
-function Em(e, t) {
+function km(e, t) {
 	return function(n, r) {
 		let { $from: i, $to: o, node: s } = n.selection;
 		if (s && s.isBlock || i.depth < 2 || !i.sameParent(o)) return !1;
@@ -12889,13 +12940,13 @@ function Em(e, t) {
 		return Ht(u.doc, i.pos, 2, f) ? (r && r(u.split(i.pos, 2, f).scrollIntoView()), !0) : !1;
 	};
 }
-function Dm(e) {
+function Am(e) {
 	return function(t, n) {
 		let { $from: r, $to: i } = t.selection, a = r.blockRange(i, (t) => t.childCount > 0 && t.firstChild.type == e);
-		return a ? n ? r.node(a.depth - 1).type == e ? Om(t, n, e, a) : km(t, n, a) : !0 : !1;
+		return a ? n ? r.node(a.depth - 1).type == e ? jm(t, n, e, a) : Mm(t, n, a) : !0 : !1;
 	};
 }
-function Om(e, t, n, r) {
+function jm(e, t, n, r) {
 	let i = e.tr, o = r.end, s = r.$to.end(r.depth);
 	o < s && (i.step(new S(o - 1, s, o, s, new d(a.from(n.create(null, r.parent.copy())), 1, 0), 1, !0)), r = new ce(i.doc.resolve(r.$from.pos), i.doc.resolve(s), r.depth));
 	let c = At(r);
@@ -12904,7 +12955,7 @@ function Om(e, t, n, r) {
 	let l = i.doc.resolve(i.mapping.map(o, -1) - 1);
 	return Wt(i.doc, l.pos) && l.nodeBefore.type == l.nodeAfter.type && i.join(l.pos), t(i.scrollIntoView()), !0;
 }
-function km(e, t, n) {
+function Mm(e, t, n) {
 	let r = e.tr, i = n.parent;
 	for (let e = n.end, t = n.endIndex - 1, a = n.startIndex; t > a; t--) e -= i.child(t).nodeSize, r.delete(e - 1, e + 1);
 	let o = r.doc.resolve(n.start), s = o.nodeAfter;
@@ -12914,7 +12965,7 @@ function km(e, t, n) {
 	let p = o.pos, m = p + s.nodeSize;
 	return r.step(new S(p - +!!c, m + +!!l, p + 1, m - 1, new d((c ? a.empty : a.from(i.copy(a.empty))).append(l ? a.empty : a.from(i.copy(a.empty))), +!c, +!l), +!c)), t(r.scrollIntoView()), !0;
 }
-function Am(e) {
+function Nm(e) {
 	return function(t, n) {
 		let { $from: r, $to: i } = t.selection, o = r.blockRange(i, (t) => t.childCount > 0 && t.firstChild.type == e);
 		if (!o) return !1;
@@ -12931,7 +12982,7 @@ function Am(e) {
 }
 //#endregion
 //#region src/ui/commands.js
-var jm = [
+var Pm = [
 	8,
 	9,
 	10,
@@ -12946,19 +12997,19 @@ var jm = [
 	60,
 	72,
 	96
-], Mm = [
+], Fm = [
 	"1",
 	"1.2",
 	"1.4",
 	"1.6",
 	"1.8",
 	"2"
-], Nm = /* @__PURE__ */ "#000000.#434343.#666666.#999999.#b7b7b7.#cccccc.#ffffff.#980000.#ff0000.#ff9900.#ffff00.#00ff00.#00ffff.#4a86e8.#0000ff.#9900ff.#ff00ff.#e25041.#f6b26b.#ffd966.#93c47d.#76a5af.#6d9eeb.#674ea7.#c27ba0.#a61c00.#38761d".split(".");
+], Im = /* @__PURE__ */ "#000000.#434343.#666666.#999999.#b7b7b7.#cccccc.#ffffff.#980000.#ff0000.#ff9900.#ffff00.#00ff00.#00ffff.#4a86e8.#0000ff.#9900ff.#ff00ff.#e25041.#f6b26b.#ffd966.#93c47d.#76a5af.#6d9eeb.#674ea7.#c27ba0.#a61c00.#38761d".split(".");
 function Q(e, t) {
 	let n = t(e.state, e.dispatch, e);
 	return n && e.focus(), n;
 }
-function Pm(e) {
+function Lm(e) {
 	return (t, n) => {
 		let { selection: r } = t;
 		if (!(r instanceof T) || !r.node.isInline) return !1;
@@ -12966,7 +13017,7 @@ function Pm(e) {
 		return n && n(t.tr.setSelection(w.create(t.doc, i)).scrollIntoView()), !0;
 	};
 }
-function Fm(e, t, n) {
+function Rm(e, t, n) {
 	let { selection: r } = e, i = null;
 	if (r instanceof T && r.node.isInline) i = r.to;
 	else if (r instanceof w && r.empty) {
@@ -12975,14 +13026,14 @@ function Fm(e, t, n) {
 	}
 	return i === null || !e.doc.resolve(i).parent.isTextblock ? !1 : !t || rr(e.apply(e.tr.setSelection(w.create(e.doc, i))), t, n);
 }
-function Im(e, t, n) {
-	return Fm(e, t, n) || Em(e.schema.nodes.listItem)(e, t, n);
+function zm(e, t, n) {
+	return Rm(e, t, n) || km(e.schema.nodes.listItem)(e, t, n);
 }
-function Lm(e, t) {
+function Bm(e, t) {
 	let { empty: n, from: r, to: i, $from: a } = e.selection;
 	return n ? !!t.isInSet(e.storedMarks || a.marks()) : e.doc.rangeHasMark(r, i, t);
 }
-function Rm(e, t, n = null) {
+function Vm(e, t, n = null) {
 	let { $from: r, from: i, to: a } = e.selection;
 	for (let e = r.depth; e > 0; e--) {
 		let i = r.node(e);
@@ -12993,17 +13044,17 @@ function Rm(e, t, n = null) {
 		e.type === t && (!n || Object.entries(n).every(([t, n]) => e.attrs[t] === n)) && (o = !0);
 	}), o;
 }
-function zm(e, t) {
+function Hm(e, t) {
 	if (e.selection.$from.parent.isTextblock) return e.selection.$from.parent.attrs[t] ?? null;
 	let n = null;
 	return e.doc.nodesBetween(e.selection.from, e.selection.to, (e) => {
 		n === null && e.isTextblock && (n = e.attrs[t] ?? null);
 	}), n;
 }
-function Bm(e) {
+function Um(e) {
 	return mr(e);
 }
-function Vm(e, t) {
+function Wm(e, t) {
 	return (n, r) => {
 		let { from: i, to: a, empty: o, $from: s } = n.selection;
 		if (!r) return !0;
@@ -13015,15 +13066,15 @@ function Vm(e, t) {
 		return r(c.scrollIntoView()), !0;
 	};
 }
-function Hm(e) {
+function Gm(e) {
 	let t = [], { from: n, to: r, $from: i } = e.selection;
 	return e.doc.nodesBetween(n, r, (e, n) => {
 		e.isTextblock && t.push(n);
 	}), !t.length && i.parent.isTextblock && t.push(i.before(i.depth)), [...new Set(t)];
 }
-function Um(e) {
+function Km(e) {
 	return (t, n) => {
-		let r = Hm(t).filter((e) => {
+		let r = Gm(t).filter((e) => {
 			let n = t.doc.nodeAt(e)?.type;
 			return n === t.schema.nodes.paragraph || n === t.schema.nodes.heading;
 		});
@@ -13040,10 +13091,10 @@ function Um(e) {
 		return n(i.scrollIntoView()), !0;
 	};
 }
-function Wm(e) {
+function qm(e) {
 	return (t, n, r) => {
-		if (Rm(t, t.schema.nodes.listItem) && (e > 0 ? Am(t.schema.nodes.listItem) : Dm(t.schema.nodes.listItem))(t, n, r)) return !0;
-		let i = Hm(t).filter((e) => {
+		if (Vm(t, t.schema.nodes.listItem) && (e > 0 ? Nm(t.schema.nodes.listItem) : Am(t.schema.nodes.listItem))(t, n, r)) return !0;
+		let i = Gm(t).filter((e) => {
 			let n = t.doc.nodeAt(e)?.type;
 			return n === t.schema.nodes.paragraph || n === t.schema.nodes.heading;
 		});
@@ -13062,18 +13113,18 @@ function Wm(e) {
 		return n(a.scrollIntoView()), !0;
 	};
 }
-function Gm(e) {
+function Jm(e) {
 	return (t, n, r) => e === "code" ? dr(t.schema.nodes.codeBlock)(t, n, r) : e === "normal" ? dr(t.schema.nodes.paragraph)(t, n, r) : dr(t.schema.nodes.heading, { level: Number(e.slice(1)) })(t, n, r);
 }
-function Km(e) {
-	return (t, n, r) => Rm(t, e.nodes.blockquote) ? Xn(t, n, r) : ur(e.nodes.blockquote)(t, n, r);
+function Ym(e) {
+	return (t, n, r) => Vm(t, e.nodes.blockquote) ? Xn(t, n, r) : ur(e.nodes.blockquote)(t, n, r);
 }
-function qm(e, t) {
-	return (n, r, i) => Rm(n, e) ? Dm(t)(n, r, i) : Cm(e)(n, r, i);
+function Xm(e, t) {
+	return (n, r, i) => Vm(n, e) ? Am(t)(n, r, i) : Em(e)(n, r, i);
 }
-function Jm(e, t) {
+function Zm(e, t) {
 	if (!t) return !0;
-	let { from: n, to: r, empty: i } = e.selection, a = Hm(e).filter((t) => {
+	let { from: n, to: r, empty: i } = e.selection, a = Gm(e).filter((t) => {
 		let n = e.doc.nodeAt(t)?.type;
 		return n === e.schema.nodes.paragraph || n === e.schema.nodes.heading;
 	}), o = e.tr;
@@ -13090,7 +13141,7 @@ function Jm(e, t) {
 	}
 	return t(o.scrollIntoView()), !0;
 }
-function Ym(e, t = !0) {
+function Qm(e, t = !0) {
 	return (n, r) => {
 		let { from: i, to: a, empty: o } = n.selection;
 		if (!r) return !0;
@@ -13106,13 +13157,13 @@ function Ym(e, t = !0) {
 		}))), r(s.scrollIntoView()), !0;
 	};
 }
-function Xm(e, t) {
+function $m(e, t) {
 	let { from: n, to: r, empty: i } = e.selection;
 	if (!t) return !0;
 	let a = e.tr;
 	return i ? a.removeStoredMark(e.schema.marks.link) : a.removeMark(n, r, e.schema.marks.link), t(a.scrollIntoView()), !0;
 }
-function Zm(e, t) {
+function eh(e, t) {
 	return (n, r) => {
 		let { schema: i } = n;
 		if (!i.nodes.table || !i.nodes.tableRow || !i.nodes.tableCell) return !1;
@@ -13127,22 +13178,22 @@ function Zm(e, t) {
 		return r(n.tr.replaceSelectionWith(o).scrollIntoView()), !0;
 	};
 }
-function Qm(e, t) {
+function th(e, t) {
 	return t && t(e.tr.replaceSelectionWith(e.schema.nodes.horizontalRule.create()).scrollIntoView()), !0;
 }
-function $m(e) {
+function nh(e) {
 	return (t, n) => (n && n(t.tr.insertText(e).scrollIntoView()), !0);
 }
-function eh(e, t, n) {
+function rh(e, t, n) {
 	return ir(e, t, n);
 }
 //#endregion
 //#region src/ui/panels/LinkPanel.js
-function th(e) {
+function ih(e) {
 	let t = e.trim();
 	return !t || /^\s*(?:javascript|vbscript|data):/i.test(t) ? null : t;
 }
-function nh({ labels: e, onApply: t, onRemove: n, onClose: r }) {
+function ah({ labels: e, onApply: t, onRemove: n, onClose: r }) {
 	let i = document.createElement("form");
 	i.className = "roundeditor__panel-form", i.noValidate = !0, i.innerHTML = `
         <label class="roundeditor__field roundeditor__field--grow">
@@ -13163,7 +13214,7 @@ function nh({ labels: e, onApply: t, onRemove: n, onClose: r }) {
 	let a = i.elements.namedItem("href"), o = i.querySelector(".roundeditor__panel-error");
 	return i.addEventListener("submit", (n) => {
 		n.preventDefault();
-		let r = th(a.value);
+		let r = ih(a.value);
 		if (!r) {
 			o.textContent = e.invalidUrl, a.focus();
 			return;
@@ -13173,7 +13224,7 @@ function nh({ labels: e, onApply: t, onRemove: n, onClose: r }) {
 }
 //#endregion
 //#region src/ui/panels/TablePanel.js
-function rh({ labels: e, operations: t, onInsert: n, onOperation: r, onClose: i }) {
+function oh({ labels: e, operations: t, onInsert: n, onOperation: r, onClose: i }) {
 	let a = document.createElement("form");
 	if (a.className = "roundeditor__panel-form", a.innerHTML = `
         <label class="roundeditor__field">
@@ -13204,7 +13255,7 @@ function rh({ labels: e, operations: t, onInsert: n, onOperation: r, onClose: i 
 }
 //#endregion
 //#region src/rhymix/sticker.js
-function ih(e, t = {}) {
+function sh(e, t = {}) {
 	return new Promise((n, r) => {
 		if (typeof window.exec_json != "function") {
 			r(/* @__PURE__ */ Error("The Rhymix sticker API is unavailable."));
@@ -13213,22 +13264,22 @@ function ih(e, t = {}) {
 		window.exec_json(`sticker.${e}`, t, n, (e) => (r(Error(e?.message || "The sticker request failed.")), !1));
 	});
 }
-function ah(e = {}) {
-	return ih("getStickerPickerList", { mid: "sticker" }).then((e) => Array.isArray(e?.sticker) ? e.sticker : []);
+function ch(e = {}) {
+	return sh("getStickerPickerList", { mid: "sticker" }).then((e) => Array.isArray(e?.sticker) ? e.sticker : []);
 }
-function oh(e, t) {
-	return ih("getStickerElemList", {
+function lh(e, t) {
+	return sh("getStickerElemList", {
 		mid: "sticker",
 		sticker_srl: t
 	}).then((e) => Array.isArray(e?.stickerImage) ? e.stickerImage : []);
 }
-function sh(e, t) {
-	return t.length ? ih("resolveStickers", {
+function uh(e, t) {
+	return t.length ? sh("resolveStickers", {
 		mid: "sticker",
 		stickers: JSON.stringify(t)
 	}).then((e) => Array.isArray(e?.stickers) ? e.stickers : []) : Promise.resolve([]);
 }
-function ch(e, t = "") {
+function dh(e, t = "") {
 	let n = e.type === "video" ? "video" : "image", r = lu(e.poster || (n === "image" ? e.url : ""));
 	return {
 		stickerSrl: String(e.sticker_srl),
@@ -13243,12 +13294,12 @@ function ch(e, t = "") {
 		displayHeight: "100px"
 	};
 }
-function lh(e, t, n = "") {
+function fh(e, t, n = "") {
 	if (!t?.sticker_srl || !t?.sticker_file_srl) return !1;
-	let r = e.view.state.schema.nodes.sticker.create(ch(t, n)), i = e.view.state.tr.replaceSelectionWith(r);
+	let r = e.view.state.schema.nodes.sticker.create(dh(t, n)), i = e.view.state.tr.replaceSelectionWith(r);
 	return e.view.dispatch(i.scrollIntoView()), e.view.focus(), !0;
 }
-async function uh(e) {
+async function ph(e) {
 	let t = /* @__PURE__ */ new Map();
 	if (e.view.state.doc.descendants((n, r) => {
 		if (n.type !== e.view.state.schema.nodes.sticker) return;
@@ -13261,7 +13312,7 @@ async function uh(e) {
 			sticker_srl: t,
 			sticker_file_srl: n
 		};
-	}), r = await sh(e.config, n), i = new Map(r.map((e) => [`${e.sticker_srl}|${e.sticker_file_srl}`, e])), a = e.view.state.tr;
+	}), r = await uh(e.config, n), i = new Map(r.map((e) => [`${e.sticker_srl}|${e.sticker_file_srl}`, e])), a = e.view.state.tr;
 	for (let [n, r] of t) {
 		let t = i.get(n);
 		if (t?.valid) for (let n of r) {
@@ -13279,25 +13330,25 @@ async function uh(e) {
 }
 //#endregion
 //#region src/ui/panels/StickerPanel.js
-var dh = "roundeditor.recentStickers", fh = 30;
-function ph() {
+var mh = "roundeditor.recentStickers", hh = 30;
+function gh() {
 	try {
-		let e = JSON.parse(localStorage.getItem(dh) || "[]");
-		return Array.isArray(e) ? e.slice(0, fh) : [];
+		let e = JSON.parse(localStorage.getItem(mh) || "[]");
+		return Array.isArray(e) ? e.slice(0, hh) : [];
 	} catch {
 		return [];
 	}
 }
-function mh(e) {
+function _h(e) {
 	let t = {
 		sticker_srl: e.sticker_srl,
 		sticker_file_srl: e.sticker_file_srl
-	}, n = [t, ...ph().filter((e) => String(e.sticker_srl) !== String(t.sticker_srl) || String(e.sticker_file_srl) !== String(t.sticker_file_srl))].slice(0, fh);
+	}, n = [t, ...gh().filter((e) => String(e.sticker_srl) !== String(t.sticker_srl) || String(e.sticker_file_srl) !== String(t.sticker_file_srl))].slice(0, hh);
 	try {
-		localStorage.setItem(dh, JSON.stringify(n));
+		localStorage.setItem(mh, JSON.stringify(n));
 	} catch {}
 }
-function hh(e, t) {
+function vh(e, t) {
 	if (e.type === "video") {
 		let n = document.createElement("video");
 		return n.dataset.src = e.url || "", n.poster = e.poster || "", n.autoplay = !0, n.muted = !0, n.loop = !0, n.playsInline = !0, n.preload = "none", n.setAttribute("aria-label", t), n;
@@ -13305,7 +13356,7 @@ function hh(e, t) {
 	let n = document.createElement("img");
 	return n.dataset.src = e.poster || e.url || "", n.alt = t, n.loading = "lazy", n;
 }
-function gh(e) {
+function yh(e) {
 	if (e?.type === "video" && e.url) {
 		let t = document.createElement("video");
 		return t.src = e.url, t.poster = e.poster || e.main_image || "", t.autoplay = !0, t.muted = !0, t.loop = !0, t.playsInline = !0, t.preload = "metadata", t.setAttribute("aria-hidden", "true"), t;
@@ -13313,7 +13364,7 @@ function gh(e) {
 	let t = document.createElement("img");
 	return t.src = e?.poster || e?.main_image || "", t.alt = "", t.loading = "lazy", t;
 }
-function _h(e, t, n) {
+function bh(e, t, n) {
 	let r = document.createElement("div");
 	r.className = "roundeditor__sticker-panel";
 	let i = document.createElement("div");
@@ -13358,9 +13409,9 @@ function _h(e, t, n) {
 		for (let i of n) {
 			let n = document.createElement("button");
 			n.type = "button", n.className = "roundeditor__sticker-item";
-			let a = i.name || i.title || t.sticker, o = hh(i, a);
+			let a = i.name || i.title || t.sticker, o = vh(i, a);
 			n.title = a, n.setAttribute("aria-label", a), n.appendChild(o), n.addEventListener("click", () => {
-				lh(e, i, r?.title || i.title || ""), mh(i);
+				fh(e, i, r?.title || i.title || ""), _h(i);
 			}), d.appendChild(n), h ? h.observe(o) : o.dataset.src && o.setAttribute("src", o.dataset.src);
 		}
 	}, _ = async (n, r) => {
@@ -13369,10 +13420,10 @@ function _h(e, t, n) {
 		f.textContent = t.stickerLoading, d.replaceChildren(f);
 		try {
 			if (!m.has(g)) {
-				let t = n ? (await oh(e.config, n.sticker_srl)).map((e) => ({
+				let t = n ? (await lh(e.config, n.sticker_srl)).map((e) => ({
 					...e,
 					sticker_srl: e.sticker_srl || n.sticker_srl
-				})) : await sh(e.config, ph());
+				})) : await uh(e.config, gh());
 				m.set(g, t);
 			}
 			g === (n?.sticker_srl || "recent") && ee(m.get(g), n);
@@ -13381,7 +13432,7 @@ function _h(e, t, n) {
 		}
 	}, v = (e, t) => {
 		let n = document.createElement("button");
-		if (n.type = "button", n.className = "roundeditor__sticker-pack", n.setAttribute("role", "tab"), n.setAttribute("aria-label", t), n.title = t, e?.main_image || e?.poster) n.appendChild(gh(e));
+		if (n.type = "button", n.className = "roundeditor__sticker-pack", n.setAttribute("role", "tab"), n.setAttribute("aria-label", t), n.title = t, e?.main_image || e?.poster) n.appendChild(yh(e));
 		else {
 			let e = document.createElement("span");
 			e.className = "roundeditor__sticker-pack-icon", e.textContent = "↺", e.setAttribute("aria-hidden", "true"), n.appendChild(e);
@@ -13399,7 +13450,7 @@ function _h(e, t, n) {
 		behavior: "smooth"
 	})), s.addEventListener("scroll", y, { passive: !0 });
 	let te = v(null, t.stickerRecent);
-	return s.appendChild(te), ah(e.config).then((e) => {
+	return s.appendChild(te), ch(e.config).then((e) => {
 		for (let t of e) s.appendChild(v(t, t.title));
 		_(null, te), setTimeout(y, 0);
 	}).catch((e) => {
@@ -13411,7 +13462,7 @@ function _h(e, t, n) {
 }
 //#endregion
 //#region src/ui/Toolbar.js
-var vh = {
+var xh = {
 	toolbar: "Editor toolbar",
 	more: "More",
 	close: "Close",
@@ -13510,18 +13561,18 @@ var vh = {
 	imageUploading: "Uploading image…",
 	videoUploading: "Uploading video…"
 };
-function yh(e, t, n = {}) {
+function Sh(e, t, n = {}) {
 	let r = document.createElement("button");
 	return r.type = "button", r.className = `roundeditor__tool${n.className ? ` ${n.className}` : ""}`, r.dataset.command = e, r.title = t[e] || e, r.setAttribute("aria-label", t[e] || e), r.appendChild(Uu(n.icon || e)), n.disabled && (r.disabled = !0, r.setAttribute("aria-disabled", "true")), r;
 }
-function bh(e, t, n = !1) {
+function Ch(e, t, n = !1) {
 	let r = document.createElement("button");
 	return r.type = "button", r.className = "roundeditor__choice", r.dataset.value = t, r.textContent = e, n && r.setAttribute("aria-current", "true"), r;
 }
-function xh(e, t) {
+function wh(e, t) {
 	let n = document.createElement("button");
 	n.type = "button", n.className = "roundeditor__tool roundeditor__tool--component", n.dataset.command = `component:${e}`, n.title = t || e, n.setAttribute("aria-label", t || e);
-	let r = Mp(e, t);
+	let r = Fp(e, t);
 	if (r) n.appendChild(r);
 	else {
 		let r = document.createElement("span");
@@ -13529,10 +13580,10 @@ function xh(e, t) {
 	}
 	return n;
 }
-var Sh = class {
+var Th = class {
 	constructor(e) {
 		this.bridge = e, this.labels = {
-			...vh,
+			...xh,
 			...e.config.labels || {}
 		}, this.activeMore = null, this.panelName = null, this.compact = !1, this.narrow = !1, this.element = document.createElement("div"), this.element.className = "roundeditor__toolbar", this.element.setAttribute("role", "toolbar"), this.element.setAttribute("aria-label", this.labels.toolbar), this.primaryRow = document.createElement("div"), this.primaryRow.className = "roundeditor__toolbar-primary", this.moreRow = document.createElement("div"), this.moreRow.className = "roundeditor__toolbar-more", this.moreRow.hidden = !0, this.panel = document.createElement("div"), this.panel.className = "roundeditor__panel", this.panel.hidden = !0, this.footer = document.createElement("div"), this.footer.className = "roundeditor__footer", this.counter = document.createElement("span"), this.counter.className = "roundeditor__counter", this.counter.setAttribute("aria-live", "polite"), this.footer.appendChild(this.counter), this.element.append(this.primaryRow, this.moreRow), e.wrapper.insertBefore(this.element, e.wrapper.querySelector(".roundeditor__surface")), e.wrapper.insertBefore(this.panel, e.wrapper.querySelector(".roundeditor__surface")), e.wrapper.appendChild(this.footer), e.config.hideToolbar && (this.element.hidden = !0), this.build(), this.observeWidth();
 	}
@@ -13543,18 +13594,18 @@ var Sh = class {
 			"italic",
 			"underline",
 			"strike"
-		].forEach((t) => e.appendChild(yh(t, this.labels))), [
+		].forEach((t) => e.appendChild(Sh(t, this.labels))), [
 			"fontSize",
 			"lineHeight",
 			"textColor",
 			"backgroundColor"
-		].forEach((t) => e.appendChild(yh(t, this.labels))), e.appendChild(this.moreButton("text"));
+		].forEach((t) => e.appendChild(Sh(t, this.labels))), e.appendChild(this.moreButton("text"));
 		let t = this.addGroup("rich");
-		if (t.appendChild(yh("link", this.labels)), t.appendChild(this.moreButton("rich")), this.addGroup("paragraph").appendChild(this.moreButton("paragraph", "paragraph")), this.addGroup("sticker").appendChild(yh("sticker", this.labels)), this.bridge.config.enableComponent) {
+		if (t.appendChild(Sh("link", this.labels)), t.appendChild(this.moreButton("rich")), this.addGroup("paragraph").appendChild(this.moreButton("paragraph", "paragraph")), this.addGroup("sticker").appendChild(Sh("sticker", this.labels)), this.bridge.config.enableComponent) {
 			let e = this.addGroup("components");
 			for (let [t, n] of Object.entries(this.bridge.config.components || {})) {
 				let r = typeof n == "object" ? n.title : n;
-				e.appendChild(xh(t, r));
+				e.appendChild(wh(t, r));
 			}
 			e.childElementCount || e.remove();
 		}
@@ -13565,7 +13616,7 @@ var Sh = class {
 			"undo",
 			"redo",
 			"selectAll"
-		].forEach((e) => r.appendChild(yh(e, this.labels))), this.bridge.config.htmlMode && this.bridge.config.allowHtml !== !1 && r.appendChild(yh("source", this.labels)), r.appendChild(yh("fullscreen", this.labels)), r.appendChild(this.moreButton("right")), this.element.addEventListener("mousedown", (e) => {
+		].forEach((e) => r.appendChild(Sh(e, this.labels))), this.bridge.config.htmlMode && this.bridge.config.allowHtml !== !1 && r.appendChild(Sh("source", this.labels)), r.appendChild(Sh("fullscreen", this.labels)), r.appendChild(this.moreButton("right")), this.element.addEventListener("mousedown", (e) => {
 			e.target.closest("button") && !e.target.closest(".roundeditor__toolbar-more") && e.preventDefault();
 		}), this.element.addEventListener("click", (e) => {
 			let t = e.target.closest("[data-command]");
@@ -13577,7 +13628,7 @@ var Sh = class {
 		return t.className = `roundeditor__tool-group roundeditor__tool-group--${e}`, t.dataset.group = e, this.primaryRow.appendChild(t), t;
 	}
 	moreButton(e, t = "more") {
-		let n = yh("more", this.labels, { icon: t });
+		let n = Sh("more", this.labels, { icon: t });
 		return n.dataset.moreGroup = e, n.addEventListener("click", (t) => {
 			t.stopPropagation(), this.toggleMore(e, n);
 		}), n;
@@ -13624,7 +13675,7 @@ var Sh = class {
 				"fullscreen",
 				"help"
 			] : ["help"]
-		}[e] || []).filter((e) => e !== "source" || this.bridge.config.htmlMode && this.bridge.config.allowHtml !== !1).map((e) => e === "format" ? yh("format", { format: this.labels.normal }) : yh(e, this.labels));
+		}[e] || []).filter((e) => e !== "source" || this.bridge.config.htmlMode && this.bridge.config.allowHtml !== !1).map((e) => e === "format" ? Sh("format", { format: this.labels.normal }) : Sh(e, this.labels));
 	}
 	observeWidth() {
 		let e = (e) => {
@@ -13651,7 +13702,7 @@ var Sh = class {
 		r.className = "roundeditor__panel-heading";
 		let i = document.createElement("strong");
 		i.textContent = t;
-		let a = yh("close", this.labels);
+		let a = Sh("close", this.labels);
 		a.addEventListener("click", () => this.closePanel()), r.append(i, a), this.panel.replaceChildren(r, n), this.panel.hidden = !1;
 	}
 	closePanel() {
@@ -13661,7 +13712,7 @@ var Sh = class {
 		let i = document.createElement("div");
 		i.className = "roundeditor__choices";
 		for (let e of t) {
-			let t = bh(n(e), String(e));
+			let t = Ch(n(e), String(e));
 			t.addEventListener("click", () => {
 				r(e), this.closePanel();
 			}), i.appendChild(t);
@@ -13671,21 +13722,21 @@ var Sh = class {
 	colorPanel(e, t) {
 		let n = document.createElement("div");
 		n.className = "roundeditor__palette";
-		let r = bh(this.labels.reset, "");
+		let r = Ch(this.labels.reset, "");
 		r.classList.add("roundeditor__swatch", "roundeditor__swatch--reset"), r.addEventListener("click", () => {
-			Q(this.bridge.view, Vm(this.bridge.view.state.schema.marks[e], null)), this.closePanel();
+			Q(this.bridge.view, Wm(this.bridge.view.state.schema.marks[e], null)), this.closePanel();
 		}), n.appendChild(r);
-		for (let t of Nm) {
-			let r = bh(t, t);
+		for (let t of Im) {
+			let r = Ch(t, t);
 			r.classList.add("roundeditor__swatch"), r.style.setProperty("--roundeditor-swatch", t), r.setAttribute("aria-label", t), r.addEventListener("click", () => {
-				Q(this.bridge.view, Vm(this.bridge.view.state.schema.marks[e], t)), this.closePanel();
+				Q(this.bridge.view, Wm(this.bridge.view.state.schema.marks[e], t)), this.closePanel();
 			}), n.appendChild(r);
 		}
 		this.openPanel(e, t, n);
 	}
 	execute(e) {
 		if (e.startsWith("component:")) {
-			dm(this.bridge, e.slice(10));
+			mm(this.bridge, e.slice(10));
 			return;
 		}
 		if (e === "source") {
@@ -13697,41 +13748,41 @@ var Sh = class {
 			return;
 		}
 		let t = this.bridge.view, { schema: n } = t.state, r = {
-			bold: Bm(n.marks.strong),
-			italic: Bm(n.marks.em),
-			underline: Bm(n.marks.underline),
-			strike: Bm(n.marks.strike),
-			clearFormatting: Jm,
-			alignLeft: Um({ align: null }),
-			alignCenter: Um({ align: "center" }),
-			alignRight: Um({ align: "right" }),
-			alignJustify: Um({ align: "justify" }),
-			orderedList: qm(n.nodes.orderedList, n.nodes.listItem),
-			bulletList: qm(n.nodes.bulletList, n.nodes.listItem),
-			outdent: Wm(-1),
-			indent: Wm(1),
-			quote: Km(n),
-			horizontalRule: Qm,
+			bold: Um(n.marks.strong),
+			italic: Um(n.marks.em),
+			underline: Um(n.marks.underline),
+			strike: Um(n.marks.strike),
+			clearFormatting: Zm,
+			alignLeft: Km({ align: null }),
+			alignCenter: Km({ align: "center" }),
+			alignRight: Km({ align: "right" }),
+			alignJustify: Km({ align: "justify" }),
+			orderedList: Xm(n.nodes.orderedList, n.nodes.listItem),
+			bulletList: Xm(n.nodes.bulletList, n.nodes.listItem),
+			outdent: qm(-1),
+			indent: qm(1),
+			quote: Ym(n),
+			horizontalRule: th,
 			undo: wc,
 			redo: Tc,
-			selectAll: eh
+			selectAll: rh
 		};
 		if (r[e]) {
 			Q(t, r[e]);
 			return;
 		}
 		if (e === "fontSize") {
-			let r = this.choices(e, jm, (e) => `${e}px`, (e) => Q(t, Vm(n.marks.fontSize, `${e}px`))), i = bh(this.labels.custom, "custom");
+			let r = this.choices(e, Pm, (e) => `${e}px`, (e) => Q(t, Wm(n.marks.fontSize, `${e}px`))), i = Ch(this.labels.custom, "custom");
 			i.addEventListener("click", () => this.customFontSize()), r.appendChild(i), this.openPanel(e, this.labels.fontSize, r);
 		} else if (e === "fontFamily") {
 			let r = [{
 				label: this.labels.reset,
 				value: null
-			}, ...Array.isArray(this.bridge.config.fontFamilies) ? this.bridge.config.fontFamilies : []], i = this.choices(e, r, (e) => e.label, (e) => Q(t, Vm(n.marks.fontFamily, e.value)));
+			}, ...Array.isArray(this.bridge.config.fontFamilies) ? this.bridge.config.fontFamilies : []], i = this.choices(e, r, (e) => e.label, (e) => Q(t, Wm(n.marks.fontFamily, e.value)));
 			for (let [e, t] of r.entries()) t.value && (i.children[e].style.fontFamily = t.value);
 			this.openPanel(e, this.labels.fontFamily, i);
 		} else if (e === "lineHeight") {
-			let n = this.choices(e, Mm, (e) => e === "1" ? this.labels.reset : e, (e) => Q(t, Um({ lineHeight: e === "1" ? null : e })));
+			let n = this.choices(e, Fm, (e) => e === "1" ? this.labels.reset : e, (e) => Q(t, Km({ lineHeight: e === "1" ? null : e })));
 			this.openPanel(e, this.labels.lineHeight, n);
 		} else if (e === "textColor") this.colorPanel("fontColor", this.labels.textColor);
 		else if (e === "backgroundColor") this.colorPanel("bgColor", this.labels.backgroundColor);
@@ -13740,7 +13791,7 @@ var Sh = class {
 		else if (e === "table") this.tablePanel();
 		else if (e === "specialCharacters") this.characterPanel();
 		else if (e === "sticker") {
-			let t = _h(this.bridge, this.labels, () => this.closePanel());
+			let t = bh(this.bridge, this.labels, () => this.closePanel());
 			this.openPanel(e, this.labels.sticker, t);
 		} else if (e === "help") {
 			let t = document.createElement("p");
@@ -13752,7 +13803,7 @@ var Sh = class {
 		e.className = "roundeditor__panel-form", e.innerHTML = `<label class="roundeditor__field"><span>${this.labels.fontSize}</span><input type="number" min="1" max="300" value="15" inputmode="numeric"></label><button class="roundeditor__button roundeditor__button--primary" type="submit">${this.labels.apply}</button>`, e.addEventListener("submit", (t) => {
 			t.preventDefault();
 			let n = Math.min(300, Math.max(1, Number(e.querySelector("input").value) || 15));
-			Q(this.bridge.view, Vm(this.bridge.view.state.schema.marks.fontSize, `${n}px`)), this.closePanel();
+			Q(this.bridge.view, Wm(this.bridge.view.state.schema.marks.fontSize, `${n}px`)), this.closePanel();
 		}), this.openPanel("customFontSize", this.labels.fontSize, e);
 	}
 	formatPanel() {
@@ -13763,17 +13814,17 @@ var Sh = class {
 			["h3", "H3"],
 			["h4", "H4"],
 			["code", this.labels.code]
-		], t = this.choices("format", e, (e) => e[1], (e) => Q(this.bridge.view, Gm(e[0])));
+		], t = this.choices("format", e, (e) => e[1], (e) => Q(this.bridge.view, Jm(e[0])));
 		this.openPanel("format", this.labels.paragraph, t);
 	}
 	linkPanel() {
-		let e = nh({
+		let e = ah({
 			labels: this.labels,
 			onApply: (e, t) => {
-				Q(this.bridge.view, Ym(e, t)), this.closePanel();
+				Q(this.bridge.view, Qm(e, t)), this.closePanel();
 			},
 			onRemove: () => {
-				Q(this.bridge.view, Xm), this.closePanel();
+				Q(this.bridge.view, $m), this.closePanel();
 			},
 			onClose: () => this.closePanel()
 		});
@@ -13794,11 +13845,11 @@ var Sh = class {
 			name: e,
 			command: t,
 			enabled: t(this.bridge.view.state)
-		})) : [], n = rh({
+		})) : [], n = oh({
 			labels: this.labels,
 			operations: t,
 			onInsert: (e, t) => {
-				Q(this.bridge.view, Zm(e, t)), this.closePanel();
+				Q(this.bridge.view, eh(e, t)), this.closePanel();
 			},
 			onOperation: (e) => {
 				Q(this.bridge.view, e), this.closePanel();
@@ -13808,7 +13859,7 @@ var Sh = class {
 		this.openPanel("table", this.labels.table, n);
 	}
 	characterPanel() {
-		let e = this.choices("characters", [..."©®™…—–·•※★☆♥♡✓→←↑↓±×÷≠≤≥∞℃₩€¥£§¶「」『』【】"], (e) => e, (e) => Q(this.bridge.view, $m(e)));
+		let e = this.choices("characters", [..."©®™…—–·•※★☆♥♡✓→←↑↓±×÷≠≤≥∞℃₩€¥£§¶「」『』【】"], (e) => e, (e) => Q(this.bridge.view, nh(e)));
 		this.openPanel("characters", this.labels.specialCharacters, e);
 	}
 	refresh(e) {
@@ -13828,7 +13879,7 @@ var Sh = class {
 			underline: "underline",
 			strike: "strike"
 		})) {
-			let r = this.element.querySelector(`[data-command="${t}"]`), i = Lm(e, e.schema.marks[n]);
+			let r = this.element.querySelector(`[data-command="${t}"]`), i = Bm(e, e.schema.marks[n]);
 			r?.classList.toggle("roundeditor__tool--active", i), r?.setAttribute("aria-pressed", String(i));
 		}
 		let n = {
@@ -13837,10 +13888,10 @@ var Sh = class {
 			quote: e.schema.nodes.blockquote
 		};
 		for (let [t, r] of Object.entries(n)) {
-			let n = this.element.querySelector(`[data-command="${t}"]`), i = Rm(e, r);
+			let n = this.element.querySelector(`[data-command="${t}"]`), i = Vm(e, r);
 			n?.classList.toggle("roundeditor__tool--active", i), n?.setAttribute("aria-pressed", String(i));
 		}
-		let r = zm(e, "align");
+		let r = Hm(e, "align");
 		for (let [e, t] of Object.entries({
 			alignLeft: null,
 			alignCenter: "center",
@@ -13859,19 +13910,19 @@ var Sh = class {
 		let l = t ? this.bridge.sourceMode.getData().length : e.doc.textContent.length;
 		this.counter.textContent = `${this.labels.characterCount} : ${l}`;
 	}
-}, $ = Object.create(null), Ch = null;
-function wh(e) {
+}, $ = Object.create(null), Eh = null;
+function Dh(e) {
 	let t = Number.parseInt(String(e ?? ""), 10);
 	return Number.isFinite(t) && t > 0 ? t : 0;
 }
-function Th(e) {
+function Oh(e) {
 	try {
 		return JSON.parse(e.dataset.editorConfig || "{}");
 	} catch (e) {
 		throw Error(`Invalid roundeditor configuration: ${e.message}`);
 	}
 }
-function Eh(e) {
+function kh(e) {
 	for (let t of Array.isArray(e) ? e : []) {
 		let e = String(t || "").trim();
 		if (!e) continue;
@@ -13881,17 +13932,17 @@ function Eh(e) {
 		r.rel = "stylesheet", r.href = e, r.dataset.roundeditorContentCss = "", document.head.appendChild(r);
 	}
 }
-function Dh(e, t) {
+function Ah(e, t) {
 	let n = Array.from(e.querySelectorAll("[name]")).find((e) => e.name === t);
 	if (n) return n;
 	let r = e.elements.namedItem(t);
 	return r ? typeof RadioNodeList < "u" && r instanceof RadioNodeList ? r[0] || null : r : null;
 }
-function Oh(e, t, n) {
-	let r = Dh(e, t);
+function jh(e, t, n) {
+	let r = Ah(e, t);
 	return r || (r = document.createElement("input"), r.type = "hidden", r.name = t, e.appendChild(r)), r.value = n, r.setAttribute("value", n), r;
 }
-function kh(e) {
+function Mh(e) {
 	let t = [
 		Sc(),
 		Pr({
@@ -13902,9 +13953,9 @@ function kh(e) {
 			"Mod-i": mr(X.marks.em),
 			"Mod-u": mr(X.marks.underline),
 			"Mod-Shift-x": mr(X.marks.strike),
-			ArrowLeft: Pm(-1),
-			ArrowRight: Pm(1),
-			Enter: Im
+			ArrowLeft: Lm(-1),
+			ArrowRight: Lm(1),
+			Enter: zm
 		}),
 		Pr(br),
 		_u(),
@@ -13916,7 +13967,7 @@ function kh(e) {
 	];
 	return e.oembedAvailable && t.splice(5, 0, Kf()), t;
 }
-function Ah(e, t, n) {
+function Nh(e, t, n) {
 	if (!e.config.allowUpload || n) return !1;
 	let r = Pu(t.dataTransfer?.files), i = qu(t.dataTransfer?.files);
 	if (!r.length && !i.length) return !1;
@@ -13927,7 +13978,7 @@ function Ah(e, t, n) {
 	})?.pos ?? e.view.state.selection.from;
 	return r.length && Ru(e, r, a), i.length && $u(e, i, a), !0;
 }
-function jh(e, t) {
+function Ph(e, t) {
 	if (e.sourceMode?.insertHtml(t)) return e.sourceMode.focus(), e.sync();
 	let n = Lf(t), r = Array.from({ length: n.childCount }, (e, t) => n.child(t)).filter((e) => !(e.type === X.nodes.paragraph && e.attrs.unwrap && e.childCount === 0)), i = (e) => e.type === X.nodes.paragraph && e.childCount > 0 && Array.from({ length: e.childCount }, (t, n) => e.child(n)).every((e) => [
 		"audio",
@@ -13952,10 +14003,10 @@ function jh(e, t) {
 	}
 	return e.view.dispatch(c), e.view.focus(), e.sync();
 }
-function Mh(e) {
+function Fh(e) {
 	return e.sourceMode?.selectedHtml() ?? Af({ content: e.view.state.selection.content().content }, X);
 }
-function Nh(e, t = !1) {
+function Ih(e, t = !1) {
 	if (!e.sourceMode?.active) {
 		let n = t ? e.view.state.selection.from : 0, r = t ? e.view.state.selection.to : e.view.state.doc.content.size;
 		return e.view.state.doc.textBetween(n, r, "\n\n");
@@ -13963,7 +14014,7 @@ function Nh(e, t = !1) {
 	let n = document.createElement("div");
 	return n.innerHTML = t ? e.sourceMode.selectedHtml() : e.sourceMode.getData(), n.textContent || "";
 }
-function Ph(e) {
+function Lh(e) {
 	let t = e?.jquery ? e[0] : e, n = [
 		t?.dataset?.editorSequence,
 		t?.editor_sequence,
@@ -13973,7 +14024,7 @@ function Ph(e) {
 	];
 	typeof t?.closest == "function" && n.push(t.closest("[data-editor-sequence]")?.dataset?.editorSequence);
 	for (let e of n) {
-		let t = $[wh(e)];
+		let t = $[Dh(e)];
 		if (t) return t;
 	}
 	return Object.values($).find((e) => {
@@ -13985,19 +14036,19 @@ function Ph(e) {
 		}
 	}) || null;
 }
-function Fh(e) {
+function Rh(e) {
 	return {
 		mode: "wysiwyg",
 		getData: () => e.sync(),
 		setData: (t) => (e.sourceMode?.setData(t), e.sync()),
-		insertHtml: (t) => jh(e, t),
-		getText: () => Nh(e),
-		getSelection: () => ({ getSelectedText: () => Nh(e, !0) }),
+		insertHtml: (t) => Ph(e, t),
+		getText: () => Ih(e),
+		getSelection: () => ({ getSelectedText: () => Ih(e, !0) }),
 		focus: () => e.sourceMode?.focus()
 	};
 }
-function Ih() {
-	window.RoundEditorGlobalsInstalled = !0, Ch || (Ch = {
+function zh() {
+	window.RoundEditorGlobalsInstalled = !0, Eh || (Eh = {
 		getInstance: window._getCkeInstance,
 		getContainer: window._getCkeContainer,
 		getFrame: window.editorGetIFrame,
@@ -14006,43 +14057,43 @@ function Ih() {
 		getText: window.editorGetContentTextarea_xe,
 		getSelected: window.editorGetSelectedHtml
 	});
-	let e = Ch;
+	let e = Eh;
 	window._getCkeInstance = (t) => {
-		let n = $[wh(t)];
+		let n = $[Dh(t)];
 		return n ? n.compat : e.getInstance?.(t);
 	}, window._getCkeContainer = (t) => {
-		let n = $[wh(t)];
+		let n = $[Dh(t)];
 		return n ? window.jQuery ? window.jQuery(n.wrapper) : n.wrapper : e.getContainer?.(t);
 	}, window.editorGetIFrame = (t) => {
-		let n = $[wh(t)];
+		let n = $[Dh(t)];
 		return n ? n.editable : e.getFrame?.(t) || null;
 	}, window.editorReplaceHTML = (t, n) => {
-		let r = Ph(t);
+		let r = Lh(t);
 		return r ? r.compat.insertHtml(n, "unfiltered_html") : e.replaceHtml?.(t, n);
 	}, window.editorGetContent = (t) => {
-		let n = $[wh(t)];
+		let n = $[Dh(t)];
 		return n ? n.sync() : e.getContent?.(t) || "";
 	}, window.editorGetContentTextarea_xe = (t) => {
-		let n = $[wh(t)];
+		let n = $[Dh(t)];
 		return n ? n.compat.getText() : e.getText?.(t) || "";
 	}, window.editorGetSelectedHtml = (t) => {
-		let n = $[wh(t)];
-		return n ? Mh(n) : e.getSelected?.(t) || "";
+		let n = $[Dh(t)];
+		return n ? Fh(n) : e.getSelected?.(t) || "";
 	};
 }
-function Lh() {
-	for (let e of Object.values($)) Rh(e);
+function Bh() {
+	for (let e of Object.values($)) Vh(e);
 }
-function Rh(e) {
-	Ih(), window.editorRelKeys = window.editorRelKeys || [], window.editorMode = window.editorMode || [], e.rebindControls(), window.editorRelKeys[e.sequence] = {
+function Vh(e) {
+	zh(), window.editorRelKeys = window.editorRelKeys || [], window.editorMode = window.editorMode || [], e.rebindControls(), window.editorRelKeys[e.sequence] = {
 		primary: e.primaryInput,
 		content: e.contentInput,
 		func: () => e.sync(),
-		pasteHTML: (t) => jh(e, t),
+		pasteHTML: (t) => Ph(e, t),
 		editor: { getFrame: () => e.editable }
 	}, window.editorMode[e.sequence] = e.sourceMode?.active ? "html" : null;
 }
-function zh(e) {
+function Hh(e) {
 	let t = {
 		"--roundeditor-height": `${e.config.height}px`,
 		"--roundeditor-content-font": e.config.contentFont,
@@ -14053,26 +14104,26 @@ function zh(e) {
 	};
 	Object.entries(t).forEach(([t, n]) => e.wrapper.style.setProperty(t, n));
 }
-function Bh(e, t) {
+function Uh(e, t) {
 	e.classList.add("roundeditor--error");
 	let n = e.querySelector(".roundeditor__loading");
 	n && n.remove();
 	let r = e.querySelector(".roundeditor__surface");
 	r && (r.className = "roundeditor__error", r.textContent = `roundeditor could not be initialized.\n${t.message || t}`), console.error("[roundeditor] Initialization failed.", t);
 }
-function Vh(e) {
-	let t = Th(e);
-	Eh(t.contentCss);
-	let n = wh(t.editorSequence || e.dataset.editorSequence), r = e.closest("form");
+function Wh(e) {
+	let t = Oh(e);
+	kh(t.contentCss);
+	let n = Dh(t.editorSequence || e.dataset.editorSequence), r = e.closest("form");
 	if (!n || !r) throw Error("The editor sequence or parent form is missing.");
-	let i = Dh(r, t.contentKeyName);
+	let i = Ah(r, t.contentKeyName);
 	if (!i) throw Error(`The Rhymix content field "${t.contentKeyName}" was not found.`);
 	let a = {
 		wrapper: e,
 		form: r,
 		config: t,
 		sequence: n,
-		primaryInput: Dh(r, t.primaryKeyName) || { value: "" },
+		primaryInput: Ah(r, t.primaryKeyName) || { value: "" },
 		contentInput: i,
 		view: null,
 		editable: null,
@@ -14085,10 +14136,10 @@ function Vh(e) {
 		imageViews: /* @__PURE__ */ new Set(),
 		rebindControls() {
 			let e = this.wrapper.closest("form") || this.form;
-			this.form = e, this.primaryInput = Dh(e, this.config.primaryKeyName) || this.primaryInput, this.contentInput = Dh(e, this.config.contentKeyName) || this.contentInput;
+			this.form = e, this.primaryInput = Ah(e, this.config.primaryKeyName) || this.primaryInput, this.contentInput = Ah(e, this.config.contentKeyName) || this.contentInput;
 		},
 		sync() {
-			return this.rebindControls(), this.view && (this.contentInput.value = this.sourceMode?.getData() ?? this.serializeVisual()), Rh(this), this.contentInput.value;
+			return this.rebindControls(), this.view && (this.contentInput.value = this.sourceMode?.getData() ?? this.serializeVisual()), Vh(this), this.contentInput.value;
 		},
 		serializeVisual() {
 			return Af(this.view.state.doc, X);
@@ -14099,9 +14150,9 @@ function Vh(e) {
 		updateDocument(e) {
 			md(this.view, Lf(e));
 		}
-	}, o = am(a), s = Pn.create({
+	}, o = cm(a), s = Pn.create({
 		doc: Lf(o),
-		plugins: kh(t)
+		plugins: Mh(t)
 	});
 	a.view = new zs(e.querySelector(".roundeditor__surface"), {
 		state: s,
@@ -14112,31 +14163,31 @@ function Vh(e) {
 		},
 		transformPastedHTML: xf,
 		handlePaste: (e, t) => zu(a, t) || lp(a, t),
-		handleDrop: (e, t, n, r) => Ah(a, t, r),
+		handleDrop: (e, t, n, r) => Nh(a, t, r),
 		nodeViews: {
-			...Qp(a),
-			audio: wp(a),
-			image: xp(a),
-			video: tm(a),
-			sticker: rm(a)
+			...tm(a),
+			audio: Dp(a),
+			image: wp(a),
+			video: im(a),
+			sticker: om(a)
 		},
 		dispatchTransaction(e) {
-			a.view.updateState(a.view.state.apply(e)), a.sync(), a.toolbar?.refresh(a.view.state);
+			a.view.updateState(a.view.state.apply(e)), a.sync(), a.attachments?.refreshUsageState(), a.toolbar?.refresh(a.view.state);
 		}
-	}), a.editable = a.view.dom, a.editable.editor_sequence = n, a.editable.setFocus = () => a.view.focus(), a.editable.replaceHTML = (e) => jh(a, e), a.compat = Fh(a), a.toolbar = new Sh(a), a.sourceMode = new Sm(a), a.fullscreen = new pm(a), t.allowUpload && (a.attachments = new ad(a)), a.toolbar.refresh(a.view.state), $[n] = a, r.setAttribute("editor_sequence", String(n)), Oh(r, "use_editor", "Y"), Oh(r, "use_html", "Y"), zh(a), Lh(), fm(a), r.addEventListener("submit", () => a.prepareSubmit(), !0), a.sync(), om(a), uh(a).catch((e) => console.warn("[roundeditor] Sticker resolution failed.", e)), e.querySelector(".roundeditor__loading")?.remove(), e.classList.add("roundeditor--ready"), t.focus && a.view.focus();
+	}), a.editable = a.view.dom, a.editable.editor_sequence = n, a.editable.setFocus = () => a.view.focus(), a.editable.replaceHTML = (e) => Ph(a, e), a.compat = Rh(a), a.toolbar = new Th(a), a.sourceMode = new Tm(a), a.fullscreen = new gm(a), t.allowUpload && (a.attachments = new ad(a)), a.toolbar.refresh(a.view.state), $[n] = a, r.setAttribute("editor_sequence", String(n)), jh(r, "use_editor", "Y"), jh(r, "use_html", "Y"), Hh(a), Bh(), hm(a), r.addEventListener("submit", () => a.prepareSubmit(), !0), a.sync(), lm(a), ph(a).catch((e) => console.warn("[roundeditor] Sticker resolution failed.", e)), e.querySelector(".roundeditor__loading")?.remove(), e.classList.add("roundeditor--ready"), t.focus && a.view.focus();
 }
-function Hh() {
+function Gh() {
 	document.querySelectorAll(".roundeditor:not([data-roundeditor-started])").forEach((e) => {
 		e.setAttribute("data-roundeditor-started", "true");
 		try {
-			Vh(e);
+			Wh(e);
 		} catch (t) {
-			Bh(e, t);
+			Uh(e, t);
 		}
 	});
 }
-document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", Hh, { once: !0 }) : Hh(), window.addEventListener("load", Lh), window.addEventListener("pageshow", () => {
-	Hh(), Lh();
+document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", Gh, { once: !0 }) : Gh(), window.addEventListener("load", Bh), window.addEventListener("pageshow", () => {
+	Gh(), Bh();
 }), document.addEventListener("click", (e) => {
 	let t = e.target.closest?.("button[type=\"submit\"], input[type=\"submit\"], button:not([type])");
 	if (t?.form) for (let e of Object.values($)) e.wrapper.closest("form") === t.form && e.prepareSubmit();

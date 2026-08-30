@@ -13,6 +13,7 @@ const FALLBACK_LABELS = {
     attachmentsDropOverlay: 'Upload files',
     attachmentsCountCurrent: 'Current',
     attachmentsCountSuffix: ' files',
+    attachmentNotUsed: 'This media is not inserted in the body.',
     imageUploading: 'Uploading image…',
     videoUploading: 'Uploading video…',
     imageProcessing: 'Processing image…',
@@ -128,6 +129,7 @@ export class AttachmentList {
                 this.syncUploadPreviews();
                 this.decorateVideoItems();
                 this.decorateCoverButtons();
+                this.refreshUsageState();
                 this.syncLayout();
             });
             this.listObserver.observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
@@ -141,6 +143,7 @@ export class AttachmentList {
         });
         this.decorateVideoItems();
         this.decorateCoverButtons();
+        this.refreshUsageState();
         this.syncLayout();
     }
 
@@ -419,6 +422,33 @@ export class AttachmentList {
 
     refreshImageCoverViews() {
         for (const imageView of this.bridge.imageViews || []) imageView.refreshCoverState();
+    }
+
+    refreshUsageState() {
+        if (!this.container || !this.bridge.view) return;
+        const usedFileSrls = new Set();
+        this.bridge.view.state.doc.descendants(node => {
+            if (node.attrs?.fileSrl) usedFileSrls.add(String(node.attrs.fileSrl));
+        });
+        for (const item of this.container.querySelectorAll('.xefu-list-images .xefu-file')) {
+            if (item.dataset.roundeditorUploadPreview) continue;
+            const fileSrl = String(
+                item.dataset.fileSrl || item.querySelector('[data-file-srl]')?.dataset.fileSrl || ''
+            );
+            const unused = Boolean(fileSrl && !usedFileSrls.has(fileSrl));
+            item.classList.toggle('roundeditor__attachment--unused', unused);
+            const overlayHost = item.querySelector('.xefu-file-info') || item;
+            let overlay = item.querySelector('.roundeditor__attachment-unused-overlay');
+            if (!overlay) {
+                overlay = document.createElement('span');
+                overlay.className = 'roundeditor__attachment-unused-overlay';
+                overlay.setAttribute('role', 'img');
+                overlay.setAttribute('aria-label', this.labels.attachmentNotUsed);
+                overlay.title = this.labels.attachmentNotUsed;
+            }
+            if (overlay.parentElement !== overlayHost) overlayHost.appendChild(overlay);
+            overlay.hidden = !unused;
+        }
     }
 
     decorateVideoItems() {

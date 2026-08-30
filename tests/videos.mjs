@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><html><body><div id="editor" class="roundeditor__surface"></div><div id="gap" class="roundeditor__surface"></div></body></html>', { url: 'https://example.test/write' });
@@ -49,6 +50,9 @@ assert.equal(parsedVideo.attrs.align, 'center');
 assert.equal(parsedVideo.attrs.controls, true);
 assert.equal(parsedVideo.attrs.preload, 'none');
 
+const compiledCss = readFileSync(new URL('../dist/roundeditor.css', import.meta.url), 'utf8');
+assert.match(compiledCss, /\.roundeditor__media--video>video\{[^}]*height:auto!important/);
+
 const bridge = { config: { labels: {} }, view: null };
 let videoView;
 bridge.view = new EditorView(document.querySelector('#editor'), {
@@ -68,6 +72,7 @@ assert.equal(videoView.media.autoplay, false);
 assert.equal(videoView.media.getAttribute('src'), '/movie.mp4');
 assert.equal(videoView.media.preload, 'metadata');
 assert.equal(videoView.media.getAttribute('loading'), 'lazy');
+assert.equal(videoView.media.style.aspectRatio, '640 / 360');
 Object.defineProperty(videoView.media, 'duration', { value: 83.6, configurable: true });
 videoView.media.dispatchEvent(new dom.window.Event('loadedmetadata'));
 assert.equal(videoView.dom.querySelector('.roundeditor__video-duration').textContent, '1:24');

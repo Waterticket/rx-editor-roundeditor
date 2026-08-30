@@ -22,7 +22,12 @@ dom.window.HTMLMediaElement.prototype.load = () => {};
 const handlers = {};
 const jqueryData = {};
 window.jQuery = () => ({
-    data(name, value) { jqueryData[name] = value; return this; },
+    data(name, value) {
+        if (arguments.length === 0) return jqueryData;
+        if (arguments.length === 1) return jqueryData[name];
+        jqueryData[name] = value;
+        return this;
+    },
     off() { return this; },
     on(name, handler) { handlers[name.split('.')[0]] = handler; return this; },
 });
@@ -53,7 +58,7 @@ const bridge = {
 
 let insertProxyClicks = 0;
 document.querySelector('.xefu-act-link-selected').addEventListener('click', () => { insertProxyClicks += 1; });
-new AttachmentList(bridge);
+const attachmentList = new AttachmentList(bridge);
 const uploader = document.querySelector('.roundeditor__attachments');
 async function clickMedia(target) {
     target.dispatchEvent(new dom.window.MouseEvent('mousedown', { bubbles: true, button: 0 }));
@@ -154,6 +159,10 @@ assert.equal(thumbnailVideoItem.querySelector('.roundeditor__attachment-video-du
 assert.equal(uploader.classList.contains('roundeditor__attachments--has-files'), true);
 assert.equal(uploader.querySelector('.roundeditor__attachments-policy').hidden, false);
 assert.equal(uploader.querySelector('.roundeditor__attachments-actions .fileinput-button') !== null, true);
+let fileListRefreshes = 0;
+jqueryData.instance = { loadFilelist: () => { fileListRefreshes++; } };
+attachmentList.refresh();
+assert.equal(fileListRefreshes, 1);
 await clickMedia(videoItem.querySelector('.xefu-thumbnail'));
 assert.equal(videoItem.classList.contains('selected'), true);
 await clickMedia(videoItem.querySelector('.xefu-thumbnail'));

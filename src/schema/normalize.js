@@ -96,11 +96,23 @@ function visitElement(element) {
     sanitizeElementAttributes(element);
     const component = element.getAttribute('editor_component');
     const nativeImageComponent = tagName === 'img' && component === 'image_link';
+    const oembedComponent = tagName === 'div' && component === 'oembed';
     const embed = tagName === 'div' && element.hasAttribute('data-oembed-url');
     const known = KNOWN_TAGS.has(tagName) && structurallyEditable(element);
 
     if ((component && !nativeImageComponent) || embed || !known) {
-        sanitizeRawSubtree(element);
+        // oEmbed markup has already passed through the module's provider/card
+        // renderer and must survive editor round trips byte-for-byte enough to
+        // retain iframe attributes and the classes used by provider SDKs.
+        // Raw node views never mount this subtree, so preserving it does not
+        // execute pasted markup inside the editing surface.
+        if (!oembedComponent) {
+            sanitizeRawSubtree(element);
+        } else {
+            for (const block of element.querySelectorAll('p,h1,h2,h3,h4,h5,h6')) {
+                trimBlockBoundaryWhitespace(block);
+            }
+        }
         const kind = component
             ? (BLOCK_TAGS.has(tagName) ? 'component-block' : 'component-inline')
             : (embed ? 'embed' : (BLOCK_TAGS.has(tagName) ? 'block' : 'inline'));

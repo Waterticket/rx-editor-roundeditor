@@ -1,7 +1,7 @@
 import { BLOCK_TAGS, VOID_TAGS } from './schema/attributes.js';
 
 function isBlock(node) {
-    return node.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(node.tagName.toLowerCase());
+    return Boolean(node) && node.nodeType === Node.ELEMENT_NODE && BLOCK_TAGS.has(node.tagName.toLowerCase());
 }
 
 function shallowTags(element) {

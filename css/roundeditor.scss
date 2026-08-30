@@ -1672,6 +1672,7 @@ body.color_scheme_dark .roundeditor__attachments {
 .roundeditor__media--video > video {
     display: block;
     max-width: 100%;
+    height: auto !important;
     background: #000;
     cursor: default;
 }
@@ -1920,6 +1921,31 @@ body.color_scheme_dark .roundeditor__attachments {
     outline: 2px solid color-mix(in srgb, #3b82f6 30%, transparent);
 }
 
+.roundeditor__oembed-pending {
+    opacity: .72;
+}
+
+.roundeditor__surface .roundeditor__oembed {
+    max-width: 100%;
+    cursor: default;
+    user-select: none;
+    // ProseMirror uses pre-wrap so user-entered whitespace remains visible.
+    // oEmbed HTML contains template indentation, which must collapse just as
+    // it does on the saved post view or cards become much taller in-editor.
+    white-space: normal;
+}
+
+.roundeditor__surface .roundeditor__oembed iframe,
+.roundeditor__surface .roundeditor__oembed a,
+.roundeditor__surface .roundeditor__oembed video {
+    pointer-events: none;
+}
+
+.roundeditor__surface .roundeditor__oembed.ProseMirror-selectednode {
+    outline: 2px solid var(--roundeditor-accent);
+    outline-offset: 2px;
+}
+
 .roundeditor__component-card {
     display: inline-flex;
     max-width: min(100%, 520px);
@@ -2005,6 +2031,10 @@ body.color_scheme_dark .roundeditor__attachments {
 }
 
 @media (max-width: 720px) {
+    .roundeditor__media--image > img {
+        height: auto !important;
+    }
+
     .roundeditor__tool-group {
         padding: 0 2px;
     }

@@ -18,6 +18,10 @@ assert.equal(
     minifyHtml(beautifyHtml('<p>A <strong>B</strong> C</p><pre>line 1\n  line 2</pre>')),
     '<p>A <strong>B</strong> C</p><pre>line 1\n  line 2</pre>'
 );
+assert.equal(
+    minifyHtml('<h3>\n  <a href="/card">Card title</a>\n</h3>'),
+    '<h3>\n  <a href="/card">Card title</a>\n</h3>'
+);
 assert.equal(beautifyHtml(''), '');
 
 console.log('roundeditor HTML formatting contract passed');

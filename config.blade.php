@@ -9,6 +9,62 @@ $roundeditorColorset = in_array(($colorset ?? 'auto'), ['auto', 'light', 'dark']
     ? $colorset
     : 'auto';
 $roundeditorComponents = [];
+$roundeditorOembedAvailable = is_file(\RX_BASEDIR . 'modules/oembed/conf/module.xml');
+$roundeditorOembedSkin = 'default';
+$roundeditorOembedAssets = [];
+if ($roundeditorOembedAvailable) {
+    $roundeditorOembedConfig = ModuleModel::getModuleConfig('oembed');
+    $roundeditorOembedSkinCandidate = is_object($roundeditorOembedConfig)
+        ? (string)($roundeditorOembedConfig->skin ?? 'default')
+        : 'default';
+    if (preg_match('/^[a-zA-Z0-9_-]+$/', $roundeditorOembedSkinCandidate)
+        && is_dir(\RX_BASEDIR . 'modules/oembed/skins/' . $roundeditorOembedSkinCandidate)) {
+        $roundeditorOembedSkin = $roundeditorOembedSkinCandidate;
+    }
+    Context::loadFile(['./modules/oembed/tpl/css/style.css', '', '', null], true);
+    $roundeditorOembedSkinCss = './modules/oembed/skins/' . $roundeditorOembedSkin . '/card.css';
+    if (is_file(\RX_BASEDIR . ltrim($roundeditorOembedSkinCss, '/.'))) {
+        Context::loadFile([$roundeditorOembedSkinCss, '', '', null], true);
+    }
+    if (class_exists(\Rhymix\Modules\Oembed\Models\Registry::class)) {
+        foreach (\Rhymix\Modules\Oembed\Models\Registry::getProviders(false) as $roundeditorOembedProvider) {
+            foreach ($roundeditorOembedProvider->getEmbedAssets() as $roundeditorOembedAsset) {
+                $roundeditorOembedSelector = isset($roundeditorOembedAsset['selector'])
+                    ? (string)$roundeditorOembedAsset['selector']
+                    : '';
+                $roundeditorOembedScript = isset($roundeditorOembedAsset['script'])
+                    ? (string)$roundeditorOembedAsset['script']
+                    : '';
+                if ($roundeditorOembedSelector === '' || $roundeditorOembedScript === '') {
+                    continue;
+                }
+                $roundeditorOembedNormalize = [];
+                foreach (is_array($roundeditorOembedAsset['normalize'] ?? null)
+                    ? $roundeditorOembedAsset['normalize']
+                    : [] as $roundeditorOembedRule) {
+                    $roundeditorOembedDetect = isset($roundeditorOembedRule['detect'])
+                        ? (string)$roundeditorOembedRule['detect']
+                        : '';
+                    $roundeditorOembedAddClass = isset($roundeditorOembedRule['addClass'])
+                        ? (string)$roundeditorOembedRule['addClass']
+                        : '';
+                    if ($roundeditorOembedDetect !== '' && $roundeditorOembedAddClass !== '') {
+                        $roundeditorOembedNormalize[] = [
+                            'detect' => $roundeditorOembedDetect,
+                            'addClass' => $roundeditorOembedAddClass,
+                        ];
+                    }
+                }
+                $roundeditorOembedAssets[] = [
+                    'selector' => $roundeditorOembedSelector,
+                    'script' => $roundeditorOembedScript,
+                    'crossorigin' => !empty($roundeditorOembedAsset['crossorigin']),
+                    'normalize' => $roundeditorOembedNormalize,
+                ];
+            }
+        }
+    }
+}
 $roundeditorLabels = $lang->roundeditor_labels ?? [];
 if ($roundeditorLabels instanceof Traversable) {
     $roundeditorLabels = iterator_to_array($roundeditorLabels);
@@ -65,6 +121,8 @@ $roundeditorConfig = [
     'enableComponent' => (bool)($enable_component ?? false),
     'enableDefaultComponent' => (bool)($enable_default_component ?? false),
     'components' => $roundeditorComponents,
+    'oembedAvailable' => $roundeditorOembedAvailable,
+    'oembedAssets' => $roundeditorOembedAssets,
     'contentFont' => (string)($content_font ?: 'inherit'),
     'fontFamilies' => $roundeditorFontFamilies,
     'contentFontSize' => (string)($content_font_size ?: '15px'),
@@ -96,6 +154,20 @@ unset(
     $roundeditorUploadInfo,
     $roundeditorColorset,
     $roundeditorComponents,
+    $roundeditorOembedAvailable,
+    $roundeditorOembedSkin,
+    $roundeditorOembedConfig,
+    $roundeditorOembedSkinCandidate,
+    $roundeditorOembedSkinCss,
+    $roundeditorOembedAssets,
+    $roundeditorOembedProvider,
+    $roundeditorOembedAsset,
+    $roundeditorOembedSelector,
+    $roundeditorOembedScript,
+    $roundeditorOembedNormalize,
+    $roundeditorOembedRule,
+    $roundeditorOembedDetect,
+    $roundeditorOembedAddClass,
     $roundeditorLabels,
     $roundeditorFontList,
     $roundeditorFontFamilies,

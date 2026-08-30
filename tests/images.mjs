@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM('<!doctype html><html><body><div id="editor" class="roundeditor__surface"></div><div id="placeholder" class="roundeditor__surface"></div></body></html>', { url: 'https://example.test/write' });
@@ -41,6 +42,9 @@ assert.equal(normalizeRhymixVideoUrl('index.php?module=file&amp;act=procFileDown
 assert.equal(normalizeRhymixVideoUrl('/files/attach/video.mp4'), '/files/attach/video.mp4');
 window.default_url = 'https://example.test/subdir/';
 assert.equal(normalizeRhymixAssetUrl('./files/poster.jpg'), '/subdir/files/poster.jpg');
+
+const compiledCss = readFileSync(new URL('../dist/roundeditor.css', import.meta.url), 'utf8');
+assert.match(compiledCss, /@media \(max-width:720px\)\{\.roundeditor__media--image>img\{height:auto!important\}/);
 
 const initial = parseDocument('<p><img src="/old.jpg" alt="기존" width="320" height="180" style="width:320px;height:180px;" data-file-srl="41" editor_component="image_link" /></p>');
 assert.equal(initial.firstChild.firstChild.type.name, 'image');

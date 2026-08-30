@@ -74,6 +74,19 @@ export class AttachmentList {
         this.bindUploader();
     }
 
+    refresh(attempt = 0) {
+        if (!this.container || !window.jQuery) return;
+        const container = window.jQuery(this.container);
+        const instance = container.data('xefu-instance') || container.data('instance') || container.data();
+        if (typeof instance?.loadFilelist === 'function') {
+            // oEmbed does not return the complete editorStatus payload. Fetch
+            // the authoritative file list from the file module instead.
+            instance.loadFilelist(container);
+        } else if (attempt < 20) {
+            window.setTimeout(() => this.refresh(attempt + 1), 100);
+        }
+    }
+
     disableLegacyMediaInsertion() {
         let types = {};
         try { types = JSON.parse(this.container.dataset.autoinsertTypes || '{}'); }

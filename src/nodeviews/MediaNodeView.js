@@ -48,6 +48,7 @@ export class MediaNodeView {
     previewSize(width, height) {
         this.media.style.width = `${Math.round(width)}px`;
         this.media.style.height = `${Math.round(height)}px`;
+        this.media.style.aspectRatio = `${width} / ${height}`;
         this.dom.style.width = `${Math.round(width)}px`;
     }
 
@@ -133,6 +134,9 @@ export class MediaNodeView {
         const height = pixels(this.node.attrs.height);
         this.media.style.width = this.node.attrs.displayWidth || (width ? `${width}px` : '');
         this.media.style.height = this.node.attrs.displayHeight || (height ? `${height}px` : '');
+        const displayWidth = pixels(this.media.style.width);
+        const displayHeight = pixels(this.media.style.height);
+        this.media.style.aspectRatio = displayWidth && displayHeight ? `${displayWidth} / ${displayHeight}` : '';
         this.dom.style.width = this.media.style.width;
     }
 

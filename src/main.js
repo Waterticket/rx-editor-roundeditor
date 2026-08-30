@@ -11,6 +11,7 @@ import { AttachmentList } from './AttachmentList.js';
 import { updateEditorDocument } from './documentUpdate.js';
 import { handleImagePaste, imageFiles, uploadImagesAt } from './images.js';
 import { mediaSelectionPlugin } from './mediaSelection.js';
+import { handleOembedPaste, oembedPlaceholderPlugin } from './oembed.js';
 import { imageNodeView } from './nodeviews/ImageView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
 import { videoNodeView } from './nodeviews/VideoView.js';
@@ -64,8 +65,8 @@ function ensureHiddenField(form, name, value) {
     return field;
 }
 
-function createPlugins() {
-    return [
+function createPlugins(config) {
+    const plugins = [
         history(),
         keymap({
             'Mod-z': undo,
@@ -87,6 +88,8 @@ function createPlugins() {
         dropCursor(),
         gapCursor(),
     ];
+    if (config.oembedAvailable) plugins.splice(5, 0, oembedPlaceholderPlugin());
+    return plugins;
 }
 
 function handleMediaDrop(bridge, event, moved) {
@@ -315,7 +318,7 @@ function initialize(wrapper) {
     const initialData = restoreSavedDocument(bridge);
     const state = EditorState.create({
         doc: parseDocument(initialData),
-        plugins: createPlugins(),
+        plugins: createPlugins(config),
     });
     bridge.view = new EditorView(wrapper.querySelector('.roundeditor__surface'), {
         state,
@@ -325,7 +328,9 @@ function initialize(wrapper) {
             spellcheck: 'false',
         },
         transformPastedHTML: normalizeForParse,
-        handlePaste: (view, event) => handleImagePaste(bridge, event),
+        handlePaste: (view, event) => (
+            handleImagePaste(bridge, event) || handleOembedPaste(bridge, event)
+        ),
         handleDrop: (view, event, slice, moved) => handleMediaDrop(bridge, event, moved),
         nodeViews: {
             ...rawNodeViews(bridge),

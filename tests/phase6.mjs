@@ -128,6 +128,19 @@ assert.equal(window.editorMode[16], null);
 assert.equal(compat.mode, 'wysiwyg');
 assert.equal(window.editorGetContent(16), '<p>Source <strong title="kept">HTML</strong></p>');
 
+const oembedHtml = '<div editor_component="oembed" data-oembed-type="card" data-url="https://www.pixiv.net/artworks/148675479" data-oembed-file-srl="30263" contenteditable="false"><figure contenteditable="false"><img src="/card.jpg" alt="" loading="lazy" /><figcaption><h3><a href="https://www.pixiv.net/artworks/148675479" target="_blank" rel="noopener noreferrer">Artwork</a></h3><p>Preview</p><cite>pixiv.net</cite></figcaption></figure></div>';
+compat.setData(oembedHtml);
+const oembedPreview = wrapper.querySelector('[editor_component="oembed"].roundeditor__oembed');
+assert.ok(oembedPreview);
+assert.equal(oembedPreview.querySelector('h3').textContent, 'Artwork');
+assert.equal(wrapper.querySelector('[data-component-name="oembed"]'), null);
+sourceButton.click();
+assert.equal(source.hidden, false);
+sourceButton.click();
+assert.equal(source.hidden, true);
+assert.equal(window.editorMode[16], null);
+assert.equal(window.editorGetContent(16), oembedHtml);
+
 const fullscreenButton = wrapper.querySelector('.roundeditor__tool-group--right [data-command="fullscreen"]');
 fullscreenButton.click();
 assert.equal(wrapper.classList.contains('roundeditor--fullscreen'), true);

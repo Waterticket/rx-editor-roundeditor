@@ -46,6 +46,8 @@ assert.equal(normalizeRhymixAssetUrl('./files/poster.jpg'), '/subdir/files/poste
 
 const compiledCss = readFileSync(new URL('../dist/roundeditor.css', import.meta.url), 'utf8');
 assert.match(compiledCss, /@media \(max-width:720px\).*\.roundeditor__image-frame>img\{height:auto!important\}/);
+assert.match(compiledCss, /\.roundeditor button\.roundeditor__image-cover\{/);
+assert.match(compiledCss, /--roundeditor-thumbnail-accent:#2f9e44/);
 assert.equal(nearestTextOffset('테스트', 11, text => Array.from(text).length * 10), 1);
 assert.equal(nearestTextOffset('테스트', 21, text => Array.from(text).length * 10), 2);
 

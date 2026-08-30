@@ -3,6 +3,7 @@ import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
+import { Fragment, Slice } from 'prosemirror-model';
 import { EditorState } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { columnResizing, tableEditing } from 'prosemirror-tables';
@@ -13,6 +14,7 @@ import { handleImagePaste, imageFiles, uploadImagesAt } from './images.js';
 import { mediaSelectionPlugin } from './mediaSelection.js';
 import { handleOembedPaste, oembedPlaceholderPlugin } from './oembed.js';
 import { imageNodeView } from './nodeviews/ImageView.js';
+import { audioNodeView } from './nodeviews/AudioView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
 import { videoNodeView } from './nodeviews/VideoView.js';
 import { stickerNodeView } from './nodeviews/StickerView.js';
@@ -40,6 +42,22 @@ function readConfig(wrapper) {
         return JSON.parse(wrapper.dataset.editorConfig || '{}');
     } catch (error) {
         throw new Error(`Invalid roundeditor configuration: ${error.message}`);
+    }
+}
+
+function loadContentCss(files) {
+    for (const file of Array.isArray(files) ? files : []) {
+        const href = String(file || '').trim();
+        if (!href) continue;
+        const absoluteHref = new URL(href, document.baseURI).href;
+        const loaded = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+            .some(link => link.href === absoluteHref);
+        if (loaded) continue;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.dataset.roundeditorContentCss = '';
+        document.head.appendChild(link);
     }
 }
 
@@ -110,8 +128,43 @@ function insertHtml(bridge, html) {
         bridge.sourceMode.focus();
         return bridge.sync();
     }
-    const slice = parseSlice(html);
-    bridge.view.dispatch(bridge.view.state.tr.replaceSelection(slice));
+    const parsed = parseDocument(html);
+    const parsedParagraphs = Array.from({ length: parsed.childCount }, (_, index) => parsed.child(index));
+    const insertionParagraphs = parsedParagraphs.filter(paragraph => !(
+        paragraph.type === schema.nodes.paragraph
+        && paragraph.attrs.unwrap
+        && paragraph.childCount === 0
+    ));
+    const isMediaParagraph = paragraph => (
+        paragraph.type === schema.nodes.paragraph
+        && paragraph.childCount > 0
+        && Array.from({ length: paragraph.childCount }, (_, index) => paragraph.child(index))
+            .every(node => ['audio', 'image', 'video'].includes(node.type.name))
+    );
+    const mediaParagraphs = insertionParagraphs.length > 0 && insertionParagraphs.every(isMediaParagraph);
+    // The legacy attachment list calls insertHtml() once per selected file.
+    // parseSlice() opens a single media paragraph at both ends, which causes
+    // the next call to merge its image into the previous paragraph. Keep
+    // media-only paragraphs closed so every attachment retains its own block.
+    const slice = mediaParagraphs
+        ? new Slice(Fragment.fromArray(insertionParagraphs.flatMap(paragraph => (
+            Array.from({ length: paragraph.childCount }, (_, index) => (
+                paragraph.type.create({ ...paragraph.attrs, unwrap: false }, paragraph.child(index), paragraph.marks)
+            ))
+        ))), 0, 0)
+        : parseSlice(html);
+    let transaction = bridge.view.state.tr.replaceSelection(slice);
+    if (mediaParagraphs) {
+        const temporaryMediaParagraphs = [];
+        transaction.doc.descendants((node, position) => {
+            if (node.attrs.unwrap && isMediaParagraph(node)) temporaryMediaParagraphs.push(position);
+        });
+        for (const position of temporaryMediaParagraphs) {
+            const paragraph = transaction.doc.nodeAt(position);
+            transaction = transaction.setNodeMarkup(position, null, { ...paragraph.attrs, unwrap: false });
+        }
+    }
+    bridge.view.dispatch(transaction);
     bridge.view.focus();
     return bridge.sync();
 }
@@ -270,6 +323,7 @@ function showError(wrapper, error) {
 
 function initialize(wrapper) {
     const config = readConfig(wrapper);
+    loadContentCss(config.contentCss);
     const sequence = normalizeSequence(config.editorSequence || wrapper.dataset.editorSequence);
     const form = wrapper.closest('form');
     if (!sequence || !form) throw new Error('The editor sequence or parent form is missing.');
@@ -334,6 +388,7 @@ function initialize(wrapper) {
         handleDrop: (view, event, slice, moved) => handleMediaDrop(bridge, event, moved),
         nodeViews: {
             ...rawNodeViews(bridge),
+            audio: audioNodeView(bridge),
             image: imageNodeView(bridge),
             video: videoNodeView(bridge),
             sticker: stickerNodeView(bridge),

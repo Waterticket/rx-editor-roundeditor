@@ -217,3 +217,86 @@ export class VideoFloatingToolbar {
         width.input.focus();
     }
 }
+
+export class AudioFloatingToolbar {
+    constructor({ labels, values, onDelete, onSource, onToggleAutoplay, onToggleControls, onToggleLoop, onToggleMuted }) {
+        this.labels = labels;
+        this.values = values;
+        this.handlers = { onDelete, onSource, onToggleAutoplay, onToggleControls, onToggleLoop, onToggleMuted };
+        this.element = document.createElement('div');
+        this.element.className = 'roundeditor__media-toolbar';
+        this.element.hidden = true;
+        this.element.contentEditable = 'false';
+        this.row = document.createElement('div');
+        this.row.className = 'roundeditor__media-toolbar-row';
+        this.row.append(
+            actionButton('delete', labels.audioDelete),
+            actionButton('source', labels.audioSource, 'link'),
+            actionButton('autoplay', labels.audioAutoplay, 'play'),
+            actionButton('controls', labels.audioControls),
+            actionButton('loop', labels.audioLoop, 'redo'),
+            actionButton('muted', labels.audioMuted, 'audio')
+        );
+        this.formHost = document.createElement('div');
+        this.formHost.className = 'roundeditor__media-toolbar-form';
+        this.element.append(this.row, this.formHost);
+        this.element.addEventListener('click', event => this.execute(event));
+    }
+
+    show() {
+        this.element.hidden = false;
+        this.refresh();
+    }
+
+    hide() {
+        this.element.hidden = true;
+        this.formHost.replaceChildren();
+    }
+
+    refresh() {
+        const values = this.values();
+        for (const action of ['autoplay', 'controls', 'loop', 'muted']) {
+            this.row.querySelector(`[data-media-action="${action}"]`)?.setAttribute('aria-pressed', String(values[action]));
+        }
+    }
+
+    execute(event) {
+        const action = event.target.closest('[data-media-action]')?.dataset.mediaAction;
+        if (!action) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (action === 'delete') this.handlers.onDelete();
+        else if (action === 'source') this.openSourceForm();
+        else if (action === 'autoplay') this.handlers.onToggleAutoplay();
+        else if (action === 'controls') this.handlers.onToggleControls();
+        else if (action === 'loop') this.handlers.onToggleLoop();
+        else if (action === 'muted') this.handlers.onToggleMuted();
+        this.refresh();
+    }
+
+    openSourceForm() {
+        const form = document.createElement('form');
+        const source = field(this.labels.audioSource, 'src');
+        source.input.value = this.values().src || '';
+        source.input.placeholder = '/path/to/audio.mp3';
+        form.appendChild(source.wrapper);
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            const value = source.input.value.trim();
+            if (/^\s*(?:javascript|vbscript|data:text\/html):/i.test(value.replace(/\s+/g, ''))) {
+                source.input.setCustomValidity(this.labels.invalidUrl);
+                source.input.reportValidity();
+                return;
+            }
+            source.input.setCustomValidity('');
+            this.handlers.onSource(value);
+            this.formHost.replaceChildren();
+        });
+        const apply = document.createElement('button');
+        apply.type = 'submit';
+        apply.textContent = this.labels.apply;
+        form.appendChild(apply);
+        this.formHost.replaceChildren(form);
+        source.input.focus();
+    }
+}

@@ -46,7 +46,7 @@ const FALLBACK_LABELS = {
     underline: 'Underline', strike: 'Strikethrough', fontSize: 'Font size', lineHeight: 'Line height',
     fontFamily: 'Font family',
     textColor: 'Text color', backgroundColor: 'Background color', clearFormatting: 'Clear formatting',
-    image: 'Image', video: 'Video', link: 'Link',
+    image: 'Image', video: 'Video', audio: 'Audio', link: 'Link',
     table: 'Table', specialCharacters: 'Special characters', paragraph: 'Paragraph tools',
     alignLeft: 'Align left', alignCenter: 'Align center', alignRight: 'Align right',
     alignJustify: 'Justify', orderedList: 'Numbered list', bulletList: 'Bulleted list',
@@ -71,6 +71,8 @@ const FALLBACK_LABELS = {
     videoOnly: 'Please select an MP4, WebM, or MOV file.', videoTooLarge: 'Video files may not exceed 50 MB.',
     videoDelete: 'Delete video', videoSize: 'Video size', videoAutoplay: 'Autoplay',
     videoControls: 'Show controls', videoWidth: 'Width', videoHeight: 'Height',
+    audioDelete: 'Delete audio', audioSource: 'Audio source', audioAutoplay: 'Autoplay',
+    audioControls: 'Show controls', audioLoop: 'Loop', audioMuted: 'Muted',
     sizeReset: 'Remove explicit size',
     imageUploading: 'Uploading image…', videoUploading: 'Uploading video…',
 };
@@ -184,7 +186,9 @@ export class Toolbar {
 
         const right = this.addGroup('right');
         ['undo', 'redo', 'selectAll'].forEach(name => right.appendChild(button(name, this.labels)));
-        if (this.bridge.config.htmlMode) right.appendChild(button('source', this.labels));
+        if (this.bridge.config.htmlMode && this.bridge.config.allowHtml !== false) {
+            right.appendChild(button('source', this.labels));
+        }
         right.appendChild(button('fullscreen', this.labels));
         right.appendChild(this.moreButton('right'));
 
@@ -247,7 +251,10 @@ export class Toolbar {
             ],
             right: this.compact ? ['source', 'fullscreen', 'help'] : ['help'],
         }[group] || [];
-        return names.filter(name => name !== 'source' || this.bridge.config.htmlMode).map(name => {
+        return names.filter(name => (
+            name !== 'source'
+            || (this.bridge.config.htmlMode && this.bridge.config.allowHtml !== false)
+        )).map(name => {
             if (name === 'format') return button('format', { format: this.labels.normal });
             return button(name, this.labels);
         });

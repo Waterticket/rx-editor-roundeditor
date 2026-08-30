@@ -32,8 +32,8 @@ const {
 assert.deepEqual(imageAttrsFromUpload({
     download_url: '/image.jpg', file_srl: 77, source_filename: '사진.jpg', dimensions: { width: 1200, height: 600 },
 }, 600), {
-    src: '/image.jpg', alt: '사진.jpg', width: 600, height: 300,
-    displayWidth: '600px', displayHeight: '300px', fileSrl: '77', editorComponent: 'image_link',
+    src: '/image.jpg', alt: '사진.jpg', width: null, height: null,
+    displayWidth: null, displayHeight: null, fileSrl: '77', editorComponent: 'image_link',
 });
 assert.equal(normalizeRhymixUrl('/download?a=1&amp;b=2'), '/download?a=1&b=2');
 assert.equal(normalizeRhymixUrl('index.php?module=file&amp;act=procFileDownload'), '/index.php?module=file&act=procFileDownload');
@@ -168,7 +168,47 @@ insertUploadedImages(bridge, [{
 }], { align: 'right' });
 const inserted = serializeDocument(bridge.view.state.doc, schema);
 assert.match(inserted, /^<p style="text-align:right;">/);
-assert.match(inserted, /<img style="width:640px;height:320px;" src="\/new.png" alt="new.png" width="640" height="320" data-file-srl="99" editor_component="image_link" \/>/);
+assert.match(inserted, /<img src="\/new.png" alt="new.png" data-file-srl="99" editor_component="image_link" \/>/);
+assert.doesNotMatch(inserted, /(?:width|height)="|style="[^"]*(?:width|height):/);
+bridge.view.destroy();
+
+document.querySelector('#editor').replaceChildren();
+bridge.view = new EditorView(document.querySelector('#editor'), { state: EditorState.create({ doc: parseDocument('<p></p>') }) });
+insertUploadedImages(bridge, [
+    { download_url: '/first.png', file_srl: 101, source_filename: 'first.png' },
+    { download_url: '/second.png', file_srl: 102, source_filename: 'second.png' },
+]);
+const multipleInserted = serializeDocument(bridge.view.state.doc, schema);
+assert.match(multipleInserted, /^<p><img [^>]*src="\/first\.png"[^>]* \/><\/p><p><img [^>]*src="\/second\.png"[^>]* \/><\/p>/);
+bridge.view.destroy();
+
+document.querySelector('#editor').replaceChildren();
+bridge.view = new EditorView(document.querySelector('#editor'), {
+    state: EditorState.create({ doc: parseDocument('<p></p>'), plugins: [uploadPlaceholderPlugin()] }),
+});
+const firstBatchPlaceholder = addUploadPlaceholder(bridge.view, 'image', '첫 번째');
+const secondBatchPlaceholder = addUploadPlaceholder(bridge.view, 'image', '두 번째');
+insertUploadedImages(bridge, [
+    { download_url: '/batch-first.png', file_srl: 103, source_filename: 'batch-first.png' },
+], { placeholderId: firstBatchPlaceholder });
+insertUploadedImages(bridge, [
+    { download_url: '/batch-second.png', file_srl: 104, source_filename: 'batch-second.png' },
+], { placeholderId: secondBatchPlaceholder });
+const sequentialBatchInserted = serializeDocument(bridge.view.state.doc, schema);
+assert.match(sequentialBatchInserted, /<p><img [^>]*src="\/batch-first\.png"[^>]* \/><\/p>/);
+assert.match(sequentialBatchInserted, /<p><img [^>]*src="\/batch-second\.png"[^>]* \/><\/p>/);
+bridge.view.destroy();
+
+document.querySelector('#editor').replaceChildren();
+bridge.view = new EditorView(document.querySelector('#editor'), {
+    state: EditorState.create({ doc: parseDocument('<p>AB</p>') }),
+});
+bridge.view.dispatch(bridge.view.state.tr.setSelection(TextSelection.create(bridge.view.state.doc, 2)));
+insertUploadedImages(bridge, [{
+    download_url: '/inline.png', source_filename: 'inline.png', dimensions: { width: 100, height: 50 },
+}], { insertionMode: 'inline' });
+assert.match(serializeDocument(bridge.view.state.doc, schema), /^<p>A<img [^>]*src="\/inline.png"[^>]* \/>B<\/p>$/);
+assert.equal(bridge.view.state.doc.childCount, 1);
 bridge.view.destroy();
 
 console.log('roundeditor Phase 3 image contract passed');

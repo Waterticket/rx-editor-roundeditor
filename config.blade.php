@@ -8,6 +8,10 @@ $roundeditorUploadInfo = $_SESSION['upload_info'][$roundeditorSequence] ?? null;
 $roundeditorColorset = in_array(($colorset ?? 'auto'), ['auto', 'light', 'dark'], true)
     ? $colorset
     : 'auto';
+$roundeditorAutoDarkMode = (bool)($editor_auto_dark_mode ?? true);
+if ($roundeditorColorset === 'auto' && !$roundeditorAutoDarkMode) {
+    $roundeditorColorset = 'light';
+}
 $roundeditorComponents = [];
 $roundeditorOembedAvailable = is_file(\RX_BASEDIR . 'modules/oembed/conf/module.xml');
 $roundeditorOembedSkin = 'default';
@@ -111,10 +115,10 @@ $roundeditorConfig = [
     'hideToolbar' => (bool)($editor_toolbar_hide ?? false),
     'focus' => (bool)($editor_focus ?? false),
     'colorset' => $roundeditorColorset,
-    'autoDarkMode' => (bool)($editor_auto_dark_mode ?? true),
+    'autoDarkMode' => $roundeditorAutoDarkMode,
     'allowUpload' => (bool)($allow_fileupload ?? false),
     'allowHtml' => (bool)($allow_html ?? true),
-    'htmlMode' => (bool)($html_mode ?? false),
+    'htmlMode' => (bool)($html_mode ?? false) && (bool)($allow_html ?? true),
     'enableAutosave' => (bool)($enable_autosave ?? false),
     'savedDocument' => $roundeditorSavedDocument,
     'autosavedMessage' => (string)($lang->msg_auto_saved ?? ''),
@@ -129,7 +133,8 @@ $roundeditorConfig = [
     'contentLineHeight' => (string)($content_line_height ?: '1.5'),
     'contentWordBreak' => (string)($content_word_break ?: 'normal'),
     'contentParagraphSpacing' => (string)($content_paragraph_spacing ?: '0'),
-    'autoinsertTypes' => array_values($editor_autoinsert_types ?? []),
+    'contentCss' => array_values(array_filter(array_map('strval', $editor_additional_css ?? []))),
+    'autoinsertTypes' => (object)($editor_autoinsert_types ?? []),
     'autoinsertPosition' => (string)($editor_autoinsert_position ?: 'paragraph'),
     'moduleSrl' => (int)(is_object($roundeditorUploadInfo)
         ? ($roundeditorUploadInfo->module_srl ?? 0)
@@ -153,6 +158,7 @@ unset(
     $roundeditorModuleInfo,
     $roundeditorUploadInfo,
     $roundeditorColorset,
+    $roundeditorAutoDarkMode,
     $roundeditorComponents,
     $roundeditorOembedAvailable,
     $roundeditorOembedSkin,

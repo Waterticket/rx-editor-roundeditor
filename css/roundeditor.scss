@@ -43,13 +43,13 @@
 .roundeditor--dark,
 body.color_scheme_dark .roundeditor--auto,
 .roundeditor__attachments--dark,
-body.color_scheme_dark .roundeditor__attachments {
+body.color_scheme_dark .roundeditor__attachments--auto {
     @include roundeditor-dark-theme;
 }
 
 @media (prefers-color-scheme: dark) {
     body:not(.color_scheme_light):not(.color_scheme_dark) .roundeditor--auto,
-    body:not(.color_scheme_light):not(.color_scheme_dark) .roundeditor__attachments {
+    body:not(.color_scheme_light):not(.color_scheme_dark) .roundeditor__attachments--auto {
         @include roundeditor-dark-theme;
     }
 }
@@ -1677,6 +1677,36 @@ body.color_scheme_dark .roundeditor__attachments {
     cursor: default;
 }
 
+.roundeditor__media--audio {
+    display: block;
+    width: min(100%, 420px);
+    max-width: 100%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    line-height: normal;
+}
+
+.roundeditor__media--audio > audio {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+}
+
+.roundeditor__media--audio .roundeditor__media-handle {
+    display: none;
+}
+
+.roundeditor__audio-selection-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    cursor: pointer;
+}
+
+.roundeditor__media--audio.roundeditor__media--selected > .roundeditor__audio-selection-cover {
+    display: none;
+}
+
 .roundeditor__video-play-indicator {
     position: absolute;
     top: 50%;
@@ -1767,6 +1797,7 @@ body.color_scheme_dark .roundeditor__attachments {
 }
 
 .roundeditor__media--range-selected::after,
+.roundeditor__media--audio.roundeditor__media--selected::after,
 .roundeditor__media--video.roundeditor__media--selected::after,
 .roundeditor__media--sticker.roundeditor__media--selected::after {
     position: absolute;

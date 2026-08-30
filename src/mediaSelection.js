@@ -1,7 +1,7 @@
 import { NodeSelection, Plugin } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 
-const RANGE_HIGHLIGHTED_MEDIA = new Set(['sticker', 'video']);
+const RANGE_HIGHLIGHTED_MEDIA = new Set(['audio', 'sticker', 'video']);
 
 export function mediaSelectionDecorations(state) {
     const { doc, selection } = state;

@@ -91,6 +91,10 @@ export class AttachmentList {
         let types = {};
         try { types = JSON.parse(this.container.dataset.autoinsertTypes || '{}'); }
         catch (error) { types = {}; }
+        this.autoinsertTypes = { ...types };
+        this.autoinsertPosition = this.container.dataset.autoinsertPosition === 'inline'
+            ? 'inline'
+            : 'paragraph';
         types.image = false;
         types.video = false;
         this.container.dataset.autoinsertTypes = JSON.stringify(types);
@@ -98,7 +102,10 @@ export class AttachmentList {
     }
 
     decorate() {
-        this.container.classList.add('roundeditor__attachments');
+        const colorset = ['auto', 'light', 'dark'].includes(this.bridge.config.colorset)
+            ? this.bridge.config.colorset
+            : 'light';
+        this.container.classList.add('roundeditor__attachments', `roundeditor__attachments--${colorset}`);
         const heading = document.createElement('div');
         heading.className = 'roundeditor__attachments-heading';
         const title = document.createElement('strong');
@@ -623,12 +630,14 @@ export class AttachmentList {
         const entries = Array.from(data?.files || []).map(file => {
             const type = mediaType(file);
             if (!type) return null;
+            const autoInsert = Boolean(this.autoinsertTypes?.[type]);
             const label = type === 'image' ? this.labels.imageUploading : this.labels.videoUploading;
             return {
                 file,
                 type,
+                autoInsert,
                 progressSeen: false,
-                placeholderId: addUploadPlaceholder(this.bridge.view, type, label),
+                placeholderId: autoInsert ? addUploadPlaceholder(this.bridge.view, type, label) : null,
             };
         }).filter(Boolean);
         for (const entry of entries) {
@@ -733,12 +742,20 @@ export class AttachmentList {
         const filename = String(upload.source_filename || '');
         const entry = entries.find(candidate => candidate.file.name === filename) || entries[0];
         if (!entry || !this.activeEntries.has(entry)) return;
-        updateUploadPlaceholder(this.bridge.view, entry.placeholderId, 1, this.processingLabel(entry.type));
+        if (entry.placeholderId) {
+            updateUploadPlaceholder(this.bridge.view, entry.placeholderId, 1, this.processingLabel(entry.type));
+        }
         this.updateUploadPreview(entry, 1, this.processingLabel(entry.type));
-        if (entry.type === 'image') {
-            insertUploadedImages(this.bridge, [upload], { placeholderId: entry.placeholderId });
-        } else {
-            insertUploadedVideo(this.bridge, upload, { placeholderId: entry.placeholderId });
+        if (entry.autoInsert && entry.type === 'image') {
+            insertUploadedImages(this.bridge, [upload], {
+                placeholderId: entry.placeholderId,
+                insertionMode: this.autoinsertPosition,
+            });
+        } else if (entry.autoInsert) {
+            insertUploadedVideo(this.bridge, upload, {
+                placeholderId: entry.placeholderId,
+                insertionMode: this.autoinsertPosition,
+            });
         }
         this.activeEntries.delete(entry);
         this.fileEntries.delete(entry.file);

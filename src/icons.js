@@ -13,6 +13,7 @@ const UI_ICONS = {
     clearFormatting: '<path d="M5 5h11M10.5 5 7 16M14 9l5 5-6 6-5-5zM4 20h8"/>',
     image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="9" r="1.5"/><path d="m5 18 5-5 3 3 2-2 4 4"/>',
     video: '<rect x="3" y="5" width="14" height="14" rx="2"/><path d="m17 10 4-2v8l-4-2z"/>',
+    audio: '<path d="M5 10v4h3l4 3V7L8 10H5zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
     link: '<path d="M9 8H7a4 4 0 0 0 0 8h2M15 8h2a4 4 0 0 1 0 8h-2M8 12h8"/>',
     table: '<rect x="3" y="4" width="18" height="16" rx="1.5"/><path d="M3 10h18M9 4v16M15 4v16"/>',
     specialCharacters: '<text x="12" y="17" text-anchor="middle" font-size="17" font-weight="600">Ω</text>',

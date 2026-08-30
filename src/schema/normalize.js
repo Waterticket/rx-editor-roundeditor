@@ -6,7 +6,7 @@ import {
 import { RAW_ATTRIBUTE, encodeRawHtml } from './raw.js';
 
 const KNOWN_TAGS = new Set(`
-    a b blockquote br code em font h1 h2 h3 h4 h5 h6 hr i img li ol p pre s span strike strong sub
+    a audio b blockquote br code em font h1 h2 h3 h4 h5 h6 hr i img li ol p pre s span strike strong sub
     sup table tbody td th tr u ul video
 `.trim().split(/\s+/));
 const DANGEROUS_TAGS = new Set('script style form input button select textarea canvas svg'.split(' '));
@@ -67,6 +67,10 @@ function videoIsEditable(video) {
     return video.children.length === 0 && !video.textContent.trim();
 }
 
+function audioIsEditable(audio) {
+    return audio.children.length === 0 && !audio.textContent.trim();
+}
+
 function structurallyEditable(element) {
     const tagName = element.tagName.toLowerCase();
     if (tagName === 'a') return element.hasAttribute('href');
@@ -77,6 +81,7 @@ function structurallyEditable(element) {
     if (tagName === 'table') return tableIsEditable(element);
     if (tagName === 'ol' || tagName === 'ul') return listIsEditable(element);
     if (tagName === 'pre') return preIsEditable(element);
+    if (tagName === 'audio') return audioIsEditable(element);
     if (tagName === 'video') return videoIsEditable(element);
     return true;
 }
@@ -126,6 +131,7 @@ function visitElement(element) {
 function isBlockNode(node) {
     if (node.nodeType !== Node.ELEMENT_NODE) return false;
     const element = node;
+    if (['AUDIO', 'VIDEO'].includes(element.tagName) && !element.hasAttribute('data-roundeditor-kind')) return false;
     if (element.getAttribute('data-roundeditor-kind') === 'block') return true;
     if (element.getAttribute('data-roundeditor-kind') === 'component-block') return true;
     if (element.getAttribute('data-roundeditor-kind') === 'embed') return true;

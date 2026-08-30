@@ -12,6 +12,7 @@ const config = {
     contentWordBreak: 'normal',
     contentParagraphSpacing: '0',
     allowUpload: false,
+    allowHtml: true,
     htmlMode: true,
     enableAutosave: true,
     autosavedMessage: 'Autosaved.',

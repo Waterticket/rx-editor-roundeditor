@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
 
-const dom = new JSDOM('<!doctype html><html><body><div id="editor" class="roundeditor__surface"></div><div id="gap" class="roundeditor__surface"></div></body></html>', { url: 'https://example.test/write' });
+const dom = new JSDOM('<!doctype html><html><body><div id="editor" class="roundeditor__surface"></div></body></html>', { url: 'https://example.test/write' });
 Object.defineProperties(globalThis, {
     window: { value: dom.window, configurable: true },
     document: { value: dom.window.document, configurable: true },
@@ -16,7 +16,7 @@ Object.defineProperties(globalThis, {
 dom.window.HTMLMediaElement.prototype.pause = () => {};
 dom.window.HTMLMediaElement.prototype.load = () => {};
 
-const { gapCursor, GapCursor } = await import('prosemirror-gapcursor');
+const { gapCursor } = await import('prosemirror-gapcursor');
 const { AllSelection, EditorState, NodeSelection, TextSelection } = await import('prosemirror-state');
 const { EditorView } = await import('prosemirror-view');
 const { updateEditorDocument } = await import('../src/documentUpdate.js');
@@ -42,8 +42,8 @@ const parsedVideo = initial.nodeAt(videoPosition);
 assert.equal(parsedVideo.type.name, 'video');
 
 const legacyUrlVideo = parseDocument('<video src="index.php?module=file&amp;act=procFileDownload&amp;file_srl=30100"></video>');
-assert.equal(legacyUrlVideo.firstChild.attrs.src, '/index.php?module=file&act=procFileDownload&file_srl=30100&force_inline=Y');
-assert.equal(parsedVideo.isBlock, true);
+assert.equal(legacyUrlVideo.firstChild.firstChild.attrs.src, '/index.php?module=file&act=procFileDownload&file_srl=30100&force_inline=Y');
+assert.equal(parsedVideo.isInline, true);
 assert.equal(parsedVideo.attrs.displayWidth, '640px');
 assert.equal(parsedVideo.attrs.displayHeight, '360px');
 assert.equal(parsedVideo.attrs.align, 'center');
@@ -137,8 +137,8 @@ assert.deepEqual(videoAttrsFromUpload({
     download_url: '/files/download/7', thumbnail_filename: '/poster.jpg', file_srl: 77,
     dimensions: { width: 1280, height: 720 }, original_type: 'video/quicktime',
 }, 640, 'center'), {
-    src: '/files/download/7', poster: '/poster.jpg', width: 640, height: 360,
-    displayWidth: '640px', displayHeight: '360px', fileSrl: '77', preload: 'metadata',
+    src: '/files/download/7', poster: '/poster.jpg', width: null, height: null,
+    displayWidth: null, displayHeight: null, fileSrl: '77', preload: 'metadata',
     controls: true, muted: false, autoplay: false, loop: false, playsinline: false,
     align: 'center', display: 'block', marginLeft: 'auto', marginRight: 'auto',
 });
@@ -159,34 +159,31 @@ insertUploadedVideo(bridge, {
 }, { align: 'center', placeholderId: videoPlaceholderId });
 serialized = serializeDocument(bridge.view.state.doc, schema);
 assert.equal(document.querySelector('#editor .roundeditor__upload-placeholder'), null);
-assert.match(serialized, /^<video/);
-assert.doesNotMatch(serialized, /<p><video/);
-assert.match(serialized, /<\/video><p>\u00a0<\/p><p>\u00a0<\/p><p>본문<\/p>$/);
+assert.match(serialized, /^<p><video/);
+assert.doesNotMatch(serialized, /(?:width|height)="|style="[^"]*(?:width|height):/);
+assert.match(serialized, /<\/video><\/p><p>\u00a0<\/p><p>\u00a0<\/p><p>본문<\/p>$/);
 assert.equal(bridge.view.state.selection instanceof TextSelection, true);
 assert.equal(bridge.view.state.selection.$from.parent.type, schema.nodes.paragraph);
 assert.equal(bridge.view.state.selection.$from.parentOffset, 0);
 bridge.view.destroy();
 
+document.querySelector('#editor').replaceChildren();
+bridge.view = new EditorView(document.querySelector('#editor'), {
+    state: EditorState.create({ doc: parseDocument('<p>본문</p>'), plugins: [gapCursor()] }),
+});
+insertUploadedVideo(bridge, {
+    download_url: '/inline.mp4', file_srl: 100, dimensions: { width: 640, height: 360 }, original_type: 'video/mp4',
+}, { insertionMode: 'inline' });
+serialized = serializeDocument(bridge.view.state.doc, schema);
+assert.match(serialized, /src="\/inline.mp4"/);
+assert.doesNotMatch(serialized, /<p>\u00a0<\/p><p>\u00a0<\/p>/);
+bridge.view.destroy();
+
 const unwrapped = serializeDocument(parseDocument('<p><video src="/core.mp4" controls data-file-srl="10"></video></p><p>\u00a0</p>'), schema);
-assert.equal(unwrapped, '<video src="/core.mp4" controls="" data-file-srl="10"></video><p>\u00a0</p>');
+assert.equal(unwrapped, '<p><video src="/core.mp4" controls="" data-file-srl="10"></video></p><p>\u00a0</p>');
 
 const videoOnly = parseDocument('<video src="/gap.mp4" controls></video>');
-assert.equal(GapCursor.valid(videoOnly.resolve(0)), true);
-assert.equal(GapCursor.valid(videoOnly.resolve(videoOnly.content.size)), true);
-const gapView = new EditorView(document.querySelector('#gap'), {
-    state: EditorState.create({ doc: videoOnly, plugins: [gapCursor()] }),
-});
-gapView.dispatch(gapView.state.tr.setSelection(new GapCursor(gapView.state.doc.resolve(0))));
-gapView.focus();
-assert.ok(gapView.dom.querySelector('.ProseMirror-gapcursor'));
-gapView.dom.dispatchEvent(new dom.window.InputEvent('beforeinput', {
-    bubbles: true,
-    cancelable: true,
-    inputType: 'insertCompositionText',
-    data: 'ㅎ',
-}));
-assert.equal(gapView.state.doc.firstChild.type, schema.nodes.paragraph);
-assert.equal(gapView.state.doc.lastChild.type, schema.nodes.video);
-gapView.destroy();
+assert.equal(videoOnly.firstChild.type, schema.nodes.paragraph);
+assert.equal(videoOnly.firstChild.firstChild.type, schema.nodes.video);
 
 console.log('roundeditor Phase 4 video contract passed');

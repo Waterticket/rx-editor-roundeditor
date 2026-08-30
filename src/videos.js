@@ -1,5 +1,5 @@
 import { normalizeRhymixAssetUrl, normalizeRhymixVideoUrl, uploadFile } from './rhymix/upload.js';
-import { addTrailingParagraphsAfterBlockMedia } from './mediaInsertion.js';
+import { addTrailingParagraphsAfterInlineMedia } from './mediaInsertion.js';
 import {
     addUploadPlaceholder,
     findUploadPlaceholder,
@@ -46,19 +46,14 @@ export function videoAlignmentAttrs(align) {
 }
 
 export function videoAttrsFromUpload(upload, maxWidth = Infinity, align = null) {
-    const naturalWidth = Number(upload.dimensions?.width || upload.width || 0);
-    const naturalHeight = Number(upload.dimensions?.height || upload.height || 0);
-    const scale = naturalWidth > 0 ? Math.min(1, maxWidth / naturalWidth) : 1;
-    const width = naturalWidth > 0 ? Math.max(24, Math.round(naturalWidth * scale)) : null;
-    const height = naturalHeight > 0 ? Math.max(24, Math.round(naturalHeight * scale)) : null;
     const gifVideo = String(upload.original_type || '').toLowerCase() === 'image/gif';
     return {
         src: normalizeRhymixVideoUrl(upload.download_url),
         poster: normalizeRhymixAssetUrl(upload.thumbnail_filename) || null,
-        width,
-        height,
-        displayWidth: width ? `${width}px` : null,
-        displayHeight: height ? `${height}px` : null,
+        width: null,
+        height: null,
+        displayWidth: null,
+        displayHeight: null,
         fileSrl: upload.file_srl ? String(upload.file_srl) : null,
         preload: 'metadata',
         controls: !gifVideo,
@@ -70,17 +65,25 @@ export function videoAttrsFromUpload(upload, maxWidth = Infinity, align = null) 
     };
 }
 
-export function insertUploadedVideo(bridge, upload, { align = null, position = null, placeholderId = null } = {}) {
+export function insertUploadedVideo(bridge, upload, {
+    align = null,
+    position = null,
+    placeholderId = null,
+    insertionMode = 'paragraph',
+} = {}) {
     const { state } = bridge.view;
-    const measuredWidth = bridge.view.dom.clientWidth;
-    const maxWidth = measuredWidth > 40 ? measuredWidth - 40 : 640;
-    const video = state.schema.nodes.video.create(videoAttrsFromUpload(upload, maxWidth, align));
+    const video = state.schema.nodes.video.create(videoAttrsFromUpload(upload, Infinity, align));
+    const insertedNode = insertionMode === 'paragraph'
+        ? state.schema.nodes.paragraph.create(null, video)
+        : video;
     const placeholderPosition = placeholderId ? findUploadPlaceholder(state, placeholderId) : null;
     let transaction = placeholderPosition !== null || position !== null
-        ? state.tr.replaceRangeWith(placeholderPosition ?? position, placeholderPosition ?? position, video)
-        : state.tr.replaceSelectionWith(video);
+        ? state.tr.replaceRangeWith(placeholderPosition ?? position, placeholderPosition ?? position, insertedNode)
+        : state.tr.replaceSelectionWith(insertedNode);
     if (placeholderId) transaction = removeUploadPlaceholderFrom(transaction, placeholderId);
-    transaction = addTrailingParagraphsAfterBlockMedia(transaction, video);
+    if (insertionMode === 'paragraph') {
+        transaction = addTrailingParagraphsAfterInlineMedia(transaction, [video]);
+    }
     bridge.view.dispatch(transaction.scrollIntoView());
     bridge.view.focus();
     return true;

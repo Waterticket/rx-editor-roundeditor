@@ -67,7 +67,7 @@
   {
     "name": "inline video is lifted",
     "input": "<p>a <video src=\"./files/x.mp4\"></video> b</p>",
-    "expected": "<p>a </p><video src=\"./files/x.mp4\"></video> b"
+    "expected": "<p>a <video src=\"./files/x.mp4\"></video> b</p>"
   },
   {
     "name": "link normalization",

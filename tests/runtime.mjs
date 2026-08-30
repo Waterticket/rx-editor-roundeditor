@@ -12,6 +12,9 @@ const config = {
     contentWordBreak: 'normal',
     contentParagraphSpacing: '0',
     allowUpload: true,
+    allowHtml: false,
+    htmlMode: true,
+    contentCss: ['/editor-content.css', 'https://example.test/editor-content.css'],
 };
 const dom = new JSDOM(`<!doctype html><html><body>
     <form>
@@ -79,6 +82,9 @@ assert.equal(wrapper.querySelector('[data-command="link"] svg').dataset.icon, 'l
 assert.equal(wrapper.querySelector('[data-command="image"]'), null);
 assert.equal(wrapper.querySelector('[data-command="video"]'), null);
 assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 5');
+assert.equal(wrapper.querySelector('[data-command="source"]'), null);
+assert.equal(document.querySelectorAll('link[data-roundeditor-content-css]').length, 1);
+assert.equal(document.querySelector('link[data-roundeditor-content-css]').href, 'https://example.test/editor-content.css');
 
 wrapper.querySelector('[data-more-group="text"]').click();
 assert.equal(wrapper.querySelector('.roundeditor__toolbar-more [data-command="fontSize"] svg').dataset.icon, 'fontSize');
@@ -163,6 +169,39 @@ assert.match(window.editorGetContent(7), /<abbr title="약어">원문<\/abbr>/);
 
 window._getCkeInstance(7).insertHtml('<img src="image.png" alt="삽입 이미지">');
 assert.match(window.editorGetContent(7), /<img src="image.png" alt="삽입 이미지" \/>/);
+
+window._getCkeInstance(7).setData('<p></p>');
+window._getCkeInstance(7).insertHtml('<p><img src="first.png" alt="첫 번째"></p>');
+window._getCkeInstance(7).insertHtml('<img src="second.png" alt="두 번째">');
+window._getCkeInstance(7).insertHtml('<img src="third.png" alt="세 번째">');
+assert.match(
+    window.editorGetContent(7),
+    /^<p><img src="first\.png" alt="첫 번째" \/><\/p><p><img src="second\.png" alt="두 번째" \/><\/p><p><img src="third\.png" alt="세 번째" \/><\/p>/
+);
+
+window._getCkeInstance(7).setData('<p></p>');
+window._getCkeInstance(7).insertHtml('<p><img src="newline-first.png" alt="첫 번째"></p>\n');
+window._getCkeInstance(7).insertHtml('<p><img src="newline-second.png" alt="두 번째"></p>\n');
+window._getCkeInstance(7).insertHtml('<p><img src="newline-third.png" alt="세 번째"></p>\n');
+assert.match(
+    window.editorGetContent(7),
+    /^<p><img src="newline-first\.png" alt="첫 번째" \/><\/p><p><img src="newline-second\.png" alt="두 번째" \/><\/p><p><img src="newline-third\.png" alt="세 번째" \/><\/p>/
+);
+
+window._getCkeInstance(7).setData('<p></p>');
+window._getCkeInstance(7).insertHtml(
+    '<p><img src="batch-first.png" alt="첫 번째"></p>'
+    + '<img src="batch-second.png" alt="두 번째"><img src="batch-third.png" alt="세 번째">'
+);
+assert.match(
+    window.editorGetContent(7),
+    /^<p><img src="batch-first\.png" alt="첫 번째" \/><\/p><p><img src="batch-second\.png" alt="두 번째" \/><\/p><p><img src="batch-third\.png" alt="세 번째" \/><\/p>/
+);
+
+window._getCkeInstance(7).setData('<img src="legacy-direct.png" alt="기존"><p></p>');
+window._getCkeInstance(7).insertHtml('<p><img src="new-paragraph.png" alt="신규"></p>');
+assert.match(window.editorGetContent(7), /<p><img src="legacy-direct\.png" alt="기존" \/><\/p>/);
+assert.match(window.editorGetContent(7), /<p><img src="new-paragraph\.png" alt="신규" \/><\/p>/);
 
 window._getCkeInstance(7).setData('<p>Link</p>');
 wrapper.querySelector('[data-command="selectAll"]').click();

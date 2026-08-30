@@ -30,9 +30,7 @@ for (const [index, fixture] of fixtures.entries()) {
 
 const serialized = cleaned.map(html => serializeDocument(parseDocument(html), schema));
 const cleanedAfterRoundTrip = cleanBatch(serialized);
-const editorCanonical = {
-    'inline video is lifted': '<p>a</p><video src="./files/x.mp4"></video>b',
-};
+const editorCanonical = {};
 for (const [index, fixture] of fixtures.entries()) {
     const expected = editorCanonical[fixture.name] || cleaned[index];
     assert.equal(cleanedAfterRoundTrip[index], expected, `${fixture.name}: editor round trip changed clean HTML`);

@@ -4,7 +4,7 @@ import { JSDOM } from 'jsdom';
 
 const dom = new JSDOM(`<!doctype html><html><body><form>
     <div class="roundeditor"><div class="roundeditor__surface"></div></div>
-    <div id="xefu-container-7" data-autoinsert-types='{"image":true,"audio":true,"video":true}'>
+    <div id="xefu-container-7" data-autoinsert-types='{"image":true,"audio":true,"video":true}' data-autoinsert-position="paragraph">
         <div class="xefu-dropzone"><p class="xefu-dropzone-message"></p><span class="xefu-btn fileinput-button"><span><i class="xi-icon"></i>선택</span><input type="file"></span><p class="upload_info"><span class="allowed_filesize_container">파일 제한 : <span class="allowed_filesize">10MB</span></span></p></div><div class="xefu-controll"><div>0개 첨부됨 (<span class="attached_size">0Byte</span> / <span class="allowed_attach_size">20MB</span>)</div><div><input type="button" class="xefu-btn xefu-act-link-selected" value="본문 삽입"><input type="button" class="xefu-btn xefu-act-delete-selected" value="선택 삭제"></div></div><div class="xefu-list"><div class="xefu-list-images"><ul></ul></div><div class="xefu-list-files"><ul></ul></div></div>
     </div>
 </form></body></html>`, { url: 'https://example.test/write' });
@@ -44,6 +44,7 @@ const bridge = {
     form: document.querySelector('form'),
     wrapper,
     config: {
+        colorset: 'auto',
         labels: {
             attachments: '파일 첨부',
             attachmentsHelp: '업로드 후 삽입',
@@ -71,6 +72,8 @@ assert.notEqual(uploader.parentElement, wrapper);
 assert.equal(uploader.querySelector('.roundeditor__attachments-heading strong').textContent, '파일 첨부');
 assert.equal(uploader.dataset.autoinsertTypes, '{"image":false,"audio":true,"video":false}');
 assert.deepEqual(jqueryData.autoinsertTypes, { image: false, audio: true, video: false });
+assert.equal(attachmentList.autoinsertPosition, 'paragraph');
+assert.equal(uploader.classList.contains('roundeditor__attachments--auto'), true);
 assert.equal(uploader.classList.contains('roundeditor__attachments--empty'), true);
 assert.equal(uploader.querySelector('.roundeditor__drop-overlay strong').textContent, '파일 업로드');
 assert.equal(uploader.querySelector('.roundeditor__list-section-heading'), null);
@@ -262,6 +265,24 @@ completedImage.innerHTML = '<strong class="xefu-file-name">progress.png</strong>
 uploader.querySelector('.xefu-list-images ul').appendChild(completedImage);
 await new Promise(resolve => queueMicrotask(resolve));
 assert.equal(uploader.querySelectorAll('.roundeditor__attachment-upload').length, 0);
+
+attachmentList.autoinsertTypes.image = false;
+const disabledImage = new dom.window.File(['disabled'], 'disabled.png', { type: 'image/png' });
+const disabledUpload = { files: [disabledImage] };
+const contentBeforeDisabledUpload = serializeDocument(bridge.view.state.doc, schema);
+handlers.fileuploadadd({}, disabledUpload);
+assert.equal(wrapper.querySelector('.roundeditor__upload-placeholder'), null);
+handlers.fileuploaddone({}, { files: [disabledImage], result: {
+    error: 0, file_srl: 103, download_url: '/disabled.png', source_filename: 'disabled.png', width: 320, height: 180,
+} });
+assert.equal(serializeDocument(bridge.view.state.doc, schema), contentBeforeDisabledUpload);
+const completedDisabledImage = document.createElement('li');
+completedDisabledImage.className = 'xefu-file xefu-file-image';
+completedDisabledImage.dataset.fileSrl = '103';
+uploader.querySelector('.xefu-list-images ul').appendChild(completedDisabledImage);
+await new Promise(resolve => queueMicrotask(resolve));
+assert.equal(uploader.querySelectorAll('.roundeditor__attachment-upload').length, 0);
+attachmentList.autoinsertTypes.image = true;
 
 const firstVideoFile = new dom.window.File(['first'], 'first.mp4', { type: 'video/mp4' });
 const secondVideoFile = new dom.window.File(['second'], 'second.mp4', { type: 'video/mp4' });

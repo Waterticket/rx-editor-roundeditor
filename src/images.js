@@ -12,19 +12,14 @@ export function imageFiles(list) {
     return Array.from(list || []).filter(file => String(file.type || '').startsWith('image/'));
 }
 
-export function imageAttrsFromUpload(upload, maxWidth = Infinity) {
-    const naturalWidth = Number(upload.dimensions?.width || upload.width || 0);
-    const naturalHeight = Number(upload.dimensions?.height || upload.height || 0);
-    const scale = naturalWidth > 0 ? Math.min(1, maxWidth / naturalWidth) : 1;
-    const width = naturalWidth > 0 ? Math.max(24, Math.round(naturalWidth * scale)) : null;
-    const height = naturalHeight > 0 ? Math.max(24, Math.round(naturalHeight * scale)) : null;
+export function imageAttrsFromUpload(upload) {
     return {
         src: normalizeRhymixUrl(upload.download_url),
         alt: upload.source_filename || '',
-        width,
-        height,
-        displayWidth: width ? `${width}px` : null,
-        displayHeight: height ? `${height}px` : null,
+        width: null,
+        height: null,
+        displayWidth: null,
+        displayHeight: null,
         fileSrl: upload.file_srl ? String(upload.file_srl) : null,
         editorComponent: 'image_link',
     };
@@ -38,13 +33,19 @@ function textblockPosition(doc, position) {
     return null;
 }
 
-export function insertUploadedImages(bridge, uploads, { position = null, align = null, placeholderId = null } = {}) {
+export function insertUploadedImages(bridge, uploads, {
+    position = null,
+    align = null,
+    placeholderId = null,
+    insertionMode = 'paragraph',
+} = {}) {
     if (!uploads.length) return false;
     const { state } = bridge.view;
-    const measuredWidth = bridge.view.dom.clientWidth;
-    const maxWidth = measuredWidth > 40 ? measuredWidth - 40 : 640;
-    const nodes = uploads.map(upload => state.schema.nodes.image.create(imageAttrsFromUpload(upload, maxWidth)));
-    const slice = new Slice(Fragment.fromArray(nodes), 0, 0);
+    const nodes = uploads.map(upload => state.schema.nodes.image.create(imageAttrsFromUpload(upload)));
+    const insertedNodes = insertionMode === 'paragraph'
+        ? nodes.map(node => state.schema.nodes.paragraph.create(null, node))
+        : nodes;
+    const slice = new Slice(Fragment.fromArray(insertedNodes), 0, 0);
     let transaction = state.tr;
     const placeholderPosition = placeholderId ? findUploadPlaceholder(state, placeholderId) : null;
     const insertionPosition = placeholderPosition ?? (position === null ? state.selection.from : position);
@@ -61,7 +62,9 @@ export function insertUploadedImages(bridge, uploads, { position = null, align =
         }
     }
     if (placeholderId) transaction = removeUploadPlaceholderFrom(transaction, placeholderId);
-    transaction = addTrailingParagraphsAfterInlineMedia(transaction, nodes);
+    if (insertionMode === 'paragraph') {
+        transaction = addTrailingParagraphsAfterInlineMedia(transaction, nodes);
+    }
     bridge.view.dispatch(transaction.scrollIntoView());
     bridge.view.focus();
     return true;

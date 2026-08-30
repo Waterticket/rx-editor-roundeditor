@@ -22,7 +22,7 @@ export class SourceMode {
     }
 
     open() {
-        if (!this.bridge.config.htmlMode || this.active) return;
+        if (!this.bridge.config.htmlMode || this.bridge.config.allowHtml === false || this.active) return;
         this.bridge.toolbar.closePanel();
         this.bridge.toolbar.closeMore();
         this.textarea.value = beautifyHtml(this.bridge.serializeVisual());

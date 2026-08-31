@@ -10,6 +10,7 @@ const KNOWN_TAGS = new Set(`
     sup table tbody td th tr u ul video
 `.trim().split(/\s+/));
 const DANGEROUS_TAGS = new Set('script style form input button select textarea canvas svg'.split(' '));
+const PREVIEW_WRAPPER_CLASSES = new Set(['media_embed_wrapper', 'preview_card_wrapper']);
 
 function rawReplacement(element, kind) {
     const inline = kind === 'inline' || kind === 'component-inline';
@@ -36,6 +37,24 @@ function sanitizeRawSubtree(root) {
         } else {
             sanitizeElementAttributes(element);
         }
+    }
+}
+
+function sanitizePreviewSubtree(root) {
+    for (const element of [root, ...root.querySelectorAll('*')]) {
+        if (!element.isConnected && element !== root && !root.contains(element)) continue;
+        const tagName = element.tagName.toLowerCase();
+        if (DANGEROUS_TAGS.has(tagName)) {
+            element.remove();
+            continue;
+        }
+        if (!ALLOWED_TAGS.has(tagName)) {
+            unwrapElement(element);
+            continue;
+        }
+        const className = element.getAttribute('class');
+        sanitizeElementAttributes(element);
+        if (className) element.setAttribute('class', className);
     }
 }
 
@@ -147,6 +166,17 @@ function visitElement(element) {
     if (!ALLOWED_TAGS.has(tagName)) {
         for (const child of Array.from(element.children)) visitElement(child);
         unwrapElement(element);
+        return;
+    }
+
+    const previewWrapper = tagName === 'div'
+        && Array.from(PREVIEW_WRAPPER_CLASSES).some(className => element.classList.contains(className));
+    if (previewWrapper) {
+        // Preview module output is a self-contained atomic block. Preserve its
+        // layout classes and safe iframe markup while applying the same URI and
+        // event-attribute filtering used for other raw HTML.
+        sanitizePreviewSubtree(element);
+        rawReplacement(element, 'block');
         return;
     }
 

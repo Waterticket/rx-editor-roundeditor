@@ -137,6 +137,39 @@ assert.equal(unsafeView.dom.querySelector('a').hasAttribute('href'), false);
 assert.match(serializeDocument(unsafe, schema), /<script>bad\(\)<\/script>/);
 unsafeView.destroy();
 
+const previewMedia = parseDocument('<div class="media_embed_wrapper" contenteditable="false"><div class="media_embed" style="padding-bottom:56.25%"><img src="https://i.ytimg.com/vi/test/maxresdefault.jpg"><iframe src="https://www.youtube.com/embed/test" onload="bad()" srcdoc="bad" allowfullscreen></iframe><script>bad()</script></div></div>');
+const previewMediaView = rawNodeViews(unsafeBridge).rawBlock(previewMedia.firstChild);
+assert.equal(previewMediaView.stopEvent(), false);
+assert.equal(previewMediaView.dom.querySelector('iframe').getAttribute('src'), 'https://www.youtube.com/embed/test');
+assert.equal(previewMediaView.dom.querySelector('iframe').hasAttribute('onload'), false);
+assert.equal(previewMediaView.dom.querySelector('iframe').hasAttribute('srcdoc'), false);
+assert.equal(previewMediaView.dom.querySelector('script'), null);
+assert.equal(previewMediaView.dom.querySelector('.roundeditor__raw-preview--media') !== null, true);
+assert.ok(previewMediaView.dom.querySelector('.roundeditor__raw-drag-handle'));
+previewMediaView.destroy();
+
+const dragHost = document.createElement('div');
+document.body.appendChild(dragHost);
+const dragView = new EditorView(dragHost, {
+    state: EditorState.create({ doc: parseDocument(`<p>Before</p>${previewMedia.firstChild.attrs.html}<p>After</p>`) }),
+    nodeViews: rawNodeViews(unsafeBridge),
+});
+const dragHandle = dragHost.querySelector('.roundeditor__raw-drag-handle');
+const dragTarget = dragHost.querySelector('p');
+dragTarget.getBoundingClientRect = () => ({ top: 0, height: 20 });
+dragHandle.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, button: 0 }));
+dragTarget.dispatchEvent(new window.MouseEvent('mouseup', { bubbles: true, clientY: 1 }));
+assert.equal(dragView.state.doc.firstChild.type, schema.nodes.rawBlock);
+assert.equal(dragView.state.selection.from, 0);
+dragView.destroy();
+dragHost.remove();
+
+const ordinaryRaw = parseDocument('<section><p>External preview</p><iframe src="https://example.test/embed"></iframe></section>');
+const ordinaryRawView = rawNodeViews(unsafeBridge).rawBlock(ordinaryRaw.firstChild);
+assert.equal(ordinaryRawView.stopEvent(), false);
+assert.equal(ordinaryRawView.dom.querySelector('iframe'), null);
+ordinaryRawView.destroy();
+
 const sdkAssets = [
     {
         selector: '.twitter-tweet',

@@ -4,9 +4,12 @@ import {
     componentPresentation,
     resolveComponentDetails,
 } from '../rhymix/componentPresentation.js';
+import { NodeSelection } from 'prosemirror-state';
 
 const UNSAFE_OEMBED_ELEMENTS = 'script,style,form,input,button,select,textarea,object,embed';
 const UNSAFE_RAW_PREVIEW_ELEMENTS = `${UNSAFE_OEMBED_ELEMENTS},iframe`;
+const PREVIEW_MEDIA_SELECTOR = '.media_embed_wrapper';
+const PREVIEW_EMBED_SELECTOR = `${PREVIEW_MEDIA_SELECTOR},.preview_card_wrapper`;
 const URI_ATTRIBUTES = new Set(['href', 'src', 'poster', 'data']);
 const sdkPromises = new Map();
 const sdkReloadPromises = new Map();
@@ -155,9 +158,11 @@ function safeRawPreview(html) {
     template.innerHTML = String(html || '');
     const element = template.content.firstElementChild;
     if (!element) return null;
-    for (const unsafe of element.matches(UNSAFE_RAW_PREVIEW_ELEMENTS)
+    const previewMedia = element.matches(PREVIEW_MEDIA_SELECTOR);
+    const unsafeSelector = previewMedia ? UNSAFE_OEMBED_ELEMENTS : UNSAFE_RAW_PREVIEW_ELEMENTS;
+    for (const unsafe of element.matches(unsafeSelector)
         ? [element]
-        : element.querySelectorAll(UNSAFE_RAW_PREVIEW_ELEMENTS)) {
+        : element.querySelectorAll(unsafeSelector)) {
         unsafe.remove();
     }
     if (!element.isConnected && !template.content.contains(element)) return null;
@@ -173,12 +178,30 @@ function safeRawPreview(html) {
     }
     element.contentEditable = 'false';
     element.classList.add('roundeditor__raw-preview');
+    if (element.matches(PREVIEW_EMBED_SELECTOR)) element.classList.add('roundeditor__raw-preview--embed');
+    if (previewMedia) element.classList.add('roundeditor__raw-preview--media');
     return element;
 }
 
+function rawDragHandle(selectNode) {
+    const handle = document.createElement('span');
+    handle.className = 'roundeditor__raw-drag-handle';
+    handle.setAttribute('role', 'button');
+    handle.tabIndex = 0;
+    handle.setAttribute('aria-label', 'Drag to move embed');
+    handle.title = 'Drag to move embed';
+    handle.textContent = '⠿';
+    handle.addEventListener('mousedown', event => {
+        if (event.button === 0) selectNode(event);
+    });
+    return handle;
+}
+
 export class RawView {
-    constructor(node, bridge) {
+    constructor(node, bridge, view, getPos) {
         this.node = node;
+        this.view = view;
+        this.getPos = getPos;
         this.dom = document.createElement(node.type.isInline ? 'span' : 'div');
         this.dom.className = `roundeditor__raw roundeditor__raw--${node.type.isInline ? 'inline' : 'block'}`;
         this.dom.contentEditable = 'false';
@@ -200,7 +223,68 @@ export class RawView {
         }
 
         const preview = safeRawPreview(node.attrs.html);
-        if (preview) this.dom.appendChild(preview);
+        if (preview) {
+            this.dom.appendChild(preview);
+            if (preview.classList.contains('roundeditor__raw-preview--embed')) {
+                this.dom.classList.add('roundeditor__raw--embed');
+                this.dom.appendChild(rawDragHandle(event => this.beginHandleDrag(event)));
+            }
+        }
+    }
+
+    beginHandleDrag(event) {
+        if (!this.view || typeof this.getPos !== 'function') return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectEditorNode();
+        this.dom.classList.add('roundeditor__raw--dragging');
+        const finish = mouseEvent => {
+            document.removeEventListener('mouseup', finish, true);
+            this.dom.classList.remove('roundeditor__raw--dragging');
+            this.moveToMouseTarget(mouseEvent);
+        };
+        document.addEventListener('mouseup', finish, true);
+    }
+
+    moveToMouseTarget(event) {
+        const source = this.getPos();
+        if (!Number.isInteger(source)) return;
+        let target = event.target instanceof Node ? event.target : null;
+        if (target?.nodeType === Node.TEXT_NODE) target = target.parentElement;
+        while (target && target.parentElement !== this.view.dom) target = target.parentElement;
+        if (!target) return;
+        const children = Array.from(this.view.dom.children);
+        const index = children.indexOf(target);
+        if (index < 0 || index >= this.view.state.doc.childCount) return;
+        let boundary = 0;
+        for (let childIndex = 0; childIndex < index; childIndex++) {
+            boundary += this.view.state.doc.child(childIndex).nodeSize;
+        }
+        const targetNode = this.view.state.doc.child(index);
+        const rect = target.getBoundingClientRect();
+        if (event.clientY > rect.top + rect.height / 2) boundary += targetNode.nodeSize;
+        if (boundary >= source && boundary <= source + this.node.nodeSize) return;
+
+        let transaction = this.view.state.tr.delete(source, source + this.node.nodeSize);
+        const insertion = transaction.mapping.map(boundary, boundary < source ? -1 : 1);
+        transaction = transaction.insert(insertion, this.node)
+            .setSelection(NodeSelection.create(transaction.doc, insertion));
+        this.view.dispatch(transaction.scrollIntoView());
+    }
+
+    selectEditorNode() {
+        if (!this.view || typeof this.getPos !== 'function') return;
+        const position = this.getPos();
+        if (!Number.isInteger(position)) return;
+        this.view.dispatch(this.view.state.tr.setSelection(NodeSelection.create(this.view.state.doc, position)));
+    }
+
+    selectNode() {
+        this.dom.classList.add('ProseMirror-selectednode');
+    }
+
+    deselectNode() {
+        this.dom.classList.remove('ProseMirror-selectednode');
     }
 
     renderComponent(bridge) {
@@ -250,7 +334,11 @@ export class RawView {
     }
 
     stopEvent() {
-        return !this.isOembed;
+        // Let ProseMirror handle pointer and drag events for raw atoms so a
+        // preview card or legacy media embed can be selected and repositioned.
+        // Non-oEmbed Rhymix components keep their own double-click editing
+        // interaction and are handled by the component integration instead.
+        return this.node.type.name.startsWith('rhymixComponent') && !this.isOembed;
     }
 
     ignoreMutation() {
@@ -269,5 +357,5 @@ export function rawNodeViews(bridge) {
         'rawInline',
         'rhymixComponentBlock',
         'rhymixComponentInline',
-    ].map(name => [name, node => new RawView(node, bridge)]));
+    ].map(name => [name, (node, view, getPos) => new RawView(node, bridge, view, getPos)]));
 }

@@ -113,7 +113,7 @@ const source = wrapper.querySelector('.roundeditor__source');
 assert.equal(source.hidden, false);
 assert.equal(wrapper.querySelector('.roundeditor__surface').hidden, true);
 assert.equal(window.editorMode[16], 'html');
-assert.equal(compat.mode, 'html');
+assert.equal(compat.mode, 'source');
 assert.equal(componentButton.disabled, true);
 source.value = '<p>Source <strong title="kept">HTML</strong></p>';
 source.dispatchEvent(new dom.window.Event('input', { bubbles: true }));

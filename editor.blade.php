@@ -2,6 +2,7 @@
 
 @load('^/common/css/xeicon/xeicon.min.css')
 @load('../../tpl/js/editor_common.js')
+@load('js/ckeditor4-bootstrap.js')
 @if ($roundeditor_use_jsdelivr_cdn)
     @if ($roundeditor_render_jsdelivr_loader)
         <script id="RoundEditorLoader" data-version="{{ $roundeditor_asset_version }}" src="{{ $roundeditor_jsdelivr_loader_url }}"></script>

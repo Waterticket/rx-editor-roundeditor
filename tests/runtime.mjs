@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 
 const config = {
@@ -27,7 +28,7 @@ const dom = new JSDOM(`<!doctype html><html><body>
             <div class="roundeditor__surface"></div>
         </div>
     </form>
-</body></html>`, { url: 'https://example.test/' });
+</body></html>`, { url: 'https://example.test/', runScripts: 'outside-only' });
 
 let resizeObserverCallback;
 
@@ -52,8 +53,13 @@ Object.defineProperties(globalThis, {
 
 window.editorGetContent = sequence => `previous:${sequence}`;
 window.editorGetIFrame = sequence => `previous-frame:${sequence}`;
+window.eval(await readFile(new URL('../js/ckeditor4-bootstrap.js', import.meta.url), 'utf8'));
+const editor1Proxy = window.CKEDITOR.instances.editor1;
+let editor1Ready = false;
+editor1Proxy.on('instanceReady', () => { editor1Ready = true; });
 
 await import('../dist/roundeditor.min.js');
+await Promise.resolve();
 
 const wrapper = document.querySelector('.roundeditor');
 const form = document.querySelector('form');
@@ -71,6 +77,9 @@ assert.equal(window.editorGetContent(7), '<p>Hello</p>');
 assert.equal(window.editorGetContentTextarea_xe(7), 'Hello');
 assert.equal(window.editorRelKeys[7].content, form.elements.namedItem('content'));
 assert.equal(window._getCkeInstance(7).mode, 'wysiwyg');
+assert.equal(window.CKEDITOR.instances.editor1, editor1Proxy);
+assert.equal(window.CKEDITOR.instances.roundeditor_7, editor1Proxy);
+assert.equal(editor1Ready, true);
 assert.equal(wrapper.querySelector('.roundeditor__toolbar').getAttribute('role'), 'toolbar');
 assert.equal(wrapper.classList.contains('roundeditor--compact'), true);
 assert.equal(wrapper.classList.contains('roundeditor--narrow'), true);
@@ -170,6 +179,26 @@ assert.match(window.editorGetContent(7), /<abbr title="약어">원문<\/abbr>/);
 window._getCkeInstance(7).insertHtml('<img src="image.png" alt="삽입 이미지">');
 assert.match(window.editorGetContent(7), /<img src="image.png" alt="삽입 이미지" \/>/);
 assert.doesNotMatch(window.editorGetContent(7), /roundeditor-content-image__caption/);
+
+let pastedValue = '';
+const pasteEvent = window.CKEDITOR.instances.editor1.fire('paste', { dataValue: 'https://example.test/' });
+window.CKEDITOR.instances.editor1.on('paste', event => {
+    pastedValue = event.data.dataValue;
+    event.stop();
+});
+const stoppedPaste = window.CKEDITOR.instances.editor1.fire('paste', { dataValue: 'https://example.test/' });
+assert.equal(pasteEvent.stopped, false);
+assert.equal(pastedValue, 'https://example.test/');
+assert.equal(stoppedPaste.stopped, true);
+
+let insertedValue = '';
+window.CKEDITOR.instances.editor1.on('insertHtml', event => { insertedValue = event.data.dataValue; });
+window.CKEDITOR.instances.editor1.insertHtml('<p>Compatibility insert</p>');
+assert.equal(insertedValue, '<p>Compatibility insert</p>');
+const notification = window.CKEDITOR.instances.editor1.showNotification('Loading', 'progress', 0);
+notification.update({ progress: 50, message: 'Loading' });
+assert.match(wrapper.querySelector('.roundeditor__notification').textContent, /50%/);
+notification.hide();
 
 window._getCkeInstance(7).setData('<p></p>');
 window._getCkeInstance(7).insertHtml('<p><img src="first.png" alt="첫 번째"></p>');

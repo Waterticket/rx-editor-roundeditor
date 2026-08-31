@@ -2127,6 +2127,44 @@ body.color_scheme_dark .roundeditor__attachments--auto {
     white-space: normal;
 }
 
+.roundeditor__raw-preview--media {
+    overflow: hidden;
+}
+
+.roundeditor__raw-preview--media iframe {
+    display: block;
+    max-width: 100%;
+    pointer-events: none;
+}
+
+.roundeditor__raw--embed {
+    position: relative;
+}
+
+.roundeditor .roundeditor__raw-drag-handle {
+    position: absolute;
+    z-index: 2;
+    top: 8px;
+    left: 8px;
+    display: grid;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--roundeditor-border) 80%, transparent);
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--roundeditor-background) 92%, transparent);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 14%);
+    color: var(--roundeditor-muted);
+    cursor: grab;
+    font: inherit;
+    line-height: 1;
+}
+
+.roundeditor .roundeditor__raw-drag-handle:active {
+    cursor: grabbing;
+}
+
 .roundeditor__raw.ProseMirror-selectednode {
     border-color: #3b82f6;
     outline: 2px solid color-mix(in srgb, #3b82f6 30%, transparent);

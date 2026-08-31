@@ -4,7 +4,7 @@ export class SourceMode {
     constructor(bridge) {
         this.bridge = bridge;
         this.textarea = document.createElement('textarea');
-        this.textarea.className = 'roundeditor__source';
+        this.textarea.className = 'roundeditor__source cke_source';
         this.textarea.hidden = true;
         this.textarea.spellcheck = false;
         this.textarea.setAttribute('aria-label', bridge.config.labels?.source || 'HTML source');
@@ -30,7 +30,6 @@ export class SourceMode {
         this.textarea.hidden = false;
         this.bridge.wrapper.classList.add('roundeditor--source');
         window.editorMode[this.bridge.sequence] = 'html';
-        this.bridge.compat.mode = 'html';
         this.textarea.focus();
         this.bridge.toolbar.refresh(this.bridge.view.state);
         this.bridge.sync();
@@ -43,7 +42,6 @@ export class SourceMode {
         this.bridge.surface.hidden = false;
         this.bridge.wrapper.classList.remove('roundeditor--source');
         window.editorMode[this.bridge.sequence] = null;
-        this.bridge.compat.mode = 'wysiwyg';
         this.bridge.view.focus();
         this.bridge.toolbar.refresh(this.bridge.view.state);
         this.bridge.sync();

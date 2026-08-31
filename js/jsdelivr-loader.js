@@ -37,6 +37,42 @@
         return script;
     }
 
+    function installCkeditorBootstrap() {
+        if (window.RoundEditorCKEditor4Bootstrap) return;
+        var editor = window.CKEDITOR = window.CKEDITOR || {};
+        editor.instances = editor.instances || {};
+        var proxy = editor.instances.editor1;
+        if (!proxy) {
+            var pendingListeners = [];
+            proxy = {
+                __roundeditorCkeditor4Proxy: true,
+                __roundeditorCkeditor4PendingListeners: pendingListeners,
+                on: function (name, listener) {
+                    pendingListeners.push([name, listener]);
+                    return proxy;
+                },
+            };
+            editor.instances.editor1 = proxy;
+        }
+        window.RoundEditorCKEditor4Bootstrap = {
+            ensureEditor1Proxy: function () { return editor.instances.editor1 || proxy; },
+            register: function (name, facade) {
+                editor.instances[name] = facade;
+                var current = editor.instances.editor1;
+                if (!current || current.__roundeditorCkeditor4Proxy) {
+                    current = current || proxy;
+                    var pending = current.__roundeditorCkeditor4PendingListeners || [];
+                    Object.defineProperties(current, Object.getOwnPropertyDescriptors(facade));
+                    current.__roundeditorCkeditor4PendingListeners = [];
+                    pending.forEach(function (item) { facade.on(item[0], item[1]); });
+                    editor.instances.editor1 = current;
+                    return current;
+                }
+                return facade;
+            },
+        };
+    }
+
     function loadModule(primaryUrl, fallbackUrl) {
         if (document.getElementById('RoundEditorModule')) return;
 
@@ -153,6 +189,7 @@
     }
 
     if (!validVersion) {
+        installCkeditorBootstrap();
         loadStylesheet(localCss);
         loadAttachmentIcons(localAttachmentIcons, localAttachmentIcons, function () {
             loadModule(localJs);
@@ -160,6 +197,7 @@
         return;
     }
 
+    installCkeditorBootstrap();
     var cdnRoot = 'https://cdn.jsdelivr.net/gh/Waterticket/rx-editor-roundeditor@'
         + encodeURIComponent(version) + '/dist/';
     loadStylesheet(cdnRoot + 'roundeditor.css', localCss);

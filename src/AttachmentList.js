@@ -435,6 +435,11 @@ export class AttachmentList {
         const usedFileSrls = new Set();
         this.bridge.view.state.doc.descendants(node => {
             if (node.attrs?.fileSrl) usedFileSrls.add(String(node.attrs.fileSrl));
+            if (node.attrs?.html) {
+                for (const match of String(node.attrs.html).matchAll(/data-file-srl=["'](\d+)["']/g)) {
+                    usedFileSrls.add(match[1]);
+                }
+            }
         });
         for (const item of this.container.querySelectorAll('.xefu-list-images .xefu-file')) {
             if (item.dataset.roundeditorUploadPreview) continue;

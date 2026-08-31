@@ -9,6 +9,7 @@ import { EditorView } from 'prosemirror-view';
 import { columnResizing, tableEditing } from 'prosemirror-tables';
 import '../css/roundeditor.scss';
 import { AttachmentList } from './AttachmentList.js';
+import { createCKEditor4Facade } from './compat/CKEditor4Facade.js';
 import { updateEditorDocument } from './documentUpdate.js';
 import { handleImagePaste, imageFiles, uploadImagesAt } from './images.js';
 import { mediaSelectionPlugin } from './mediaSelection.js';
@@ -133,6 +134,12 @@ function handleMediaDrop(bridge, event, moved) {
     return true;
 }
 
+function fireCompatibilityPaste(bridge, event) {
+    const clipboardData = event.clipboardData;
+    const dataValue = clipboardData?.getData('text/html') || clipboardData?.getData('text/plain') || '';
+    return bridge.compat?.fire('paste', { dataValue, dataTransfer: { $: clipboardData } }).stopped;
+}
+
 function insertHtml(bridge, html) {
     if (bridge.sourceMode?.insertHtml(html)) {
         bridge.sourceMode.focus();
@@ -226,20 +233,7 @@ function findBridgeForFrame(frame) {
 }
 
 function createCompatibilityBridge(bridge) {
-    return {
-        mode: 'wysiwyg',
-        getData: () => bridge.sync(),
-        setData: html => {
-            bridge.sourceMode?.setData(html);
-            return bridge.sync();
-        },
-        insertHtml: html => insertHtml(bridge, html),
-        getText: () => plainText(bridge),
-        getSelection: () => ({
-            getSelectedText: () => plainText(bridge, true),
-        }),
-        focus: () => bridge.sourceMode?.focus(),
-    };
+    return createCKEditor4Facade(bridge);
 }
 
 function installGlobals() {
@@ -305,6 +299,15 @@ function publishBridge(bridge) {
         editor: { getFrame: () => bridge.editable },
     };
     window.editorMode[bridge.sequence] = bridge.sourceMode?.active ? 'html' : null;
+    const bootstrap = window.RoundEditorCKEditor4Bootstrap;
+    if (bootstrap) {
+        const editorName = `roundeditor_${bridge.sequence}`;
+        const registered = bootstrap.register(editorName, bridge.compat);
+        if (registered !== bridge.compat && registered.__roundeditorCkeditor4Proxy) {
+            Object.defineProperties(registered, Object.getOwnPropertyDescriptors(bridge.compat));
+            bridge.compat = registered;
+        }
+    }
 }
 
 function applyContentStyles(bridge) {
@@ -369,6 +372,12 @@ function initialize(wrapper) {
             publishBridge(this);
             return this.contentInput.value;
         },
+        insertHtml(html) {
+            return insertHtml(this, html);
+        },
+        getText(selected = false) {
+            return plainText(this, selected);
+        },
         serializeVisual() {
             return serializeDocument(this.view.state.doc, schema);
         },
@@ -394,9 +403,14 @@ function initialize(wrapper) {
         },
         transformPastedHTML: normalizeForParse,
         handlePaste: (view, event) => (
-            handleImagePaste(bridge, event) || handleOembedPaste(bridge, event)
+            handleImagePaste(bridge, event)
+            || fireCompatibilityPaste(bridge, event)
+            || handleOembedPaste(bridge, event)
         ),
-        handleDrop: (view, event, slice, moved) => handleMediaDrop(bridge, event, moved),
+        handleDrop: (view, event, slice, moved) => (
+            handleMediaDrop(bridge, event, moved)
+            || bridge.compat?.fire('drop', { dataTransfer: { $: event.dataTransfer } }).stopped
+        ),
         nodeViews: {
             ...rawNodeViews(bridge),
             audio: audioNodeView(bridge),
@@ -429,6 +443,7 @@ function initialize(wrapper) {
     ensureHiddenField(form, 'use_html', 'Y');
     applyContentStyles(bridge);
     publishBridges();
+    queueMicrotask(() => bridge.compat._markReady());
     installComponentEditing(bridge);
 
     form.addEventListener('submit', () => bridge.prepareSubmit(), true);

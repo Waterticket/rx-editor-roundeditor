@@ -2,7 +2,13 @@ import { NodeSelection, Plugin } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 
 const RANGE_HIGHLIGHTED_MEDIA = new Set(['audio', 'sticker', 'video']);
-const DRAGGABLE_MEDIA_SELECTOR = '.roundeditor__media--image, .roundeditor__media--video, .roundeditor__media--audio';
+const DRAGGABLE_MEDIA_SELECTOR = [
+    '.roundeditor__media--image',
+    '.roundeditor__media--video',
+    '.roundeditor__media--audio',
+    '.roundeditor__raw--block',
+    '.roundeditor__oembed',
+].join(', ');
 
 class MediaDropIndicatorView {
     constructor(view) {

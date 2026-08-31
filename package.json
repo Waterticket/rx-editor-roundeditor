@@ -7,7 +7,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "test": "npm run build && node tests/runtime.mjs && node tests/commands.mjs && node tests/images.mjs && node tests/videos.mjs && node tests/audio.mjs && node tests/stickers.mjs && node tests/attachments.mjs && node tests/htmlFormatting.mjs && node tests/phase6.mjs && node tests/oembed.mjs && node tests/roundtrip.mjs && node tests/documents.mjs"
+    "test": "npm run build && node tests/runtime.mjs && node tests/commands.mjs && node tests/tables.mjs && node tests/images.mjs && node tests/videos.mjs && node tests/audio.mjs && node tests/stickers.mjs && node tests/attachments.mjs && node tests/htmlFormatting.mjs && node tests/phase6.mjs && node tests/oembed.mjs && node tests/roundtrip.mjs && node tests/documents.mjs"
   },
   "dependencies": {
     "prosemirror-commands": "^1.0.0",

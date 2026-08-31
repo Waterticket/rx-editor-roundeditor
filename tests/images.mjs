@@ -20,6 +20,7 @@ const { EditorState, NodeSelection, TextSelection } = await import('prosemirror-
 const { EditorView } = await import('prosemirror-view');
 const { imageAttrsFromUpload, insertUploadedImages } = await import('../src/images.js');
 const { ImageView } = await import('../src/nodeviews/ImageView.js');
+const { mediaSelectionPlugin } = await import('../src/mediaSelection.js');
 const { nearestTextOffset } = await import('../src/nodeviews/MediaNodeView.js');
 const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
 const { normalizeRhymixAssetUrl, normalizeRhymixUrl, normalizeRhymixVideoUrl, uploadFile } = await import('../src/rhymix/upload.js');
@@ -56,9 +57,13 @@ assert.equal(initial.firstChild.firstChild.type.name, 'image');
 const bridge = { config: { labels: {} }, view: null };
 let imageView;
 bridge.view = new EditorView(document.querySelector('#editor'), {
-    state: EditorState.create({ doc: initial }),
+    state: EditorState.create({ doc: initial, plugins: [mediaSelectionPlugin()] }),
     nodeViews: { image: (node, view, getPos) => (imageView = new ImageView(node, view, getPos, bridge)) },
 });
+imageView.dom.dispatchEvent(new dom.window.MouseEvent('dragstart', { bubbles: true }));
+assert.equal(document.querySelector('#editor').classList.contains('is-media-dragging'), true);
+imageView.dom.dispatchEvent(new dom.window.MouseEvent('dragend', { bubbles: true }));
+assert.equal(document.querySelector('#editor').classList.contains('is-media-dragging'), false);
 bridge.view.dispatch(bridge.view.state.tr.setSelection(NodeSelection.create(bridge.view.state.doc, 1)));
 assert.equal(imageView.dom.classList.contains('roundeditor__media--selected'), true);
 assert.equal(imageView.toolbar.element.hidden, false);

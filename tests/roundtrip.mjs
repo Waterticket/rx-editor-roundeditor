@@ -32,9 +32,10 @@ const serialized = cleaned.map(html => serializeDocument(parseDocument(html), sc
 const cleanedAfterRoundTrip = cleanBatch(serialized);
 const editorCanonical = {};
 for (const [index, fixture] of fixtures.entries()) {
-    const expected = editorCanonical[fixture.name] || (fixture.name === 'image' ? cleanedAfterRoundTrip[index] : cleaned[index]);
+    const hasEditorPresentation = fixture.name === 'image' || fixture.name === 'table';
+    const expected = editorCanonical[fixture.name] || (hasEditorPresentation ? cleanedAfterRoundTrip[index] : cleaned[index]);
     assert.equal(cleanedAfterRoundTrip[index], expected, `${fixture.name}: editor round trip changed clean HTML`);
-    if (fixture.name !== 'image') {
+    if (!hasEditorPresentation) {
         assert.equal(cleanedAfterRoundTrip[index], serialized[index], `${fixture.name}: editor output is not an HTMLFilter fixed point`);
     }
     const reparsed = parseDocument(serialized[index]);

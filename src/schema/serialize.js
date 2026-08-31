@@ -91,6 +91,77 @@ function normalizeInlineStyles(container) {
     }
 }
 
+function addStyleDefaults(element, defaults) {
+    const styles = new Map(styleDeclarations(element.getAttribute('style')));
+    for (const [property, value] of defaults) {
+        if (!styles.has(property)) styles.set(property, value);
+    }
+    const style = `${Array.from(styles, ([property, value]) => `${property}:${value}`).join(';')};`;
+    const dataAttributes = Array.from(element.attributes)
+        .filter(attribute => attribute.name.startsWith('data-'))
+        .map(attribute => [attribute.name, attribute.value]);
+    for (const [name] of dataAttributes) element.removeAttribute(name);
+    element.setAttribute('style', style);
+    for (const [name, value] of dataAttributes) element.setAttribute(name, value);
+}
+
+function storedColumnWidths(row) {
+    const columns = [];
+    let hasStoredWidth = false;
+    for (const cell of Array.from(row?.cells || [])) {
+        const colspan = Math.max(1, cell.colSpan || 1);
+        const stored = String(cell.getAttribute('data-colwidth') || '').split(',');
+        let cellWidth = 0;
+        let cellHasCompleteWidth = true;
+        for (let index = 0; index < colspan; index++) {
+            const width = Number.parseInt(stored[index], 10);
+            if (Number.isFinite(width) && width > 0) {
+                columns.push(width);
+                cellWidth += width;
+                hasStoredWidth = true;
+            } else {
+                columns.push(null);
+                cellHasCompleteWidth = false;
+            }
+        }
+        if (cellHasCompleteWidth && cellWidth > 0) addStyleDefaults(cell, [['width', `${cellWidth}px`]]);
+    }
+    return hasStoredWidth ? columns : [];
+}
+
+function applyTablePresentation(container) {
+    for (const table of Array.from(container.querySelectorAll('table'))) {
+        const columns = storedColumnWidths(table.rows?.[0]);
+        const hasFixedWidth = columns.length > 0 && columns.every(Boolean);
+        const totalWidth = columns.reduce((total, width) => total + (width || 100), 0);
+        const tableStyles = [
+            ['box-sizing', 'border-box'],
+            ['width', hasFixedWidth ? `${totalWidth}px` : '100%'],
+            ['margin', '12px 0'],
+            ['border-collapse', 'collapse'],
+            ['table-layout', 'fixed'],
+        ];
+        if (columns.length && !hasFixedWidth) tableStyles.push(['min-width', `${totalWidth}px`]);
+        addStyleDefaults(table, tableStyles);
+
+        for (const cell of Array.from(table.querySelectorAll('td, th'))) {
+            const horizontalAlign = cell.getAttribute('align') || (cell.tagName === 'TH' ? 'center' : 'left');
+            const verticalAlign = cell.getAttribute('valign') || 'top';
+            addStyleDefaults(cell, [
+                ['box-sizing', 'border-box'],
+                ['min-width', '40px'],
+                ['padding', '8px'],
+                ['border', '1px solid rgba(128,128,128,0.32)'],
+                ['vertical-align', verticalAlign],
+                ['text-align', horizontalAlign],
+            ]);
+            for (const paragraph of Array.from(cell.querySelectorAll('p'))) {
+                addStyleDefaults(paragraph, [['margin-top', '0'], ['margin-bottom', '0']]);
+            }
+        }
+    }
+}
+
 function useXhtmlVoidTags(html) {
     const names = Array.from(VOID_TAGS).join('|');
     return html.replace(new RegExp(`<(${names})(\\s[^<>]*?)?>`, 'gi'), match => (
@@ -109,6 +180,7 @@ export function serializeDocument(doc, schema) {
     mergeNestedStyleSpans(container);
     unwrapInternalNodes(container);
     fillEmptyParagraphs(container);
+    applyTablePresentation(container);
     normalizeInlineStyles(container);
     return useFilterStableEntities(useXhtmlVoidTags(container.innerHTML));
 }

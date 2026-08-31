@@ -222,7 +222,10 @@ const tablePanel = wrapper.querySelector('.roundeditor__panel-form');
 tablePanel.elements.namedItem('rows').value = '2';
 tablePanel.elements.namedItem('columns').value = '2';
 tablePanel.dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }));
-assert.match(window.editorGetContent(7), /<table><tbody><tr><td><p>\u00a0<\/p><\/td><td><p>\u00a0<\/p><\/td><\/tr>/);
+const insertedTableHtml = window.editorGetContent(7);
+assert.equal((insertedTableHtml.match(/<tr>/g) || []).length, 2);
+assert.equal((insertedTableHtml.match(/<td(?:\s|>)/g) || []).length, 4);
+assert.match(insertedTableHtml, /^<table style="box-sizing:border-box;width:100%;/);
 assert.equal(wrapper.querySelector('.roundeditor__counter').textContent, 'Characters : 0');
 
 window._getCkeInstance(7).setData('<p>위</p><p></p><p></p><p>아래</p>');

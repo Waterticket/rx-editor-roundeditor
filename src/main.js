@@ -26,6 +26,7 @@ import { SourceMode } from './ui/SourceMode.js';
 import { Toolbar } from './ui/Toolbar.js';
 import { exitInlineNode, splitEditorEnter } from './ui/commands.js';
 import { uploadPlaceholderPlugin } from './uploadPlaceholders.js';
+import { tableEditingUiPlugin } from './table/TableEditingPlugin.js';
 import { resolveDocumentStickers } from './stickers.js';
 import { uploadVideosAt, videoFiles } from './videos.js';
 
@@ -102,6 +103,7 @@ function createPlugins(config) {
         uploadPlaceholderPlugin(),
         mediaSelectionPlugin(),
         columnResizing(),
+        tableEditingUiPlugin({ labels: config.labels }),
         tableEditing(),
         dropCursor(),
         gapCursor(),

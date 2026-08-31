@@ -73,7 +73,8 @@ for (const [index, document] of documents.entries()) {
     const migratesImplicitCaption = /data-roundeditor-image/i.test(cleaned[index])
         && !/data-roundeditor-caption/i.test(cleaned[index]);
     const migratesLegacyVideoCaption = /data-roundeditor-video/i.test(cleaned[index]);
-    if (!migratesImplicitCaption && !migratesLegacyVideoCaption) {
+    const migratesTablePresentation = /<table\b/i.test(cleaned[index]);
+    if (!migratesImplicitCaption && !migratesLegacyVideoCaption && !migratesTablePresentation) {
         assert.equal(
             cleanedAfterRoundTrip[index],
             fillEmptyParagraphs(canonicalized[index]),

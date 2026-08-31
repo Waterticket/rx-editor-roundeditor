@@ -69,6 +69,22 @@ bridge.view = new EditorView(document.querySelector('#editor'), {
     state: EditorState.create({ doc: initial, plugins: [gapCursor(), mediaSelectionPlugin()] }),
     nodeViews: { video: (node, view, getPos) => (videoView = new VideoView(node, view, getPos, bridge)) },
 });
+const mediaDropLine = document.querySelector('.roundeditor__media-drop-line');
+assert.ok(mediaDropLine);
+assert.equal(mediaDropLine.hidden, true);
+videoView.dom.dispatchEvent(new dom.window.MouseEvent('dragstart', { bubbles: true }));
+assert.equal(document.querySelector('#editor').classList.contains('is-media-dragging'), true);
+const dropParagraph = bridge.view.dom.querySelector('p:last-of-type');
+document.querySelector('#editor').getBoundingClientRect = () => ({ top: 0, left: 0 });
+bridge.view.dom.getBoundingClientRect = () => ({ left: 20, width: 500 });
+dropParagraph.getBoundingClientRect = () => ({ top: 100, bottom: 140, height: 40 });
+dropParagraph.dispatchEvent(new dom.window.MouseEvent('dragover', { bubbles: true, clientY: 135 }));
+assert.equal(mediaDropLine.hidden, false);
+assert.equal(mediaDropLine.style.top, '140px');
+assert.equal(mediaDropLine.style.left, '20px');
+videoView.dom.dispatchEvent(new dom.window.MouseEvent('dragend', { bubbles: true }));
+assert.equal(mediaDropLine.hidden, true);
+assert.equal(document.querySelector('#editor').classList.contains('is-media-dragging'), false);
 bridge.view.dispatch(bridge.view.state.tr.setSelection(NodeSelection.create(bridge.view.state.doc, videoPosition)));
 assert.equal(videoView.dom.classList.contains('roundeditor__media--selected'), true);
 assert.equal(videoView.toolbar.element.hidden, false);

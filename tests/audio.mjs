@@ -48,6 +48,10 @@ bridge.view = new EditorView(document.querySelector('#editor'), {
     state: EditorState.create({ doc: initial, plugins: [mediaSelectionPlugin()] }),
     nodeViews: { audio: (node, view, getPos) => (audioView = new AudioView(node, view, getPos, bridge)) },
 });
+audioView.dom.dispatchEvent(new dom.window.MouseEvent('dragstart', { bubbles: true }));
+assert.equal(document.querySelector('#editor').classList.contains('is-media-dragging'), true);
+audioView.dom.dispatchEvent(new dom.window.MouseEvent('dragend', { bubbles: true }));
+assert.equal(document.querySelector('#editor').classList.contains('is-media-dragging'), false);
 bridge.view.dispatch(bridge.view.state.tr.setSelection(new AllSelection(bridge.view.state.doc)));
 assert.ok(audioView.dom.querySelector('.roundeditor__audio-selection-cover'));
 const coverMouseDown = new dom.window.MouseEvent('mousedown', { bubbles: true, cancelable: true });

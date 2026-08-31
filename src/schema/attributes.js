@@ -243,6 +243,13 @@ export function domAttributes(extra, explicit = {}) {
 }
 
 export function mergeStyle(extra, declarations, explicit = {}) {
+    return domAttributes(mergeExtraStyle(extra, declarations), explicit);
+}
+
+// Keep this separate from mergeStyle(): table editing changes node attrs, not
+// DOM attrs.  In particular, data-roundeditor-style is a serializer aid and
+// must never become part of a document node.
+export function mergeExtraStyle(extra, declarations) {
     const attributes = { ...(extra || {}) };
     const attributeOrder = attributes[ATTRIBUTE_ORDER_KEY];
     delete attributes[ATTRIBUTE_ORDER_KEY];
@@ -256,5 +263,5 @@ export function mergeStyle(extra, declarations, explicit = {}) {
     }
     else delete attributes.style;
     if (attributeOrder) attributes[ATTRIBUTE_ORDER_KEY] = attributeOrder;
-    return domAttributes(attributes, explicit);
+    return Object.keys(attributes).length ? attributes : null;
 }

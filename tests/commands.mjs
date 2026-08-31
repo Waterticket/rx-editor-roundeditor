@@ -96,7 +96,7 @@ assert.match(rule.html(), /<hr \/>/);
 
 const table = editor('<p></p>');
 table.run(insertTable(2, 3));
-assert.equal((table.html().match(/<td>/g) || []).length, 6);
+assert.equal((table.html().match(/<td(?:\s|>)/g) || []).length, 6);
 
 const historyEditor = editor('<p>Hello</p>', true);
 historyEditor.run(toggleTextMark(schema.marks.strong));

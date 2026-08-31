@@ -40,6 +40,14 @@ npm test
 
 소스나 `package-lock.json`을 수정했을 때는 다시 `npm ci && npm run build`를 실행해 `dist/` 산출물을 갱신한다.
 
+### jsDelivr CDN 사용법
+에디터 설정 > 추가 플러그인 로드에 "jsdelivr-cdn"을 입력한다.
+
+해당 플러그인이 로드되면 에디터 CSS, JS, SVG를 CDN에서 불러온다.
+
+만약 CDN 요청이 실패하면 서버에 저장된 파일을 직접 불러온다.
+
+
 ## 파일첨부 아이콘 규칙
 
 파일첨부 UI는 `assets/attachment-icons.svg` 로컬 SVG 스프라이트만 사용한다.

@@ -1,0 +1,73 @@
+name: Warm jsDelivr cache
+
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jsdelivr-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  warm-cache:
+    name: Warm ${{ matrix.file }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        file:
+          - dist/roundeditor.css
+          - dist/roundeditor.min.js
+          - assets/attachment-icons.svg
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      CDN_FILE: ${{ matrix.file }}
+    steps:
+      - name: Request the tagged file from jsDelivr
+        shell: bash
+        run: |
+          set -uo pipefail
+
+          if [[ ! "$RELEASE_TAG" =~ ^[[:alnum:]]([[:alnum:]._-]*[[:alnum:]])?$ ]]; then
+            echo "::error::The release tag '$RELEASE_TAG' is not supported by jsdelivr-loader.js."
+            exit 1
+          fi
+
+          cdn_url="https://cdn.jsdelivr.net/gh/${GITHUB_REPOSITORY}@${RELEASE_TAG}/${CDN_FILE}"
+          headers="${RUNNER_TEMP}/jsdelivr-headers.txt"
+
+          for attempt in {1..12}; do
+            http_code="curl-error"
+            if response_code="$(curl \
+              --silent \
+              --show-error \
+              --location \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --output /dev/null \
+              --dump-header "$headers" \
+              --write-out '%{http_code}' \
+              --user-agent "rx-editor-roundeditor-cache-warmer/${RELEASE_TAG}" \
+              "$cdn_url")"; then
+              http_code="$response_code"
+            fi
+
+            if [[ "$http_code" == "200" ]]; then
+              echo "Cached: $cdn_url"
+              sed -n '/^cache-control:/Ip; /^x-cache:/Ip; /^x-served-by:/Ip' "$headers"
+              exit 0
+            fi
+
+            echo "Attempt ${attempt}/12 returned ${http_code}; retrying in 10 seconds."
+            if [[ "$attempt" -lt 12 ]]; then
+              sleep 10
+            fi
+          done
+
+          echo "::error::jsDelivr did not return HTTP 200 for $cdn_url"
+          exit 1

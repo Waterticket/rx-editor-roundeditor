@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { JSDOM } from 'jsdom';
-import { EditorState } from 'prosemirror-state';
+import { EditorState, NodeSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 
 const dom = new JSDOM('<!doctype html><html><body><div id="editor"></div></body></html>', {
@@ -15,6 +15,7 @@ Object.defineProperties(globalThis, {
 });
 
 const { handleOembedPaste, oembedPlaceholderPlugin, pickPastedUrl } = await import('../src/oembed.js');
+const { mediaSelectionPlugin } = await import('../src/mediaSelection.js');
 const { parseDocument, schema, serializeDocument } = await import('../src/schema/index.js');
 
 const compiledCss = readFileSync(new URL('../dist/roundeditor.css', import.meta.url), 'utf8');
@@ -134,8 +135,51 @@ assert.equal(unsafeView.dom.classList.contains('roundeditor__oembed'), true);
 assert.equal(unsafeView.dom.querySelector('script'), null);
 assert.equal(unsafeView.dom.querySelector('img').hasAttribute('onerror'), false);
 assert.equal(unsafeView.dom.querySelector('a').hasAttribute('href'), false);
+assert.ok(unsafeView.dom.querySelector('.roundeditor__raw-drag-handle'));
 assert.match(serializeDocument(unsafe, schema), /<script>bad\(\)<\/script>/);
 unsafeView.destroy();
+
+const oembedDragHost = document.createElement('div');
+oembedDragHost.className = 'roundeditor__surface';
+document.body.appendChild(oembedDragHost);
+const movableOembed = '<div editor_component="oembed" data-oembed-type="multimedia" data-oembed-provider="Youtube" data-url="https://youtu.be/move" contenteditable="false"><iframe src="https://www.youtube.com/embed/move"></iframe></div>';
+const oembedDragView = new EditorView(oembedDragHost, {
+    state: EditorState.create({
+        doc: parseDocument(`<p>Before</p>${movableOembed}<p>After</p>`),
+        plugins: [mediaSelectionPlugin()],
+    }),
+    nodeViews: rawNodeViews(unsafeBridge),
+});
+const oembedDragHandle = oembedDragHost.querySelector('.roundeditor__oembed .roundeditor__raw-drag-handle');
+const oembedDragTarget = oembedDragHost.querySelector('p');
+assert.ok(oembedDragHandle);
+oembedDragHost.getBoundingClientRect = () => ({ top: 0, left: 0 });
+oembedDragView.dom.getBoundingClientRect = () => ({ left: 20, width: 500 });
+oembedDragTarget.getBoundingClientRect = () => ({ top: 0, height: 20 });
+oembedDragHandle.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, button: 0 }));
+assert.equal(oembedDragView.state.selection instanceof NodeSelection, true);
+oembedDragTarget.dispatchEvent(new window.MouseEvent('mousemove', { bubbles: true, clientY: 1 }));
+const oembedDropLine = oembedDragHost.querySelector('.roundeditor__media-drop-line');
+assert.equal(oembedDropLine.hidden, false);
+assert.equal(oembedDropLine.style.top, '0px');
+oembedDragTarget.dispatchEvent(new window.MouseEvent('mouseup', { bubbles: true, clientY: 1 }));
+assert.equal(oembedDropLine.hidden, true);
+assert.equal(oembedDragView.state.doc.firstChild.type, schema.nodes.rhymixComponentBlock);
+assert.equal(oembedDragView.state.selection.from, 0);
+assert.match(serializeDocument(oembedDragView.state.doc, schema), /data-url="https:\/\/youtu\.be\/move"/);
+const movedOembed = oembedDragHost.querySelector('.roundeditor__oembed');
+movedOembed.getBoundingClientRect = () => ({ top: 50 });
+movedOembed.dispatchEvent(new window.MouseEvent('mousemove', { bubbles: true }));
+const oembedLeadingEdge = oembedDragHost.querySelector('.roundeditor__global-media-edge');
+assert.equal(oembedLeadingEdge.hidden, false);
+assert.equal(oembedLeadingEdge.style.top, '32px');
+oembedLeadingEdge.click();
+assert.equal(oembedDragView.state.doc.child(0).type, schema.nodes.paragraph);
+assert.equal(oembedDragView.state.doc.child(1).type, schema.nodes.paragraph);
+assert.equal(oembedDragView.state.doc.child(2).type, schema.nodes.rhymixComponentBlock);
+assert.equal(oembedLeadingEdge.hidden, true);
+oembedDragView.destroy();
+oembedDragHost.remove();
 
 const previewMedia = parseDocument('<div class="media_embed_wrapper" contenteditable="false"><div class="media_embed" style="padding-bottom:56.25%"><img src="https://i.ytimg.com/vi/test/maxresdefault.jpg"><iframe src="https://www.youtube.com/embed/test" onload="bad()" srcdoc="bad" allowfullscreen></iframe><script>bad()</script></div></div>');
 const previewMediaView = rawNodeViews(unsafeBridge).rawBlock(previewMedia.firstChild);
@@ -149,18 +193,39 @@ assert.ok(previewMediaView.dom.querySelector('.roundeditor__raw-drag-handle'));
 previewMediaView.destroy();
 
 const dragHost = document.createElement('div');
+dragHost.className = 'roundeditor__surface';
 document.body.appendChild(dragHost);
 const dragView = new EditorView(dragHost, {
-    state: EditorState.create({ doc: parseDocument(`<p>Before</p>${previewMedia.firstChild.attrs.html}<p>After</p>`) }),
+    state: EditorState.create({
+        doc: parseDocument(`<p>Before</p>${previewMedia.firstChild.attrs.html}<p>After</p>`),
+        plugins: [mediaSelectionPlugin()],
+    }),
     nodeViews: rawNodeViews(unsafeBridge),
 });
 const dragHandle = dragHost.querySelector('.roundeditor__raw-drag-handle');
 const dragTarget = dragHost.querySelector('p');
+dragHost.getBoundingClientRect = () => ({ top: 0, left: 0 });
+dragView.dom.getBoundingClientRect = () => ({ left: 20, width: 500 });
 dragTarget.getBoundingClientRect = () => ({ top: 0, height: 20 });
 dragHandle.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true, button: 0 }));
+dragTarget.dispatchEvent(new window.MouseEvent('mousemove', { bubbles: true, clientY: 1 }));
+const previewDropLine = dragHost.querySelector('.roundeditor__media-drop-line');
+assert.equal(previewDropLine.hidden, false);
+assert.equal(previewDropLine.style.top, '0px');
 dragTarget.dispatchEvent(new window.MouseEvent('mouseup', { bubbles: true, clientY: 1 }));
+assert.equal(previewDropLine.hidden, true);
 assert.equal(dragView.state.doc.firstChild.type, schema.nodes.rawBlock);
 assert.equal(dragView.state.selection.from, 0);
+const movedPreview = dragHost.querySelector('.roundeditor__raw--embed');
+movedPreview.getBoundingClientRect = () => ({ top: 50 });
+movedPreview.dispatchEvent(new window.MouseEvent('mousemove', { bubbles: true }));
+const previewLeadingEdge = dragHost.querySelector('.roundeditor__global-media-edge');
+assert.equal(previewLeadingEdge.hidden, false);
+previewLeadingEdge.click();
+assert.equal(dragView.state.doc.child(0).type, schema.nodes.paragraph);
+assert.equal(dragView.state.doc.child(1).type, schema.nodes.paragraph);
+assert.equal(dragView.state.doc.child(2).type, schema.nodes.rawBlock);
+assert.equal(previewLeadingEdge.hidden, true);
 dragView.destroy();
 dragHost.remove();
 

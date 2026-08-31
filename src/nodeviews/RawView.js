@@ -5,6 +5,7 @@ import {
     resolveComponentDetails,
 } from '../rhymix/componentPresentation.js';
 import { NodeSelection } from 'prosemirror-state';
+import { startMediaHandleDrag } from '../mediaSelection.js';
 
 const UNSAFE_OEMBED_ELEMENTS = 'script,style,form,input,button,select,textarea,object,embed';
 const UNSAFE_RAW_PREVIEW_ELEMENTS = `${UNSAFE_OEMBED_ELEMENTS},iframe`;
@@ -214,6 +215,8 @@ export class RawView {
                 if (oembed) {
                     this.dom = oembed;
                     this.isOembed = true;
+                    this.dom.classList.add('roundeditor__raw--embed');
+                    this.dom.appendChild(rawDragHandle(event => this.beginHandleDrag(event)));
                     if (bridge?.config.oembedAvailable) activateOembed(this.dom, bridge.config.oembedAssets);
                 }
                 return;
@@ -238,12 +241,21 @@ export class RawView {
         event.stopPropagation();
         this.selectEditorNode();
         this.dom.classList.add('roundeditor__raw--dragging');
+        startMediaHandleDrag(this.view, this.dom);
         const finish = mouseEvent => {
             document.removeEventListener('mouseup', finish, true);
+            document.removeEventListener('keydown', cancel, true);
             this.dom.classList.remove('roundeditor__raw--dragging');
             this.moveToMouseTarget(mouseEvent);
         };
+        const cancel = keyEvent => {
+            if (keyEvent.key !== 'Escape') return;
+            document.removeEventListener('mouseup', finish, true);
+            document.removeEventListener('keydown', cancel, true);
+            this.dom.classList.remove('roundeditor__raw--dragging');
+        };
         document.addEventListener('mouseup', finish, true);
+        document.addEventListener('keydown', cancel, true);
     }
 
     moveToMouseTarget(event) {

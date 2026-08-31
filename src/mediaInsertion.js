@@ -4,7 +4,13 @@ import { canSplit } from 'prosemirror-transform';
 
 const TRAILING_BLANK_PARAGRAPH_COUNT = 2;
 const LEADING_BLANK_PARAGRAPH_COUNT = 2;
-const INLINE_MEDIA_NAMES = new Set(['image', 'audio', 'video']);
+
+export function isNonTextItem(node) {
+    return Boolean(node && (
+        node.type.name === 'table'
+        || (!node.isText && node.isAtom && node.type.name !== 'hardBreak')
+    ));
+}
 
 function findNodePosition(doc, target) {
     let position = null;
@@ -117,14 +123,20 @@ export function insertBlankParagraphBefore(view, position) {
 
 export const insertBlankParagraphBeforeMedia = insertBlankParagraphBefore;
 
-function endsWithInlineMedia(node) {
+function endsWithNonTextItem(node) {
     let current = node;
-    while (current?.childCount) current = current.lastChild;
-    return Boolean(current && INLINE_MEDIA_NAMES.has(current.type.name));
+    while (current) {
+        if (isNonTextItem(current)) return true;
+        if (!current.childCount) return false;
+        current = current.lastChild;
+    }
+    return false;
 }
 
-export function mediaNeedsLeadingParagraph(doc, mediaPosition) {
-    const resolved = doc.resolve(mediaPosition);
+export function nonTextItemNeedsLeadingParagraph(doc, itemPosition) {
+    const item = doc.nodeAt(itemPosition);
+    if (!isNonTextItem(item)) return false;
+    const resolved = doc.resolve(itemPosition);
     let paragraphDepth = null;
     for (let depth = resolved.depth; depth > 0; depth--) {
         if (resolved.node(depth).type.name === 'paragraph') {
@@ -132,19 +144,24 @@ export function mediaNeedsLeadingParagraph(doc, mediaPosition) {
             break;
         }
     }
-    if (paragraphDepth === null) return false;
 
-    const paragraph = resolved.node(paragraphDepth);
-    const mediaIndex = resolved.index(paragraphDepth);
-    if (mediaIndex > 0) return INLINE_MEDIA_NAMES.has(paragraph.child(mediaIndex - 1).type.name);
+    if (paragraphDepth !== null) {
+        const itemIndex = resolved.index(paragraphDepth);
+        if (itemIndex > 0) return isNonTextItem(resolved.node(paragraphDepth).child(itemIndex - 1));
+        const paragraphPosition = resolved.before(paragraphDepth);
+        if (paragraphPosition === 0) return true;
+        return endsWithNonTextItem(doc.resolve(paragraphPosition).nodeBefore);
+    }
 
-    const paragraphPosition = resolved.before(paragraphDepth);
-    if (paragraphPosition === 0) return true;
-    const previous = doc.resolve(paragraphPosition).nodeBefore;
-    return previous?.type.name === 'table' || endsWithInlineMedia(previous);
+    if (resolved.parent !== doc) return false;
+    if (itemPosition === 0) return true;
+    return endsWithNonTextItem(doc.resolve(itemPosition).nodeBefore);
+}
+
+export function mediaNeedsLeadingParagraph(doc, mediaPosition) {
+    return nonTextItemNeedsLeadingParagraph(doc, mediaPosition);
 }
 
 export function tableNeedsLeadingParagraph(doc, tablePosition) {
-    if (tablePosition === 0) return true;
-    return endsWithInlineMedia(doc.resolve(tablePosition).nodeBefore);
+    return nonTextItemNeedsLeadingParagraph(doc, tablePosition);
 }

@@ -103,7 +103,7 @@ function createPlugins(config) {
         }),
         keymap(baseKeymap),
         uploadPlaceholderPlugin(),
-        mediaSelectionPlugin(),
+        mediaSelectionPlugin({ labels: config.labels }),
         columnResizing({ handleWidth: 6, cellMinWidth: 40, defaultCellMinWidth: 100 }),
         tableEditingUiPlugin({ labels: config.labels }),
         tableEditing(),

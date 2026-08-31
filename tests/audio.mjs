@@ -48,6 +48,11 @@ bridge.view = new EditorView(document.querySelector('#editor'), {
     state: EditorState.create({ doc: initial, plugins: [mediaSelectionPlugin()] }),
     nodeViews: { audio: (node, view, getPos) => (audioView = new AudioView(node, view, getPos, bridge)) },
 });
+document.querySelector('#editor').getBoundingClientRect = () => ({ top: 0, left: 0 });
+bridge.view.dom.getBoundingClientRect = () => ({ left: 20, width: 500 });
+audioView.dom.getBoundingClientRect = () => ({ top: 50 });
+audioView.dom.dispatchEvent(new dom.window.MouseEvent('mousemove', { bubbles: true }));
+assert.equal(document.querySelector('.roundeditor__global-media-edge').hidden, false);
 audioView.dom.dispatchEvent(new dom.window.MouseEvent('dragstart', { bubbles: true }));
 assert.equal(document.querySelector('#editor').classList.contains('is-media-dragging'), true);
 audioView.dom.dispatchEvent(new dom.window.MouseEvent('dragend', { bubbles: true }));

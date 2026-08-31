@@ -97,6 +97,7 @@ $lang->roundeditor_labels = [
     'imageCoverSet' => '대표 이미지로 설정',
     'imageCoverUnset' => '대표 이미지 해제',
     'imageInsertParagraphBefore' => '이미지 위에 빈 문단 추가',
+    'mediaInsertParagraphBefore' => '항목 위에 빈 문단 추가',
     'imageWidth' => '너비',
     'imageHeight' => '높이',
     'videoDropzone' => 'MP4, WebM, MOV 동영상을 선택하거나 여기에 놓으세요 (최대 50MB)',

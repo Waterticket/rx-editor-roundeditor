@@ -97,6 +97,7 @@ $lang->roundeditor_labels = [
     'imageCoverSet' => 'Set as representative image',
     'imageCoverUnset' => 'Unset representative image',
     'imageInsertParagraphBefore' => 'Insert an empty paragraph above image',
+    'mediaInsertParagraphBefore' => 'Insert empty paragraphs above item',
     'imageWidth' => 'Width',
     'imageHeight' => 'Height',
     'videoDropzone' => 'Choose an MP4, WebM, or MOV file or drop it here (up to 50 MB)',

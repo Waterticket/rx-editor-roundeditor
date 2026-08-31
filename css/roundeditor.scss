@@ -903,6 +903,16 @@ body.color_scheme_dark .roundeditor__attachments--auto {
     table-layout: fixed;
 }
 
+.roundeditor__table-wrap { position: relative; margin: 12px 0; }
+.roundeditor__table-wrap > table { width: 100%; margin: 0 !important; }
+.roundeditor__table-caption { display: block; width: 100%; margin-top: 6px; color: var(--roundeditor-muted); text-align: center; }
+.roundeditor__table-caption[hidden] { display: none; }
+.roundeditor__table-wrap--active .roundeditor__table-caption[hidden] { display: block; }
+.roundeditor__table-caption input { width: 100%; min-height: 26px; padding: 3px 8px; border: 0 !important; background: transparent !important; box-sizing: border-box; color: inherit; font: inherit; font-size: 13px; line-height: 1.5; text-align: center; cursor: text; }
+.roundeditor__table-caption input:focus { background: color-mix(in srgb, var(--roundeditor-muted) 16%, var(--roundeditor-background)) !important; outline: 0; }
+.roundeditor-content-table__caption,
+.roundeditor__surface .ProseMirror table > caption { caption-side: bottom; margin-top: 8px; color: #555; font-size: 13px; line-height: 1.5; text-align: center; }
+
 .roundeditor__surface .ProseMirror td,
 .roundeditor__surface .ProseMirror th {
     position: relative;
@@ -922,18 +932,25 @@ body.color_scheme_dark .roundeditor__attachments--auto {
     pointer-events: none;
 }
 
-.roundeditor__table-overlay { position:absolute; inset:0; z-index:4; pointer-events:none; }
+.roundeditor__table-overlay { position:absolute; inset:0; z-index:7; pointer-events:none; }
 .roundeditor__table-overlay[hidden] { display:none; }
 .roundeditor__table-overlay button { position:absolute; z-index:1; pointer-events:auto; transform:translate(-50%, -50%); border:1px solid var(--roundeditor-border); color:var(--roundeditor-color); font:700 16px/1 sans-serif; cursor:grab; }
 .roundeditor__table-select, .roundeditor__table-row, .roundeditor__table-column { width:22px; height:22px; padding:0; background:var(--roundeditor-table-handle-bg); }
-.roundeditor__table-select { border-radius:4px; cursor:grab !important; font-size:14px !important; touch-action:none; }
+.roundeditor__table-select { z-index:3 !important; border-radius:4px; cursor:grab !important; font-size:14px !important; touch-action:none; }
 .roundeditor__table-select[aria-pressed="true"] { border-color:var(--roundeditor-accent); background:var(--roundeditor-active); }
-.roundeditor__table-row { border-radius:999px; }
-.roundeditor__table-column { border-radius:999px; letter-spacing:-1px; }
+.roundeditor__table-row { width:20px; min-height:22px; border-radius:999px; }
+.roundeditor__table-column { height:20px; min-width:22px; border-radius:999px; letter-spacing:-1px; }
 .roundeditor__table-overlay button:hover, .roundeditor__table-overlay button:focus-visible { background:var(--roundeditor-table-handle-hover); outline:2px solid var(--roundeditor-accent); outline-offset:2px; }
 .roundeditor__table-overlay.is-dragging button { cursor:grabbing; }
 .roundeditor__table-drop-line { position:absolute; z-index:2; height:3px; border-radius:999px; background:var(--roundeditor-table-drop-line); pointer-events:none; transform:translateY(-50%); }
 .roundeditor__table-drop-line[hidden] { display:none; }
+.roundeditor__table-row-resize { position:absolute; z-index:4; height:9px; pointer-events:auto; transform:translateY(-50%); cursor:row-resize; touch-action:none; }
+.roundeditor__table-row-resize::after { position:absolute; top:4px; right:0; left:0; border-top:1px solid transparent; content:''; }
+.roundeditor__table-row-resize:hover::after,
+.roundeditor__table-overlay.is-resizing-row .roundeditor__table-row-resize::after { border-color:var(--roundeditor-accent); }
+.roundeditor__surface .ProseMirror.resize-cursor { cursor:col-resize; }
+.roundeditor__surface .ProseMirror .column-resize-handle { position:absolute; z-index:4; top:-1px; right:-5px; bottom:-1px; width:10px; border-right:2px solid var(--roundeditor-accent); pointer-events:none; }
+.roundeditor__surface .ProseMirror .column-resize-dragging { cursor:col-resize; }
 .roundeditor__media-drop-line { position:absolute; z-index:5; height:3px; border-radius:999px; background:var(--roundeditor-table-drop-line); pointer-events:none; transform:translateY(-50%); }
 .roundeditor__media-drop-line[hidden] { display:none; }
 .roundeditor__surface.is-media-dragging .ProseMirror-dropcursor { display:none; }

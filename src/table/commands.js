@@ -96,6 +96,25 @@ export function setAxisStyle(axis, declarations) {
     };
 }
 
+export function setRowHeight(row, height) {
+    return (state, dispatch) => {
+        const context = tableContext(state);
+        const pixels = Math.max(40, Math.round(Number(height) || 0));
+        if (!context || row < 0 || row >= context.table.node.childCount || !pixels) return false;
+        let position = context.table.start;
+        for (let index = 0; index < row; index++) position += context.table.node.child(index).nodeSize;
+        const rowNode = state.doc.nodeAt(position);
+        if (!rowNode) return false;
+        if (dispatch) {
+            dispatch(closeHistory(state.tr.setNodeMarkup(position, null, {
+                ...rowNode.attrs,
+                extra: mergeExtraStyle(rowNode.attrs.extra, { height: `${pixels}px` }),
+            })).scrollIntoView());
+        }
+        return true;
+    };
+}
+
 export function clearAxis(axis) {
     return (state, dispatch) => {
         const context = tableContext(state); if (!context) return false;

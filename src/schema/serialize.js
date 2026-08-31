@@ -131,6 +131,11 @@ function storedColumnWidths(row) {
 
 function applyTablePresentation(container) {
     for (const table of Array.from(container.querySelectorAll('table'))) {
+        const caption = table.querySelector(':scope > caption');
+        if (caption) addStyleDefaults(caption, [
+            ['caption-side', 'bottom'], ['margin-top', '8px'], ['color', '#555'],
+            ['font-size', '13px'], ['line-height', '1.5'], ['text-align', 'center'],
+        ]);
         const columns = storedColumnWidths(table.rows?.[0]);
         const hasFixedWidth = columns.length > 0 && columns.every(Boolean);
         const totalWidth = columns.reduce((total, width) => total + (width || 100), 0);

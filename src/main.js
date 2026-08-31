@@ -18,6 +18,7 @@ import { audioNodeView } from './nodeviews/AudioView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
 import { videoNodeView } from './nodeviews/VideoView.js';
 import { stickerNodeView } from './nodeviews/StickerView.js';
+import { tableNodeView } from './nodeviews/TableView.js';
 import { enableAutosave, restoreSavedDocument } from './rhymix/autosave.js';
 import { installComponentEditing } from './rhymix/component.js';
 import { normalizeForParse, parseDocument, parseSlice, schema, serializeDocument } from './schema/index.js';
@@ -102,7 +103,7 @@ function createPlugins(config) {
         keymap(baseKeymap),
         uploadPlaceholderPlugin(),
         mediaSelectionPlugin(),
-        columnResizing(),
+        columnResizing({ handleWidth: 6, cellMinWidth: 40, defaultCellMinWidth: 100 }),
         tableEditingUiPlugin({ labels: config.labels }),
         tableEditing(),
         dropCursor(),
@@ -402,6 +403,7 @@ function initialize(wrapper) {
             image: imageNodeView(bridge),
             video: videoNodeView(bridge),
             sticker: stickerNodeView(bridge),
+            table: tableNodeView(bridge),
         },
         dispatchTransaction(transaction) {
             bridge.view.updateState(bridge.view.state.apply(transaction));

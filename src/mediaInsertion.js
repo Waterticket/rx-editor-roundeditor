@@ -82,9 +82,9 @@ export function addTrailingParagraphsAfterBlockMedia(transaction, mediaNode) {
     return insertTrailingBlankParagraphs(transaction, mediaPosition + mediaNode.nodeSize);
 }
 
-export function insertBlankParagraphBeforeMedia(view, mediaPosition) {
-    const target = view.state.doc.nodeAt(mediaPosition);
-    const resolved = view.state.doc.resolve(mediaPosition);
+export function insertBlankParagraphBefore(view, position) {
+    const target = view.state.doc.nodeAt(position);
+    const resolved = view.state.doc.resolve(position);
     let paragraphStart = null;
     let paragraphDepth = null;
     for (let depth = resolved.depth; depth > 0; depth--) {
@@ -94,14 +94,17 @@ export function insertBlankParagraphBeforeMedia(view, mediaPosition) {
             break;
         }
     }
+    // Tables and other block node views live directly in the document rather
+    // than inside a paragraph. In that case the node position itself is the
+    // insertion point.
+    if (paragraphStart === null && resolved.parent === view.state.doc) paragraphStart = position;
     if (paragraphStart === null) return false;
     let transaction = view.state.tr;
     if (paragraphDepth !== null && resolved.index(paragraphDepth) > 0) {
-        if (!canSplit(transaction.doc, mediaPosition)) return false;
-        transaction = transaction.split(mediaPosition);
+        if (!canSplit(transaction.doc, position)) return false;
+        transaction = transaction.split(position);
         const movedMediaPosition = target ? findNodePosition(transaction.doc, target) : null;
         paragraphStart = movedMediaPosition === null ? null : paragraphPosition(transaction.doc, movedMediaPosition);
-        if (paragraphStart === null) return false;
     }
     transaction = transaction.insert(
         paragraphStart,
@@ -111,6 +114,8 @@ export function insertBlankParagraphBeforeMedia(view, mediaPosition) {
     view.focus();
     return true;
 }
+
+export const insertBlankParagraphBeforeMedia = insertBlankParagraphBefore;
 
 function endsWithInlineMedia(node) {
     let current = node;
@@ -135,5 +140,11 @@ export function mediaNeedsLeadingParagraph(doc, mediaPosition) {
 
     const paragraphPosition = resolved.before(paragraphDepth);
     if (paragraphPosition === 0) return true;
-    return endsWithInlineMedia(doc.resolve(paragraphPosition).nodeBefore);
+    const previous = doc.resolve(paragraphPosition).nodeBefore;
+    return previous?.type.name === 'table' || endsWithInlineMedia(previous);
+}
+
+export function tableNeedsLeadingParagraph(doc, tablePosition) {
+    if (tablePosition === 0) return true;
+    return endsWithInlineMedia(doc.resolve(tablePosition).nodeBefore);
 }

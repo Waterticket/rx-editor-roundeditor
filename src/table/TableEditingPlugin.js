@@ -1,10 +1,10 @@
 import { Plugin, TextSelection } from 'prosemirror-state';
 import {
-    addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow,
+    addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, CellSelection, deleteColumn, deleteRow,
     deleteTable, toggleHeader,
 } from 'prosemirror-tables';
 import { hasMergedCells, isTableSelected, selectColumn, selectRow, selectTable, tableContext } from './context.js';
-import { addLastColumn, addLastRow, clearAxis, moveAxis, moveTable, setAxisStyle, sortColumn } from './commands.js';
+import { addLastColumn, addLastRow, clearAxis, moveAxis, moveTable, setAxisStyle, setRowHeight, sortColumn } from './commands.js';
 
 const fallback = {
     rowActions: 'Row actions', columnActions: 'Column actions', addLastRow: 'Add last row', addLastColumn: 'Add last column',
@@ -32,16 +32,90 @@ class TableEditingView {
         this.tableHandle = this.button('select', this.labels.selectTable, '▦');
         this.rowHandle = this.button('row', this.labels.rowActions, '⋮'); this.columnHandle = this.button('column', this.labels.columnActions, '⋯');
         this.addRow = this.button('add-row', this.labels.addLastRow, '+'); this.addColumn = this.button('add-column', this.labels.addLastColumn, '+');
+        this.rowResize = element('div', 'roundeditor__table-row-resize'); this.rowResize.setAttribute('aria-hidden', 'true');
         this.dropLine = element('div', 'roundeditor__table-drop-line'); this.dropLine.hidden = true; this.dropLine.setAttribute('aria-hidden', 'true');
-        this.layer.append(this.tableHandle, this.rowHandle, this.columnHandle, this.addRow, this.addColumn, this.dropLine); this.surface.appendChild(this.layer);
+        this.layer.append(this.tableHandle, this.rowHandle, this.columnHandle, this.addRow, this.addColumn, this.rowResize, this.dropLine); this.surface.appendChild(this.layer);
         this.onScroll = () => this.schedule(); this.onResize = () => this.schedule(); this.onKeydown = event => { if (event.key === 'Escape') { this.cancelDrag(); this.closeMenu(); } };
         this.surface.addEventListener('scroll', this.onScroll, { passive: true }); window.addEventListener('resize', this.onResize); document.addEventListener('keydown', this.onKeydown);
         this.observer = typeof ResizeObserver === 'function' ? new ResizeObserver(this.onResize) : null; this.observer?.observe(this.surface);
         this.bind(this.rowHandle, 'row'); this.bind(this.columnHandle, 'column');
         this.bindTable();
+        this.bindRowResize();
+        this.onCellMouseDown = event => this.beginCellSelection(event);
+        this.view.dom.addEventListener('mousedown', this.onCellMouseDown, true);
         this.addRow.addEventListener('mousedown', event => event.preventDefault()); this.addColumn.addEventListener('mousedown', event => event.preventDefault());
         this.addRow.addEventListener('click', () => this.run(addLastRow)); this.addColumn.addEventListener('click', () => this.run(addLastColumn));
         this.schedule();
+    }
+    beginCellSelection(event) {
+        if (event.button !== 0 || !event.target.closest('td,th')) return;
+        this.cellSelectionDrag = { last: null };
+        const finish = () => {
+            document.removeEventListener('mouseup', finish);
+            const drag = this.cellSelectionDrag;
+            this.cellSelectionDrag = null;
+            if (!drag?.last) return;
+            setTimeout(() => {
+                const { anchor, head } = drag.last;
+                const selection = this.view.state.selection;
+                if (selection instanceof CellSelection && selection.$anchorCell.pos === anchor && selection.$headCell.pos === head) return;
+                if (anchor >= this.view.state.doc.content.size || head >= this.view.state.doc.content.size) return;
+                window.getSelection?.()?.removeAllRanges();
+                this.view.dispatch(this.view.state.tr.setSelection(new CellSelection(
+                    this.view.state.doc.resolve(anchor), this.view.state.doc.resolve(head),
+                )));
+            }, 0);
+        };
+        document.addEventListener('mouseup', finish);
+    }
+    bindRowResize() {
+        this.rowResize.addEventListener('pointerdown', event => {
+            if (event.button !== 0 || !this.context || !this.activeRow) return;
+            event.preventDefault();
+            this.closeMenu();
+            this.rowResize.setPointerCapture?.(event.pointerId);
+            this.resizeDrag = {
+                pointerId: event.pointerId,
+                row: this.context.row,
+                startY: event.clientY,
+                startHeight: this.activeRow.getBoundingClientRect().height,
+                height: this.activeRow.getBoundingClientRect().height,
+            };
+            this.layer.classList.add('is-resizing-row');
+        });
+        this.rowResize.addEventListener('pointermove', event => {
+            if (!this.resizeDrag || event.pointerId !== this.resizeDrag.pointerId) return;
+            const height = Math.max(40, Math.round(this.resizeDrag.startHeight + event.clientY - this.resizeDrag.startY));
+            this.resizeDrag.height = height;
+            this.showLiveRowHeight(this.resizeDrag.row, height);
+            this.schedule();
+        });
+        const finish = event => {
+            if (!this.resizeDrag || event.pointerId !== this.resizeDrag.pointerId) return;
+            const drag = this.resizeDrag;
+            this.resizeDrag = null;
+            this.layer.classList.remove('is-resizing-row');
+            this.run(setRowHeight(drag.row, drag.height));
+            this.clearLiveRowHeight();
+        };
+        this.rowResize.addEventListener('pointerup', finish);
+        this.rowResize.addEventListener('pointercancel', event => {
+            if (!this.resizeDrag || event.pointerId !== this.resizeDrag.pointerId) return;
+            this.resizeDrag = null;
+            this.layer.classList.remove('is-resizing-row');
+            this.clearLiveRowHeight();
+            this.place();
+        });
+    }
+    showLiveRowHeight(row, height) {
+        const id = this.activeTable?.dataset.roundeditorTableId;
+        const style = this.activeTable?.querySelector('.roundeditor__table-resize-style');
+        if (!id || !style) return;
+        style.textContent = `[data-roundeditor-table-id="${id}"] > table > tbody > tr:nth-child(${row + 1}) { height: ${height}px !important; }`;
+    }
+    clearLiveRowHeight() {
+        const style = this.activeTable?.querySelector('.roundeditor__table-resize-style');
+        if (style) style.textContent = '';
     }
     button(kind, label, text) { const button = element('button', `roundeditor__table-${kind}`, label); button.type = 'button'; button.dataset.axis = kind; button.textContent = text; return button; }
     bind(button, axis) {
@@ -146,7 +220,14 @@ class TableEditingView {
     }
     selectAndOpen(axis) { const select = axis === 'row' ? selectRow : selectColumn; select(this.context, this.view.state, tr => this.view.dispatch(tr)); this.openMenu(axis); }
     run(command) { if (command(this.view.state, this.view.dispatch, this.view)) this.view.focus(); }
-    update(view) { this.view = view; this.schedule(); }
+    update(view) {
+        this.view = view;
+        const selection = view.state.selection;
+        if (this.cellSelectionDrag && selection instanceof CellSelection && selection.$anchorCell.pos !== selection.$headCell.pos) {
+            this.cellSelectionDrag.last = { anchor: selection.$anchorCell.pos, head: selection.$headCell.pos };
+        }
+        this.schedule();
+    }
     schedule() {
         if (this.raf) return;
         const nextFrame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : callback => setTimeout(callback, 0);
@@ -155,20 +236,37 @@ class TableEditingView {
     place() {
         if (this.surface.hidden) return this.hide();
         this.context = tableContext(this.view.state); if (!this.context) return this.hide();
-        const tableDom = this.view.nodeDOM(this.context.table.pos); const cellDom = this.view.nodeDOM(this.context.$cell.pos);
-        if (!(tableDom instanceof HTMLElement) || !(cellDom instanceof HTMLElement)) return this.hide();
-        const surface = this.surface.getBoundingClientRect(), table = tableDom.getBoundingClientRect(), cell = cellDom.getBoundingClientRect(); const sl = this.surface.scrollLeft, st = this.surface.scrollTop;
+        const tableNodeDom = this.view.nodeDOM(this.context.table.pos); const cellDom = this.view.nodeDOM(this.context.$cell.pos);
+        const tableDom = tableNodeDom?.matches?.('table') ? tableNodeDom : tableNodeDom?.querySelector?.('table');
+        const tableWrap = tableDom?.closest?.('.roundeditor__table-wrap') || tableNodeDom;
+        const rowDom = cellDom?.closest?.('tr');
+        if (!(tableDom instanceof HTMLElement) || !(tableWrap instanceof HTMLElement) || !(cellDom instanceof HTMLElement) || !(rowDom instanceof HTMLElement)) return this.hide();
+        if (this.activeTable && this.activeTable !== tableWrap) this.deactivateTable(this.activeTable);
+        this.activeTable = tableWrap; this.activeRow = rowDom;
+        tableWrap.classList.add('roundeditor__table-wrap--active');
+        const surface = this.surface.getBoundingClientRect(), table = tableDom.getBoundingClientRect(), cell = cellDom.getBoundingClientRect(), row = rowDom.getBoundingClientRect(); const sl = this.surface.scrollLeft, st = this.surface.scrollTop;
         const x = cell.left - surface.left + sl, y = cell.top - surface.top + st;
-        Object.assign(this.tableHandle.style, { left: `${table.left - surface.left + sl - 10}px`, top: `${table.top - surface.top + st - 10}px` });
-        Object.assign(this.columnHandle.style, { left: `${x + cell.width / 2}px`, top: `${table.top - surface.top + st - 10}px` });
-        Object.assign(this.rowHandle.style, { left: `${table.left - surface.left + sl - 10}px`, top: `${y + cell.height / 2}px` });
+        Object.assign(this.tableHandle.style, { left: `${table.left - surface.left + sl}px`, top: `${table.top - surface.top + st}px` });
+        Object.assign(this.columnHandle.style, { left: `${x + cell.width / 2}px`, top: `${table.top - surface.top + st - 10}px`, width: `${cell.width}px` });
+        Object.assign(this.rowHandle.style, { left: `${table.left - surface.left + sl - 10}px`, top: `${y + cell.height / 2}px`, height: `${cell.height}px` });
+        Object.assign(this.rowResize.style, { left: `${table.left - surface.left + sl}px`, top: `${row.bottom - surface.top + st}px`, width: `${table.width}px` });
         Object.assign(this.addColumn.style, { left: `${table.right - surface.left + sl + 6}px`, top: `${table.top - surface.top + st + table.height / 2}px` });
         Object.assign(this.addRow.style, { left: `${table.left - surface.left + sl + table.width / 2}px`, top: `${table.bottom - surface.top + st + 6}px` });
         this.addRow.disabled = this.context.map.height >= 20; this.addColumn.disabled = this.context.map.width >= 10;
         this.tableHandle.setAttribute('aria-pressed', isTableSelected(this.view.state) ? 'true' : 'false');
         this.layer.hidden = false;
     }
-    hide() { this.layer.hidden = true; this.closeMenu(); }
+    hide() {
+        this.deactivateTable(this.activeTable);
+        this.activeTable = null; this.activeRow = null;
+        this.layer.hidden = true; this.closeMenu();
+    }
+    deactivateTable(table) {
+        if (!table) return;
+        table.classList.remove('roundeditor__table-wrap--active');
+        const EventClass = table.ownerDocument?.defaultView?.CustomEvent || CustomEvent;
+        table.dispatchEvent(new EventClass('roundeditor:table-deactivate'));
+    }
     openMenu(axis) {
         this.closeMenu(); const menu = element('div', `roundeditor__table-menu roundeditor__table-menu--${axis}`); menu.setAttribute('role', 'menu');
         menu.id = `roundeditor-table-menu-${Math.random().toString(36).slice(2)}`;
@@ -223,7 +321,7 @@ class TableEditingView {
         }
         this.menuHandle = null;
     }
-    destroy() { if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this.raf); else clearTimeout(this.raf); this.closeMenu(); this.observer?.disconnect(); this.surface.removeEventListener('scroll', this.onScroll); window.removeEventListener('resize', this.onResize); document.removeEventListener('keydown', this.onKeydown); this.layer.remove(); }
+    destroy() { if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(this.raf); else clearTimeout(this.raf); this.closeMenu(); this.observer?.disconnect(); this.surface.removeEventListener('scroll', this.onScroll); this.view.dom.removeEventListener('mousedown', this.onCellMouseDown, true); window.removeEventListener('resize', this.onResize); document.removeEventListener('keydown', this.onKeydown); this.layer.remove(); }
 }
 
 export function tableEditingUiPlugin(options = {}) {

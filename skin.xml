@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <skin version="0.2">
-	<title xml:lang="en">RoundEditor</title>
-	<title xml:lang="ko">RoundEditor</title>
+	<title xml:lang="en">Round Editor</title>
+	<title xml:lang="ko">Round Editor</title>
 	<description xml:lang="en">ProseMirror-based editor skin for Rhymix</description>
 	<description xml:lang="ko">라이믹스용 ProseMirror 기반 에디터 스킨</description>
 	<version>1.0.0</version>

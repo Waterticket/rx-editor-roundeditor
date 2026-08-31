@@ -513,9 +513,18 @@ export const nodes = {
     table: {
         ...tableSpecs.table,
         content: 'tableRow+',
-        attrs: { extra: { default: null } },
-        parseDOM: [{ tag: 'table', getAttrs: element => ({ extra: extraAttrs(element) }) }],
-        toDOM: node => ['table', domAttributes(node.attrs.extra), ['tbody', 0]],
+        attrs: { extra: { default: null }, caption: { default: '' } },
+        parseDOM: [{ tag: 'table', getAttrs: element => ({
+            extra: extraAttrs(element, ['data-roundeditor-table-caption']),
+            caption: element.querySelector(':scope > caption')?.textContent || '',
+        }) }],
+        toDOM: node => {
+            const caption = String(node.attrs.caption || '').trim();
+            return ['table', domAttributes(node.attrs.extra, { 'data-roundeditor-table-caption': caption ? '' : null }),
+                ...(caption ? [['caption', {}, caption]] : []),
+                ['tbody', 0],
+            ];
+        },
     },
     tableRow: {
         ...tableSpecs.table_row,

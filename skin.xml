@@ -4,7 +4,7 @@
 	<title xml:lang="ko">Round Editor</title>
 	<description xml:lang="en">ProseMirror-based editor skin for Rhymix</description>
 	<description xml:lang="ko">라이믹스용 ProseMirror 기반 에디터 스킨</description>
-	<version>1.0.0</version>
+	<version>1.0.1</version>
 	<date>2026-08-31</date>
 	<author>
 		<name xml:lang="en">Waterticket</name>

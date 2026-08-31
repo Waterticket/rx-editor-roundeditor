@@ -2,8 +2,14 @@
 
 @load('^/common/css/xeicon/xeicon.min.css')
 @load('../../tpl/js/editor_common.js')
-@load('dist/roundeditor.css')
-@load('dist/roundeditor.min.js', 'module')
+@if ($roundeditor_use_jsdelivr_cdn)
+    @if ($roundeditor_render_jsdelivr_loader)
+        <script id="RoundEditorLoader" data-version="{{ $roundeditor_asset_version }}" src="{{ $roundeditor_jsdelivr_loader_url }}"></script>
+    @endif
+@else
+    @load('dist/roundeditor.css')
+    @load('dist/roundeditor.min.js', 'module')
+@endif
 
 <div id="roundeditor_instance_{{ $editor_sequence }}"
     class="roundeditor roundeditor--{{ $roundeditor_colorset }}"

@@ -12,6 +12,38 @@ $roundeditorAutoDarkMode = (bool)($editor_auto_dark_mode ?? true);
 if ($roundeditorColorset === 'auto' && !$roundeditorAutoDarkMode) {
     $roundeditorColorset = 'light';
 }
+$roundeditorAdditionalPlugins = $editor_additional_plugins ?? [];
+if ($roundeditorAdditionalPlugins instanceof Traversable) {
+    $roundeditorAdditionalPlugins = iterator_to_array($roundeditorAdditionalPlugins);
+}
+$roundeditorNormalizedPlugins = [];
+foreach (is_array($roundeditorAdditionalPlugins) ? $roundeditorAdditionalPlugins : [] as $roundeditorPlugin) {
+    $roundeditorNormalizedPlugins[] = trim((string)$roundeditorPlugin);
+}
+$roundeditorAdditionalPlugins = $roundeditorNormalizedPlugins;
+$roundeditorUseJsdelivrCdn = in_array('jsdelivr-cdn', $roundeditorAdditionalPlugins, true);
+$roundeditorAssetVersion = '';
+$roundeditorRenderJsdelivrLoader = false;
+$roundeditorJsdelivrLoaderUrl = '';
+if ($roundeditorUseJsdelivrCdn) {
+    $roundeditorSkinPath = \RX_BASEDIR . 'modules/editor/skins/roundeditor/';
+    $roundeditorSkinInfo = \Rhymix\Framework\Parsers\SkinInfoParser::loadXML(
+        $roundeditorSkinPath . 'skin.xml',
+        'roundeditor',
+        $roundeditorSkinPath
+    );
+    $roundeditorAssetVersion = trim((string)($roundeditorSkinInfo->version ?? ''));
+    if (!preg_match('/^[0-9A-Za-z](?:[0-9A-Za-z._-]*[0-9A-Za-z])?$/', $roundeditorAssetVersion)) {
+        $roundeditorUseJsdelivrCdn = false;
+        $roundeditorAssetVersion = '';
+    } elseif (!Context::get('__roundeditor_jsdelivr_loader_registered')) {
+        Context::set('__roundeditor_jsdelivr_loader_registered', true);
+        $roundeditorRenderJsdelivrLoader = true;
+        $roundeditorJsdelivrLoaderUrl = rtrim((string)\RX_BASEURL, '/')
+            . '/modules/editor/skins/roundeditor/js/jsdelivr-loader.js?v='
+            . rawurlencode($roundeditorAssetVersion);
+    }
+}
 $roundeditorComponents = [];
 $roundeditorOembedAvailable = is_file(\RX_BASEDIR . 'modules/oembed/conf/module.xml');
 $roundeditorOembedSkin = 'default';
@@ -152,6 +184,10 @@ $roundeditor_config_json = json_encode(
     JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
 );
 $roundeditor_colorset = $roundeditorColorset;
+$roundeditor_use_jsdelivr_cdn = $roundeditorUseJsdelivrCdn;
+$roundeditor_asset_version = $roundeditorAssetVersion;
+$roundeditor_render_jsdelivr_loader = $roundeditorRenderJsdelivrLoader;
+$roundeditor_jsdelivr_loader_url = $roundeditorJsdelivrLoaderUrl;
 
 unset(
     $roundeditorSequence,
@@ -159,6 +195,15 @@ unset(
     $roundeditorUploadInfo,
     $roundeditorColorset,
     $roundeditorAutoDarkMode,
+    $roundeditorAdditionalPlugins,
+    $roundeditorNormalizedPlugins,
+    $roundeditorPlugin,
+    $roundeditorUseJsdelivrCdn,
+    $roundeditorAssetVersion,
+    $roundeditorRenderJsdelivrLoader,
+    $roundeditorJsdelivrLoaderUrl,
+    $roundeditorSkinPath,
+    $roundeditorSkinInfo,
     $roundeditorComponents,
     $roundeditorOembedAvailable,
     $roundeditorOembedSkin,

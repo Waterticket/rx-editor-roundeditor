@@ -1,4 +1,14 @@
-const ICON_SPRITE_URL = '/modules/editor/skins/roundeditor/assets/attachment-icons.svg';
+const LOCAL_ICON_SPRITE_URL = '/modules/editor/skins/roundeditor/assets/attachment-icons.svg';
+
+function iconSpriteHref(name) {
+    if (typeof window !== 'undefined' && window.RoundEditorAttachmentIconPrefix) {
+        return `${window.RoundEditorAttachmentIconPrefix}${name}`;
+    }
+    const url = typeof window !== 'undefined' && window.RoundEditorAttachmentIconsUrl
+        ? window.RoundEditorAttachmentIconsUrl
+        : LOCAL_ICON_SPRITE_URL;
+    return `${url}#${name}`;
+}
 
 const UI_ICONS = {
     bold: '<text class="roundeditor__icon-letter roundeditor__icon-letter--bold" x="12" y="18" text-anchor="middle">B</text>',
@@ -59,7 +69,7 @@ export function svgIcon(name) {
     svg.setAttribute('aria-hidden', 'true');
     svg.setAttribute('focusable', 'false');
     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-    use.setAttribute('href', `${ICON_SPRITE_URL}#${name}`);
+    use.setAttribute('href', iconSpriteHref(name));
     svg.appendChild(use);
     return svg;
 }

@@ -6,7 +6,7 @@ import {
 import { RAW_ATTRIBUTE, encodeRawHtml } from './raw.js';
 
 const KNOWN_TAGS = new Set(`
-    a audio b blockquote br code em font h1 h2 h3 h4 h5 h6 hr i img li ol p pre s span strike strong sub
+    a audio b blockquote br caption code em font h1 h2 h3 h4 h5 h6 hr i img li ol p pre s span strike strong sub
     sup table tbody td th tr u ul video
 `.trim().split(/\s+/));
 const DANGEROUS_TAGS = new Set('script style form input button select textarea canvas svg'.split(' '));
@@ -39,16 +39,27 @@ function sanitizeRawSubtree(root) {
     }
 }
 
+function hasUnsupportedStructuralNodes(element) {
+    return Array.from(element.childNodes).some(node => (
+        node.nodeType !== Node.ELEMENT_NODE
+        && !(node.nodeType === Node.TEXT_NODE && !node.nodeValue.trim())
+    ));
+}
+
 function tableIsEditable(table) {
-    if (Array.from(table.childNodes).some(node => node.nodeType !== Node.ELEMENT_NODE)) return false;
+    if (hasUnsupportedStructuralNodes(table)) return false;
     const directElements = Array.from(table.children);
-    if (directElements.some(element => element.tagName !== 'TBODY')) return false;
-    return directElements.every(tbody => (
-        !Array.from(tbody.childNodes).some(node => node.nodeType !== Node.ELEMENT_NODE)
+    const captions = directElements.filter(element => element.tagName === 'CAPTION');
+    const bodies = directElements.filter(element => element.tagName === 'TBODY');
+    if (captions.length > 1 || !bodies.length) return false;
+    if (directElements.some(element => !['CAPTION', 'TBODY'].includes(element.tagName))) return false;
+    if (captions.length && directElements[0] !== captions[0]) return false;
+    return bodies.every(tbody => (
+        !hasUnsupportedStructuralNodes(tbody)
         &&
         Array.from(tbody.children).every(row => (
             row.tagName === 'TR'
-            && !Array.from(row.childNodes).some(node => node.nodeType !== Node.ELEMENT_NODE)
+            && !hasUnsupportedStructuralNodes(row)
             && Array.from(row.children).every(cell => ['TD', 'TH'].includes(cell.tagName))
         ))
     ));
@@ -74,6 +85,7 @@ function audioIsEditable(audio) {
 function structurallyEditable(element) {
     const tagName = element.tagName.toLowerCase();
     if (tagName === 'a') return element.hasAttribute('href');
+    if (tagName === 'caption') return element.parentElement?.tagName === 'TABLE';
     if (tagName === 'li') return ['OL', 'UL'].includes(element.parentElement?.tagName);
     if (tagName === 'tbody') return element.parentElement?.tagName === 'TABLE';
     if (tagName === 'tr') return element.parentElement?.tagName === 'TBODY';
@@ -203,6 +215,23 @@ function removeEmptyParagraphFiller(paragraph) {
     paragraph.replaceChildren();
 }
 
+function removeTableFormattingWhitespace(root) {
+    for (const container of root.querySelectorAll('table,tbody,tr,td,th')) {
+        for (const child of Array.from(container.childNodes)) {
+            if (child.nodeType === Node.TEXT_NODE && !child.nodeValue.trim()) child.remove();
+        }
+    }
+}
+
+function extractTableCaptions(root) {
+    for (const table of root.querySelectorAll('table')) {
+        const caption = Array.from(table.children).find(child => child.tagName === 'CAPTION');
+        if (!caption) continue;
+        table.setAttribute('data-roundeditor-table-caption', caption.textContent || '');
+        caption.remove();
+    }
+}
+
 function trimBlockBoundaryWhitespace(element) {
     const textNodes = [];
     const walker = document.createTreeWalker(element, 4);
@@ -241,6 +270,8 @@ export function normalizeForParse(html) {
     template.innerHTML = String(html || '');
 
     for (const element of Array.from(template.content.children)) visitElement(element);
+    extractTableCaptions(template.content);
+    removeTableFormattingWhitespace(template.content);
     for (const paragraph of Array.from(template.content.querySelectorAll('p'))) splitParagraphAtBlocks(paragraph);
     for (const container of Array.from(template.content.querySelectorAll('li,td,th,blockquote'))) {
         wrapInlineRuns(container, true);

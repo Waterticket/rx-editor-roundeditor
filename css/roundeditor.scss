@@ -2103,10 +2103,9 @@ body.color_scheme_dark .roundeditor__attachments--auto {
 }
 
 .roundeditor__raw {
-    border: 1px dashed #9aa4b2;
-    border-radius: 4px;
-    background: color-mix(in srgb, var(--roundeditor-background) 88%, #8aa4c8);
-    color: var(--roundeditor-muted);
+    max-width: 100%;
+    border: 1px solid transparent;
+    color: inherit;
     cursor: default;
     user-select: none;
 }
@@ -2114,18 +2113,18 @@ body.color_scheme_dark .roundeditor__attachments--auto {
 .roundeditor__raw--block {
     display: block;
     margin: 8px 0;
-    padding: 12px;
+    overflow: auto;
 }
 
 .roundeditor__raw--inline {
     display: inline-block;
-    padding: 2px 5px;
     vertical-align: baseline;
 }
 
-.roundeditor__raw-label {
-    font-size: 12px;
-    line-height: 1.4;
+.roundeditor__raw-preview {
+    max-width: 100%;
+    pointer-events: none;
+    white-space: normal;
 }
 
 .roundeditor__raw.ProseMirror-selectednode {

@@ -71,6 +71,25 @@ assert.match(legacyAlignment, /<td align="center" valign="bottom" style="[^"]*ve
 
 const captioned = editor('<table><caption>표 설명</caption><tbody><tr><td><p>A</p></td></tr></tbody></table>');
 assert.match(captioned.html(), /^<table[^>]*><caption[^>]*caption-side:bottom[^>]*>표 설명<\/caption><tbody>/);
+assert.equal(captioned.state.doc.firstChild.type, schema.nodes.table);
+
+const prettyCaptioned = editor(`<table style="width:100%;">
+  <caption style="caption-side:bottom;">저장된 표</caption>
+  <tbody>
+    <tr>
+      <th data-colwidth="217">
+        <p>제목</p>
+      </th>
+      <td>
+        <p>내용</p>
+      </td>
+    </tr>
+  </tbody>
+</table>`);
+assert.equal(prettyCaptioned.state.doc.firstChild.type, schema.nodes.table);
+assert.equal(prettyCaptioned.state.doc.firstChild.attrs.caption, '저장된 표');
+assert.equal(prettyCaptioned.state.doc.firstChild.firstChild.childCount, 2);
+assert.doesNotMatch(prettyCaptioned.html(), /data-roundeditor-raw/);
 assert.equal(tableNeedsLeadingParagraph(parseDocument('<table><tbody><tr><td><p>A</p></td></tr></tbody></table>'), 0), true);
 const mediaAfterTable = parseDocument('<table><tbody><tr><td><p>A</p></td></tr></tbody></table><p><img src="/after-table.jpg"></p>');
 assert.equal(mediaNeedsLeadingParagraph(mediaAfterTable, mediaAfterTable.firstChild.nodeSize + 1), true);

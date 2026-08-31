@@ -142,6 +142,13 @@ assert.equal(source.hidden, true);
 assert.equal(window.editorMode[16], null);
 assert.equal(window.editorGetContent(16), oembedHtml);
 
+compat.setData('<section style="border:1px solid red;"><p>External editor preview</p></section>');
+const rawPreview = wrapper.querySelector('[data-roundeditor-raw-node="rawBlock"]');
+assert.ok(rawPreview);
+assert.equal(rawPreview.contentEditable, 'false');
+assert.equal(rawPreview.querySelector('.roundeditor__raw-preview').textContent, 'External editor preview');
+assert.equal(rawPreview.querySelector('.roundeditor__raw-label'), null);
+
 const fullscreenButton = wrapper.querySelector('.roundeditor__tool-group--right [data-command="fullscreen"]');
 fullscreenButton.click();
 assert.equal(wrapper.classList.contains('roundeditor--fullscreen'), true);

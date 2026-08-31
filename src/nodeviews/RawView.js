@@ -6,6 +6,7 @@ import {
 } from '../rhymix/componentPresentation.js';
 
 const UNSAFE_OEMBED_ELEMENTS = 'script,style,form,input,button,select,textarea,object,embed';
+const UNSAFE_RAW_PREVIEW_ELEMENTS = `${UNSAFE_OEMBED_ELEMENTS},iframe`;
 const URI_ATTRIBUTES = new Set(['href', 'src', 'poster', 'data']);
 const sdkPromises = new Map();
 const sdkReloadPromises = new Map();
@@ -149,6 +150,32 @@ function safeOembedElement(html) {
     return element;
 }
 
+function safeRawPreview(html) {
+    const template = document.createElement('template');
+    template.innerHTML = String(html || '');
+    const element = template.content.firstElementChild;
+    if (!element) return null;
+    for (const unsafe of element.matches(UNSAFE_RAW_PREVIEW_ELEMENTS)
+        ? [element]
+        : element.querySelectorAll(UNSAFE_RAW_PREVIEW_ELEMENTS)) {
+        unsafe.remove();
+    }
+    if (!element.isConnected && !template.content.contains(element)) return null;
+    for (const child of [element, ...element.querySelectorAll('*')]) {
+        for (const attribute of Array.from(child.attributes)) {
+            const name = attribute.name.toLowerCase();
+            if (name.startsWith('on') || name === 'srcdoc') {
+                child.removeAttribute(attribute.name);
+            } else if (URI_ATTRIBUTES.has(name) && /^\s*(?:javascript|vbscript|data:text\/html)/i.test(attribute.value)) {
+                child.removeAttribute(attribute.name);
+            }
+        }
+    }
+    element.contentEditable = 'false';
+    element.classList.add('roundeditor__raw-preview');
+    return element;
+}
+
 export class RawView {
     constructor(node, bridge) {
         this.node = node;
@@ -172,10 +199,8 @@ export class RawView {
             return;
         }
 
-        const label = document.createElement('span');
-        label.className = 'roundeditor__raw-label';
-        label.textContent = '이 영역은 현재 편집할 수 없습니다 · 원본 유지됨';
-        this.dom.appendChild(label);
+        const preview = safeRawPreview(node.attrs.html);
+        if (preview) this.dom.appendChild(preview);
     }
 
     renderComponent(bridge) {

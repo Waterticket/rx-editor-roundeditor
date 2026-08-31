@@ -516,7 +516,8 @@ export const nodes = {
         attrs: { extra: { default: null }, caption: { default: '' } },
         parseDOM: [{ tag: 'table', getAttrs: element => ({
             extra: extraAttrs(element, ['data-roundeditor-table-caption']),
-            caption: element.querySelector(':scope > caption')?.textContent || '',
+            caption: element.querySelector(':scope > caption')?.textContent
+                || element.getAttribute('data-roundeditor-table-caption') || '',
         }) }],
         toDOM: node => {
             const caption = String(node.attrs.caption || '').trim();

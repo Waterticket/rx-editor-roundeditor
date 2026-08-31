@@ -47,6 +47,20 @@ export function splitAfterInlineNode(state, dispatch, view) {
     } else if (selection instanceof TextSelection && selection.empty) {
         const previous = selection.$from.nodeBefore;
         if (previous?.isInline && previous.isAtom && !previous.isText) position = selection.from;
+        // Browsers can map a click in the empty visual area after a large
+        // inline media node to the position before it. A media-only paragraph
+        // has no useful text caret there, so Enter should still exit below the
+        // media. Inserting above remains available through the media edge UI.
+        const next = selection.$from.nodeAfter;
+        if (
+            position === null
+            && selection.$from.parent.childCount === 1
+            && next?.isInline
+            && next.isAtom
+            && !next.isText
+        ) {
+            position = selection.from + next.nodeSize;
+        }
     }
     if (position === null) return false;
     const $position = state.doc.resolve(position);

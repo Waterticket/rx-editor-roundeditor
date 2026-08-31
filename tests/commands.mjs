@@ -116,4 +116,15 @@ imageEnter.dispatch(imageEnter.state.tr.insertText('입력됨'));
 assert.equal(imageEnter.html(), '<p><img src="/right.png" alt="" /></p><p>입력됨</p>');
 assert.doesNotMatch(imageEnter.html(), /contenteditable/);
 
+const videoEnterFromMappedBefore = editor('<p><video src="/right.mp4"></video></p>');
+videoEnterFromMappedBefore.dispatch(videoEnterFromMappedBefore.state.tr.setSelection(
+    TextSelection.create(videoEnterFromMappedBefore.state.doc, 1)
+));
+assert.equal(videoEnterFromMappedBefore.run(splitAfterInlineNode), true);
+videoEnterFromMappedBefore.dispatch(videoEnterFromMappedBefore.state.tr.insertText('영상 아래'));
+assert.match(
+    videoEnterFromMappedBefore.html(),
+    /^<p><video[^>]*right\.mp4[^>]*><\/video><\/p><p>영상 아래<\/p>$/
+);
+
 console.log('roundeditor Phase 2 commands passed');

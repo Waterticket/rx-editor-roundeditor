@@ -1,5 +1,7 @@
 # Roundeditor 스킨
 
+[![](https://data.jsdelivr.com/v1/package/gh/Waterticket/rx-editor-roundeditor/badge)](https://www.jsdelivr.com/package/gh/Waterticket/rx-editor-roundeditor)
+
 ## 빌드 및 배포
 
 ### 요구 사항

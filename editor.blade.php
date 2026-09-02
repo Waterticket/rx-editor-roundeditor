@@ -2,6 +2,7 @@
 
 @load('^/common/css/xeicon/xeicon.min.css')
 @load('../../tpl/js/editor_common.js')
+@load('js/roundeditor-bootstrap.js')
 @load('js/ckeditor4-bootstrap.js')
 @if ($roundeditor_use_jsdelivr_cdn)
     @if ($roundeditor_render_jsdelivr_loader)

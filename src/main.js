@@ -10,6 +10,7 @@ import { columnResizing, tableEditing } from 'prosemirror-tables';
 import '../css/roundeditor.scss';
 import { AttachmentList } from './AttachmentList.js';
 import { createCKEditor4Facade } from './compat/CKEditor4Facade.js';
+import { createEditorHandle, installIntegrationGlobal } from './integration.js';
 import { updateEditorDocument } from './documentUpdate.js';
 import { handleImagePaste, imageFiles, uploadImagesAt } from './images.js';
 import { mediaSelectionPlugin } from './mediaSelection.js';
@@ -34,6 +35,10 @@ import { uploadVideosAt, videoFiles } from './videos.js';
 
 const registry = Object.create(null);
 let previousGlobals = null;
+
+// The standalone bootstrap creates this namespace before the bundle loads.
+// Calling this here also supports installations upgraded in place.
+installIntegrationGlobal();
 
 function normalizeSequence(value) {
     const sequence = Number.parseInt(String(value ?? ''), 10);
@@ -359,6 +364,7 @@ function initialize(wrapper) {
         sourceMode: null,
         fullscreen: null,
         attachments: null,
+        integration: null,
         imageViews: new Set(),
         rebindControls() {
             const currentForm = this.wrapper.closest('form') || this.form;
@@ -420,10 +426,21 @@ function initialize(wrapper) {
             table: tableNodeView(bridge),
         },
         dispatchTransaction(transaction) {
+            const previousState = bridge.view.state;
             bridge.view.updateState(bridge.view.state.apply(transaction));
+            bridge.integration?._mapTransaction(transaction);
             bridge.sync();
             bridge.attachments?.refreshUsageState();
             bridge.toolbar?.refresh(bridge.view.state);
+            bridge.integration?._emit('change', {
+                editor: bridge.integration,
+                source: transaction.getMeta('roundeditorSource') || (transaction.getMeta('history$') ? 'history' : 'user'),
+                docChanged: transaction.docChanged,
+                selectionChanged: !previousState.selection.eq(bridge.view.state.selection),
+            });
+            if (!previousState.selection.eq(bridge.view.state.selection)) {
+                bridge.integration?._emit('selectionChange', { editor: bridge.integration });
+            }
         },
     });
     bridge.editable = bridge.view.dom;
@@ -435,6 +452,12 @@ function initialize(wrapper) {
     bridge.sourceMode = new SourceMode(bridge);
     bridge.fullscreen = new Fullscreen(bridge);
     if (config.allowUpload) bridge.attachments = new AttachmentList(bridge);
+    bridge.integration = createEditorHandle(bridge);
+    bridge.editable.addEventListener('focus', () => {
+        window.RoundEditor?._activate(bridge.integration);
+        bridge.integration?._emit('focus', { editor: bridge.integration });
+    }, true);
+    bridge.editable.addEventListener('blur', () => bridge.integration?._emit('blur', { editor: bridge.integration }), true);
     bridge.toolbar.refresh(bridge.view.state);
     registry[sequence] = bridge;
 
@@ -452,6 +475,7 @@ function initialize(wrapper) {
     resolveDocumentStickers(bridge).catch(error => console.warn('[roundeditor] Sticker resolution failed.', error));
     wrapper.querySelector('.roundeditor__loading')?.remove();
     wrapper.classList.add('roundeditor--ready');
+    bridge.integration?._emit('ready', { editor: bridge.integration });
     if (config.focus) bridge.view.focus();
 }
 

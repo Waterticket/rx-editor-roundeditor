@@ -33,6 +33,7 @@ export class SourceMode {
         this.textarea.focus();
         this.bridge.toolbar.refresh(this.bridge.view.state);
         this.bridge.sync();
+        this.bridge.integration?._emit('modeChange', { editor: this.bridge.integration, mode: 'source' });
     }
 
     close() {
@@ -45,6 +46,7 @@ export class SourceMode {
         this.bridge.view.focus();
         this.bridge.toolbar.refresh(this.bridge.view.state);
         this.bridge.sync();
+        this.bridge.integration?._emit('modeChange', { editor: this.bridge.integration, mode: 'visual' });
     }
 
     commit() {

@@ -50,6 +50,10 @@ Object.defineProperties(globalThis, {
         configurable: true,
     },
 });
+dom.window.Range.prototype.getClientRects = () => [];
+dom.window.Range.prototype.getBoundingClientRect = () => ({
+    top: 0, right: 0, bottom: 0, left: 0, width: 0, height: 0,
+});
 
 window.editorGetContent = sequence => `previous:${sequence}`;
 window.editorGetIFrame = sequence => `previous-frame:${sequence}`;
@@ -75,6 +79,54 @@ assert.equal(form.elements.namedItem('use_editor').value, 'Y');
 assert.equal(form.elements.namedItem('use_html').value, 'Y');
 assert.equal(window.editorGetContent(7), '<p>Hello</p>');
 assert.equal(window.editorGetContentTextarea_xe(7), 'Hello');
+const integration = window.RoundEditor.get(7);
+assert.equal(window.RoundEditor.integrationApiVersion, '1.0');
+assert.equal(window.RoundEditor.getActive(), null);
+assert.equal(integration.sequence, 7);
+assert.equal(integration.hasCapability('content.insertHTML'), true);
+assert.equal(integration.document.primaryValue, '123');
+integration.document.primaryValue = '456';
+assert.equal(form.elements.namedItem('document_srl').value, '456');
+integration.content.insertHTML('<p>API insertion</p>', { source: 'module:test' });
+assert.match(integration.content.getHTML(), /API insertion/);
+integration.content.setHTML('<p>Hello</p>', { history: 'skip' });
+assert.equal(integration.content.getHTML(), '<p>Hello</p>');
+integration.focus({ scroll: false });
+assert.equal(window.RoundEditor.getActive(), integration);
+const anchor = integration.selection.capture();
+integration.content.insertHTML('<p>Anchored</p>', { at: anchor });
+assert.match(integration.content.getHTML(), /Anchored/);
+assert.equal(anchor.alive, true);
+integration.content.insertHTML('<strong>Again</strong>', { at: anchor });
+assert.match(integration.content.getHTML(), /Anchored.*Again/);
+anchor.release();
+
+const changes = [];
+const stopChanges = integration.on('change', event => changes.push(event));
+integration.content.setHTML('<p>First API action</p>', { history: 'skip', source: 'api' });
+integration.content.setHTML('<p>Second API action</p>', { source: 'module:runtime-test' });
+integration.content.insertHTML('<strong>Third API action</strong>', { source: 'module:runtime-test' });
+assert.equal(integration.commands.execute('history.undo'), true);
+assert.equal(integration.content.getHTML(), '<p>Second API action</p>');
+assert.equal(integration.commands.execute('history.redo'), true);
+assert.match(integration.content.getHTML(), /Third API action/);
+assert.equal(changes.some(event => event.source === 'module:runtime-test'), true);
+stopChanges();
+
+const normalized = integration.content.setHTML(
+    '<p onclick="alert(1)">Safe<script>alert(1)</script></p>',
+    { history: 'skip', source: 'module:runtime-test' }
+);
+assert.equal(normalized.canonicalHTML, '<p>Safe</p>');
+assert.equal(normalized.normalized, true);
+assert.deepEqual(normalized.warnings.map(warning => warning.code), ['TAG_REMOVED', 'ATTRIBUTE_REMOVED']);
+
+await assert.rejects(
+    window.RoundEditor.whenReady(9999, { timeout: 1 }),
+    error => error.code === 'E_TIMEOUT'
+);
+integration.content.setHTML('<p>Hello</p>', { history: 'skip' });
+assert.equal(integration.content.getHTML(), '<p>Hello</p>');
 assert.equal(window.editorRelKeys[7].content, form.elements.namedItem('content'));
 assert.equal(window._getCkeInstance(7).mode, 'wysiwyg');
 assert.equal(window.CKEDITOR.instances.editor1, editor1Proxy);

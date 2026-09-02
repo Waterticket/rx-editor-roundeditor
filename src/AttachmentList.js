@@ -1,7 +1,7 @@
 import { imageFiles, insertUploadedImages } from './images.js';
 import { svgIcon } from './icons.js';
 import { normalizeRhymixAssetUrl, normalizeRhymixUrl, normalizeRhymixVideoUrl } from './rhymix/upload.js';
-import { addUploadPlaceholder, removeUploadPlaceholder, updateUploadPlaceholder } from './uploadPlaceholders.js';
+import { addUploadPlaceholder, findUploadPlaceholder, removeUploadPlaceholder, updateUploadPlaceholder } from './uploadPlaceholders.js';
 import { formatVideoDuration, insertUploadedVideo, isVideoFile } from './videos.js';
 
 const FALLBACK_LABELS = {
@@ -824,28 +824,67 @@ export class AttachmentList {
         const upload = normalizedUpload(result);
         const filename = String(upload.source_filename || '');
         const entry = entries.find(candidate => candidate.file.name === filename) || entries[0];
-        if (!entry || !this.activeEntries.has(entry)) return;
+        if (!entry || !this.activeEntries.has(entry) || entry.completing) return;
+        entry.completing = true;
         if (entry.placeholderId) {
             updateUploadPlaceholder(this.bridge.view, entry.placeholderId, 1, this.processingLabel(entry.type));
         }
         this.updateUploadPreview(entry, 1, this.processingLabel(entry.type));
-        if (entry.autoInsert && entry.type === 'image') {
-            insertUploadedImages(this.bridge, [upload], {
-                placeholderId: entry.placeholderId,
-                insertionMode: this.autoinsertPosition,
-            });
-        } else if (entry.autoInsert) {
-            insertUploadedVideo(this.bridge, upload, {
-                placeholderId: entry.placeholderId,
-                insertionMode: this.autoinsertPosition,
-            });
+        if (!this.bridge.extensionHost) {
+            if (entry.autoInsert && entry.type === 'image') {
+                insertUploadedImages(this.bridge, [upload], { placeholderId: entry.placeholderId, insertionMode: this.autoinsertPosition });
+            } else if (entry.autoInsert) {
+                insertUploadedVideo(this.bridge, upload, { placeholderId: entry.placeholderId, insertionMode: this.autoinsertPosition });
+            }
+            this.finishCompletedEntry(entry, upload);
+            return;
         }
+        void this.completeUpload(entry, upload);
+    }
+
+    async completeUpload(entry, upload) {
+        const info = Object.freeze({
+            fileSrl: Number(upload.file_srl || 0),
+            sourceFilename: String(upload.source_filename || ''),
+            downloadUrl: String(upload.download_url || ''),
+            mimeType: String(upload.mime_type || entry.file.type || ''),
+            size: Number(upload.file_size || entry.file.size || 0),
+        });
+        await this.bridge.extensionHost?.attachmentEvent('onUploaded', {
+            editor: this.bridge.integration,
+            results: Object.freeze([{ file: entry.file, uploaded: true, inserted: false, attachment: info }]),
+        });
+        let extensionRendered = false;
+        if (entry.autoInsert && this.bridge.extensionHost) {
+            const position = findUploadPlaceholder(this.bridge.view.state, entry.placeholderId)
+                ?? this.bridge.view.state.selection.from;
+            const anchor = this.bridge.integration._createAnchor(position, position);
+            try {
+                const rendered = await this.bridge.extensionHost.renderAttachments([info], anchor, 'attachment');
+                extensionRendered = Boolean(rendered);
+                if (extensionRendered) removeUploadPlaceholder(this.bridge.view, entry.placeholderId);
+            } catch (error) {
+                this.bridge.integration.ui.notify(`Upload succeeded, but insertion failed: ${error.message || error}`, { type: 'error' });
+                extensionRendered = true;
+            } finally {
+                anchor.release();
+            }
+        }
+        if (entry.autoInsert && !extensionRendered && entry.type === 'image') {
+            insertUploadedImages(this.bridge, [upload], { placeholderId: entry.placeholderId, insertionMode: this.autoinsertPosition });
+        } else if (entry.autoInsert && !extensionRendered) {
+            insertUploadedVideo(this.bridge, upload, { placeholderId: entry.placeholderId, insertionMode: this.autoinsertPosition });
+        }
+        this.finishCompletedEntry(entry, upload);
+    }
+
+    finishCompletedEntry(entry, upload) {
         this.activeEntries.delete(entry);
         this.fileEntries.delete(entry.file);
         this.pendingFiles.delete(entry.file.name);
         if (entry.previewItem) entry.previewItem.dataset.fileSrl = String(upload.file_srl || '');
         this.completedEntries.add(entry);
-        this.uploads.delete(entry.data || data);
+        this.uploads.delete(entry.data);
     }
 
     fail(data) {

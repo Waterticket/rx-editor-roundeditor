@@ -5,7 +5,7 @@ import { JSDOM } from 'jsdom';
 const loaderSource = readFileSync(new URL('../js/jsdelivr-loader.js', import.meta.url), 'utf8');
 const iconSource = readFileSync(new URL('../assets/attachment-icons.svg', import.meta.url), 'utf8');
 
-async function runLoader(version, cdnSucceeds = true) {
+async function runLoader(version, cdnSucceeds = true, barrier = null) {
     const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', {
         runScripts: 'outside-only',
         url: 'https://example.com/',
@@ -14,6 +14,7 @@ async function runLoader(version, cdnSucceeds = true) {
         if (!cdnSucceeds && String(url).includes('cdn.jsdelivr.net')) throw new Error('blocked');
         return { ok: true, text: async () => iconSource };
     };
+    if (barrier) dom.window.RoundEditor = { _extensionHost: { prepareFromDocument: () => barrier } };
     const loader = dom.window.document.createElement('script');
     loader.id = 'RoundEditorLoader';
     loader.dataset.version = version;
@@ -26,6 +27,16 @@ async function runLoader(version, cdnSucceeds = true) {
     dom.window.eval(loaderSource);
     await new Promise(resolve => dom.window.setTimeout(resolve, 0));
     return dom;
+}
+
+{
+    let release;
+    const barrier = new Promise(resolve => { release = resolve; });
+    const dom = await runLoader('1.0.0', true, barrier);
+    assert.equal(dom.window.document.getElementById('RoundEditorModule'), null);
+    release();
+    await Promise.resolve(); await new Promise(resolve => dom.window.setTimeout(resolve, 0));
+    assert.match(dom.window.document.getElementById('RoundEditorModule').src, /cdn\.jsdelivr\.net/);
 }
 
 {

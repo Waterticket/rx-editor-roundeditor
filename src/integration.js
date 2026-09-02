@@ -21,10 +21,10 @@ export class RoundEditorError extends Error {
 }
 
 function error(code, message, details) { return new RoundEditorError(code, message, details); }
-function snapshotHtml(node) { return serializeDocument({ content: Fragment.from(node) }, schema); }
-function normalizationReport(html, parsed) {
+function snapshotHtml(node, services) { return services.serializeDocument({ content: Fragment.from(node) }); }
+function normalizationReport(html, parsed, services) {
     const source = String(html || '');
-    const normalizedHTML = serializeDocument(parsed, schema);
+    const normalizedHTML = services.serializeDocument(parsed);
     if (source === normalizedHTML) return { normalized: false, warnings: Object.freeze([]) };
 
     const warnings = [];
@@ -39,8 +39,8 @@ function normalizationReport(html, parsed) {
     }
     return { normalized: true, warnings: Object.freeze(warnings) };
 }
-function componentInfo(node) {
-    const html = COMPONENT_TYPES.has(node.type.name) ? node.attrs.html : snapshotHtml(node);
+function componentInfo(node, services) {
+    const html = COMPONENT_TYPES.has(node.type.name) ? node.attrs.html : snapshotHtml(node, services);
     const template = document.createElement('template');
     template.innerHTML = html;
     const element = template.content.querySelector('[editor_component]');
@@ -97,8 +97,12 @@ export function installIntegrationGlobal() {
     return api;
 }
 
-export function createEditorHandle(bridge) {
+export function createEditorHandle(bridge, options = {}) {
     const global = installIntegrationGlobal();
+    const services = bridge.schemaServices || {
+        schema, parseDocument, parseSlice,
+        serializeDocument: value => serializeDocument(value, schema),
+    };
     const events = new Map();
     const tracked = new Set();
     const attachmentListeners = new Set();
@@ -111,7 +115,7 @@ export function createEditorHandle(bridge) {
     };
     const assertLive = () => { if (destroyed) throw error('E_EDITOR_DESTROYED', 'This editor has been destroyed.'); };
     const canonical = () => bridge.sourceMode?.active
-        ? serializeDocument(parseDocument(bridge.sourceMode.getData()), schema)
+        ? services.serializeDocument(services.parseDocument(bridge.sourceMode.getData()))
         : bridge.serializeVisual();
     const result = (report = { normalized: false, warnings: Object.freeze([]) }) => Object.freeze({
         applied: true,
@@ -148,7 +152,7 @@ export function createEditorHandle(bridge) {
         if (!ref?.alive) throw error('E_TARGET_GONE', 'The target is no longer available.');
         if (component) {
             const node = bridge.view.state.doc.nodeAt(ref._from);
-            if (!node || !componentInfo(node) || (ref._node && !node.sameMarkup(ref._node))) {
+            if (!node || !componentInfo(node, services) || (ref._node && !node.sameMarkup(ref._node))) {
                 ref._alive = false; throw error('E_TARGET_GONE', 'The component was removed or replaced.');
             }
             return node;
@@ -166,9 +170,13 @@ export function createEditorHandle(bridge) {
     };
     const insert = (html, options = {}) => {
         assertLive();
-        const sourceHTML = String(html || '');
-        const slice = parseSlice(sourceHTML);
-        const report = normalizationReport(sourceHTML, { content: slice.content });
+        let request = { html: String(html || ''), source: options.source || 'api', metadata: options.metadata };
+        const transformed = bridge.extensionHost?.transformInsert(request);
+        if (transformed?.handled) return result();
+        request = transformed || request;
+        const sourceHTML = String(request.html || '');
+        const slice = services.parseSlice(sourceHTML);
+        const report = normalizationReport(sourceHTML, { content: slice.content }, services);
         const at = options.at || 'selection';
         if (bridge.sourceMode?.active) {
             if (at !== 'selection') throw error('E_UNSUPPORTED_MODE', 'Anchors are unavailable in source mode.');
@@ -214,9 +222,9 @@ export function createEditorHandle(bridge) {
             setHTML(html, options = {}) {
                 assertLive();
                 const sourceHTML = String(html || '');
-                const next = parseDocument(sourceHTML);
-                const report = normalizationReport(sourceHTML, next);
-                if (bridge.sourceMode?.active) bridge.sourceMode.textarea.value = serializeDocument(next, schema);
+                const next = services.parseDocument(sourceHTML);
+                const report = normalizationReport(sourceHTML, next, services);
+                if (bridge.sourceMode?.active) bridge.sourceMode.textarea.value = services.serializeDocument(next);
                 const transaction = bridge.view.state.tr.replaceWith(0, bridge.view.state.doc.content.size, next.content);
                 const selection = options.selection || 'end';
                 bridge.view.dispatch(setHistory(placeSelection(transaction, selection, 0, transaction.doc.content.size), options));
@@ -226,7 +234,7 @@ export function createEditorHandle(bridge) {
         },
         selection: {
             get empty() { return bridge.sourceMode?.active ? bridge.sourceMode.textarea.selectionStart === bridge.sourceMode.textarea.selectionEnd : bridge.view.state.selection.empty; },
-            getHTML: () => bridge.sourceMode?.active ? bridge.sourceMode.selectedHtml() : serializeDocument({ content: bridge.view.state.selection.content().content }, schema),
+            getHTML: () => bridge.sourceMode?.active ? bridge.sourceMode.selectedHtml() : services.serializeDocument({ content: bridge.view.state.selection.content().content }),
             getText: () => bridge.getText(true),
             capture(options = {}) {
                 assertLive();
@@ -244,7 +252,7 @@ export function createEditorHandle(bridge) {
                 const candidates = [selection.from, selection.$from.depth > 0 ? selection.$from.before(selection.$from.depth) : null]
                     .filter(position => Number.isInteger(position));
                 for (const pos of candidates) {
-                    const node = bridge.view.state.doc.nodeAt(pos); const info = node && componentInfo(node);
+                    const node = bridge.view.state.doc.nodeAt(pos); const info = node && componentInfo(node, services);
                     if (info && (!expected || info.name === expected)) {
                         const ref = createRef('component', pos, pos + node.nodeSize, node);
                         Object.assign(ref, info); return ref;
@@ -256,37 +264,51 @@ export function createEditorHandle(bridge) {
             replace(ref, html, options = {}) {
                 const node = validateRef(ref, true);
                 const sourceHTML = String(html || '');
-                const slice = parseSlice(sourceHTML);
-                const report = normalizationReport(sourceHTML, { content: slice.content });
+                const slice = services.parseSlice(sourceHTML);
+                const report = normalizationReport(sourceHTML, { content: slice.content }, services);
                 const transaction = bridge.view.state.tr.replaceWith(ref._from, ref._from + node.nodeSize, slice.content);
                 bridge.view.dispatch(setHistory(transaction, options));
                 return result(report);
             },
             updateAttributes(ref, attributes, options = {}) {
-                const node = validateRef(ref, true); const info = componentInfo(node); const template = document.createElement('template'); template.innerHTML = info.html; const element = template.content.querySelector('[editor_component]');
+                const node = validateRef(ref, true); const info = componentInfo(node, services); const template = document.createElement('template'); template.innerHTML = info.html; const element = template.content.querySelector('[editor_component]');
                 for (const [name, value] of Object.entries(attributes || {})) { if (/^on/i.test(name)) continue; if (value === null) element.removeAttribute(name); else element.setAttribute(name, String(value)); }
                 return handle.components.replace(ref, template.innerHTML, options);
             },
             remove(ref, options = {}) { const node = validateRef(ref, true); bridge.view.dispatch(setHistory(bridge.view.state.tr.delete(ref._from, ref._from + node.nodeSize), options)); ref.release(); return result(); },
         },
         commands: {
-            list: () => Object.freeze(['history.undo', 'history.redo', 'selection.selectAll', 'format.bold', 'format.italic', 'content.deleteSelection', 'component.open']),
-            can(name) { assertLive(); const commands = { 'history.undo': undo, 'history.redo': redo, 'selection.selectAll': selectAll, 'format.bold': toggleMark(schema.marks.strong), 'format.italic': toggleMark(schema.marks.em) }; if (commands[name]) return commands[name](bridge.view.state); return name === 'content.deleteSelection' ? !bridge.view.state.selection.empty : name === 'component.open' ? Boolean(handle.components.getSelected()) : false; },
-            execute(name, params) { assertLive(); const commands = { 'history.undo': undo, 'history.redo': redo, 'selection.selectAll': selectAll, 'format.bold': toggleMark(schema.marks.strong), 'format.italic': toggleMark(schema.marks.em) }; if (commands[name]) return commands[name](bridge.view.state, transaction => bridge.view.dispatch(transaction)); if (name === 'content.deleteSelection') { if (bridge.view.state.selection.empty) return false; bridge.view.dispatch(bridge.view.state.tr.deleteSelection()); return true; } if (name === 'component.open') { const ref = handle.components.getSelected(); if (!ref) return false; window.openComponent?.(ref.name, bridge.sequence); return true; } return false; },
+            list: () => Object.freeze(['history.undo', 'history.redo', 'selection.selectAll', 'format.bold', 'format.italic', 'content.deleteSelection', 'component.open', ...(bridge.extensionHost ? [...bridge.extensionHost.commands.keys()] : [])]),
+            can(name) { assertLive(); const commands = { 'history.undo': undo, 'history.redo': redo, 'selection.selectAll': selectAll, 'format.bold': toggleMark(services.schema.marks.strong), 'format.italic': toggleMark(services.schema.marks.em) }; if (commands[name]) return commands[name](bridge.view.state); const extension = bridge.extensionHost?.executeCommand(name, undefined, false); if (extension !== null && extension !== undefined) return extension; return name === 'content.deleteSelection' ? !bridge.view.state.selection.empty : name === 'component.open' ? Boolean(handle.components.getSelected()) : false; },
+            execute(name, params) { assertLive(); const commands = { 'history.undo': undo, 'history.redo': redo, 'selection.selectAll': selectAll, 'format.bold': toggleMark(services.schema.marks.strong), 'format.italic': toggleMark(services.schema.marks.em) }; if (commands[name]) return commands[name](bridge.view.state, transaction => bridge.view.dispatch(transaction)); const extension = bridge.extensionHost?.executeCommand(name, params, true); if (extension !== null && extension !== undefined) return extension; if (name === 'content.deleteSelection') { if (bridge.view.state.selection.empty) return false; bridge.view.dispatch(bridge.view.state.tr.deleteSelection()); return true; } if (name === 'component.open') { const ref = handle.components.getSelected(); if (!ref) return false; window.openComponent?.(ref.name, bridge.sequence); return true; } return false; },
         },
         mode: { get current() { return bridge.sourceMode?.active ? 'source' : 'visual'; }, get sourceAvailable() { return Boolean(bridge.config.htmlMode && bridge.config.allowHtml !== false); }, set(mode) { assertLive(); if (mode === 'source' && !handle.mode.sourceAvailable) return false; if (mode === handle.mode.current) return true; bridge.sourceMode?.toggle(); return handle.mode.current === mode; } },
         ui: { notify(message, options = {}) { assertLive(); const element = document.createElement('div'); element.className = `roundeditor__notification roundeditor__notification--${options.type || 'info'}`; element.setAttribute('role', options.type === 'error' ? 'alert' : 'status'); bridge.wrapper.appendChild(element); const update = next => { const value = { ...options, ...next }; element.textContent = `${value.message ?? message}${value.progress == null ? '' : ` ${Math.round(value.progress)}%`}`; }; update({}); let timer = options.duration ? setTimeout(() => element.remove(), options.duration) : null; return Object.freeze({ update(next) { if (timer) clearTimeout(timer); update(next); if (next.duration) timer = setTimeout(() => element.remove(), next.duration); }, close() { if (timer) clearTimeout(timer); element.remove(); } }); } },
         attachments: null,
+        _createAnchor: (from, to = from) => createRef('anchor', from, to),
         _mapTransaction: mapTracked,
         _emit: emit,
-        _destroy() { if (destroyed) return; destroyed = true; for (const ref of tracked) ref._alive = false; tracked.clear(); emit('destroy', { editorId: handle.id, sequence: handle.sequence }); global._destroy(handle); },
+        _published: false,
+        _publish() { if (handle._published) return; handle._published = true; global._register(handle); },
+        _destroy() {
+            if (destroyed) return;
+            bridge.extensionHost?.stop();
+            if (bridge.view && !bridge._viewDestroyed) { bridge.view.destroy(); bridge._viewDestroyed = true; }
+            bridge.extensionHost?.destroy();
+            destroyed = true;
+            for (const ref of tracked) ref._alive = false;
+            tracked.clear(); emit('destroy', { editorId: handle.id, sequence: handle.sequence });
+            if (handle._published) global._destroy(handle);
+        },
     };
-    if (bridge.attachments) {
+    if (bridge.config.allowUpload) {
         handle.attachments = {
             get available() { return Boolean(bridge.attachments?.container); },
             list: () => Object.freeze(attachmentList()),
             refresh: async () => {
-                assertLive(); bridge.attachments.refresh();
+                assertLive();
+                if (!bridge.attachments) throw error('E_UNSUPPORTED', 'Attachment service is unavailable.');
+                bridge.attachments.refresh();
                 await new Promise(resolve => setTimeout(resolve, 0));
                 const attachments = Object.freeze(attachmentList());
                 for (const listener of [...attachmentListeners]) { try { listener({ type: 'refreshed', attachments }); } catch (exception) { console.error('[roundeditor] Attachment listener failed.', exception); } }
@@ -296,6 +318,7 @@ export function createEditorHandle(bridge) {
                 assertLive();
                 const values = Array.from(files || []);
                 if (options.signal?.aborted) throw error('E_UPLOAD_FAILED', 'The upload was aborted.');
+                if (!bridge.attachments) throw error('E_UNSUPPORTED', 'Attachment upload is unavailable.');
                 const position = options.at && options.at !== 'selection' ? validateRef(options.at)._from : null;
                 if (!bridge.attachments.uploadFiles(values, position)) throw error('E_UNSUPPORTED', 'Attachment upload is unavailable.');
                 // Rhymix's uploader is event based. The returned records deliberately
@@ -304,16 +327,25 @@ export function createEditorHandle(bridge) {
             },
             delete: async fileSrls => {
                 assertLive();
+                if (!bridge.attachments) throw error('E_UNSUPPORTED', 'Attachment deletion is unavailable.');
                 const wanted = new Set((fileSrls || []).map(String));
+                const files = Object.freeze(attachmentList().filter(file => wanted.has(String(file.fileSrl))));
+                const controller = new AbortController();
+                const allowed = await bridge.extensionHost?.attachmentEvent('beforeDelete', {
+                    editor: handle, files, signal: controller.signal,
+                });
+                if (allowed === false) return false;
                 const items = Array.from(bridge.attachments.container?.querySelectorAll('.xefu-file[data-file-srl]') || [])
                     .filter(item => wanted.has(item.dataset.fileSrl));
                 items.forEach(item => item.querySelector('input[type="checkbox"]')?.click());
                 bridge.attachments.container?.querySelector('.xefu-act-delete-selected')?.click();
+                await bridge.extensionHost?.attachmentEvent('afterDelete', { editor: handle, files });
                 for (const listener of [...attachmentListeners]) { try { listener({ type: 'deleted', fileSrls: Object.freeze([...wanted].map(Number)) }); } catch (exception) { console.error('[roundeditor] Attachment listener failed.', exception); } }
+                return true;
             },
             on: (type, listener) => { attachmentListeners.add(listener); return () => attachmentListeners.delete(listener); },
         };
     }
-    global._register(handle);
+    if (options.register !== false) handle._publish();
     return handle;
 }

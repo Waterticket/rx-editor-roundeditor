@@ -192,6 +192,8 @@ export class Toolbar {
         right.appendChild(button('fullscreen', this.labels));
         right.appendChild(this.moreButton('right'));
 
+        this.addExtensionTools();
+
         this.element.addEventListener('mousedown', event => {
             if (event.target.closest('button') && !event.target.closest('.roundeditor__toolbar-more')) event.preventDefault();
         });
@@ -207,6 +209,54 @@ export class Toolbar {
         group.dataset.group = name;
         this.primaryRow.appendChild(group);
         return group;
+    }
+
+    addExtensionTools() {
+        const placements = new Map();
+        for (const { record, item } of this.bridge.extensionHost?.toolbar || []) {
+            if (!item?.id || !item.command) continue;
+            const groupName = item.group || 'extension';
+            let group = Array.from(this.primaryRow.querySelectorAll('[data-group]')).find(candidate => candidate.dataset.group === groupName);
+            if (!group) {
+                group = this.addGroup(groupName);
+                placements.set(group, item.placement || { before: 'components' });
+            }
+            const command = String(item.command).includes('.') ? String(item.command) : `${record.id}.${item.command}`;
+            const element = document.createElement('button');
+            element.type = 'button';
+            element.className = 'roundeditor__tool roundeditor__tool--extension';
+            element.dataset.command = command;
+            element.dataset.extensionToolbarId = `${record.id}:${item.id}`;
+            element.title = String(item.label || item.id);
+            element.setAttribute('aria-label', String(item.label || item.id));
+            if (item.icon?.type === 'symbol') element.appendChild(uiIcon(item.icon.name));
+            else if (item.icon?.type === 'url') {
+                const image = document.createElement('img'); image.src = item.icon.url; image.alt = ''; image.setAttribute('aria-hidden', 'true'); element.appendChild(image);
+            } else {
+                const label = document.createElement('span'); label.textContent = String(item.label || item.id).slice(0, 2); element.appendChild(label);
+            }
+            element._roundeditorExtensionItem = item;
+            group.appendChild(element);
+        }
+        for (const [group, placement] of placements) this.placeExtensionGroup(group, placement);
+    }
+
+    placeExtensionGroup(group, placement) {
+        const before = typeof placement?.before === 'string' ? placement.before : null;
+        const after = typeof placement?.after === 'string' ? placement.after : null;
+        if ((before && after) || (!before && !after)) return this.placeBeforeUtilityTools(group);
+        const targetName = before || after;
+        const target = Array.from(this.primaryRow.querySelectorAll('[data-group]'))
+            .find(candidate => candidate !== group && candidate.dataset.group === targetName);
+        if (!target) return this.placeBeforeUtilityTools(group);
+        if (before) this.primaryRow.insertBefore(group, target);
+        else this.primaryRow.insertBefore(group, target.nextSibling);
+    }
+
+    placeBeforeUtilityTools(group) {
+        const components = this.primaryRow.querySelector('[data-group="components"]');
+        const utilityBoundary = components || this.primaryRow.querySelector('.roundeditor__toolbar-spacer');
+        this.primaryRow.insertBefore(group, utilityBoundary || null);
     }
 
     moreButton(group, icon = 'more') {
@@ -295,31 +345,41 @@ export class Toolbar {
         for (const more of this.element.querySelectorAll('[data-more-group]')) more.setAttribute('aria-expanded', 'false');
     }
 
-    openPanel(name, title, content) {
+    openPanel(name, title, content, onClose = null) {
         if (this.panelName === name) {
-            this.closePanel();
-            return;
+            this.closePanel('toggle');
+            return false;
         }
+        if (this.panelName) this.closePanel('replaced');
         this.panelName = name;
+        this.panelContent = content;
+        this.panelOnClose = onClose;
         this.panel.dataset.panel = name;
         const heading = document.createElement('div');
         heading.className = 'roundeditor__panel-heading';
         const titleElement = document.createElement('strong');
         titleElement.textContent = title;
         const close = button('close', this.labels);
-        close.addEventListener('click', () => this.closePanel());
+        close.addEventListener('click', () => this.closePanel('button'));
         heading.append(titleElement, close);
         this.panel.replaceChildren(heading, content);
         this.panel.hidden = false;
+        return true;
     }
 
-    closePanel() {
-        this.panel.querySelector('.roundeditor__image-panel, .roundeditor__video-panel, .roundeditor__sticker-panel')
-            ?.dispatchEvent(new window.Event('roundeditor:close'));
+    closePanel(reason = 'api', expectedName = null) {
+        if (!this.panelName || (expectedName && this.panelName !== expectedName)) return false;
+        const content = this.panelContent;
+        const onClose = this.panelOnClose;
         this.panelName = null;
+        this.panelContent = null;
+        this.panelOnClose = null;
         delete this.panel.dataset.panel;
+        content?.dispatchEvent(new window.CustomEvent('roundeditor:close', { detail: { reason } }));
         this.panel.hidden = true;
         this.panel.replaceChildren();
+        onClose?.(reason);
+        return true;
     }
 
     choices(name, values, formatter, action) {
@@ -361,6 +421,12 @@ export class Toolbar {
     }
 
     execute(name) {
+        if (this.bridge.extensionHost?.hasCommand(name)) {
+            const item = Array.from(this.element.querySelectorAll('[data-extension-toolbar-id]'))
+                .find(element => element.dataset.command === name)?._roundeditorExtensionItem;
+            this.bridge.integration.commands.execute(name, item?.params);
+            return;
+        }
         if (name.startsWith('component:')) {
             openComponent(this.bridge, name.slice('component:'.length));
             return;
@@ -565,5 +631,18 @@ export class Toolbar {
         fullscreenButton?.setAttribute('aria-pressed', String(fullscreenActive));
         const count = sourceActive ? this.bridge.sourceMode.getData().length : state.doc.textContent.length;
         this.counter.textContent = `${this.labels.characterCount} : ${count}`;
+        for (const element of this.element.querySelectorAll('[data-extension-toolbar-id]')) {
+            const item = element._roundeditorExtensionItem;
+            try {
+                element.hidden = item.visible ? !item.visible(this.bridge.integration) : false;
+                element.disabled = sourceActive || (item.enabled ? !item.enabled(this.bridge.integration) : false);
+                const active = item.active ? Boolean(item.active(this.bridge.integration)) : false;
+                element.classList.toggle('roundeditor__tool--active', active);
+                element.setAttribute('aria-pressed', String(active));
+            } catch (error) {
+                element.disabled = true;
+                console.error('[roundeditor] Extension toolbar predicate failed.', error);
+            }
+        }
     }
 }

@@ -117,7 +117,7 @@ function structurallyEditable(element) {
     return true;
 }
 
-function visitElement(element) {
+function visitElement(element, options = {}) {
     const tagName = element.tagName.toLowerCase();
     if (tagName === 'span' && element.hasAttribute('data-roundeditor-video')) {
         const video = element.querySelector('video');
@@ -129,7 +129,7 @@ function visitElement(element) {
             || Array.from(element.children).find(child => child !== video && child.tagName === 'SPAN');
         if (caption) video.setAttribute('data-rx-roundeditor-caption', caption.textContent || '');
         element.replaceWith(video);
-        visitElement(video);
+        visitElement(video, options);
         return;
     }
     if (tagName === 'span' && element.hasAttribute('data-roundeditor-image')) {
@@ -141,7 +141,7 @@ function visitElement(element) {
                 : null;
             if (caption) video.setAttribute('data-rx-roundeditor-caption', caption.textContent || '');
             element.replaceWith(video);
-            visitElement(video);
+            visitElement(video, options);
             return;
         }
         if (!image) {
@@ -156,7 +156,7 @@ function visitElement(element) {
         if (baseAlt !== null) image.setAttribute('alt', baseAlt);
         if (caption) image.setAttribute('data-rx-roundeditor-caption', caption.textContent || '');
         element.replaceWith(image);
-        visitElement(image);
+        visitElement(image, options);
         return;
     }
     if (DANGEROUS_TAGS.has(tagName)) {
@@ -164,7 +164,7 @@ function visitElement(element) {
         return;
     }
     if (!ALLOWED_TAGS.has(tagName)) {
-        for (const child of Array.from(element.children)) visitElement(child);
+        for (const child of Array.from(element.children)) visitElement(child, options);
         unwrapElement(element);
         return;
     }
@@ -180,7 +180,31 @@ function visitElement(element) {
         return;
     }
 
+    const extensionId = element.getAttribute('data-roundeditor-extension');
+    const fallback = element.getAttribute('data-roundeditor-fallback');
     sanitizeElementAttributes(element);
+    if (extensionId && fallback && !options.activeExtensions?.has(extensionId)) {
+        if (fallback === 'drop') {
+            element.remove();
+            return;
+        }
+        if (fallback === 'preserve-content' || fallback === 'drop-mark') {
+            for (const child of Array.from(element.children)) visitElement(child, options);
+            unwrapElement(element);
+            return;
+        }
+        if (fallback === 'raw-block' || fallback === 'raw-inline') {
+            sanitizeRawSubtree(element);
+            element.setAttribute('data-roundeditor-extension', extensionId);
+            element.setAttribute('data-roundeditor-fallback', fallback);
+            rawReplacement(element, fallback === 'raw-block' ? 'block' : 'inline');
+            return;
+        }
+    }
+    if ((extensionId && fallback && options.activeExtensions?.has(extensionId)) || options.isExtensionElement?.(element)) {
+        for (const child of Array.from(element.children)) visitElement(child, options);
+        return;
+    }
     const component = element.getAttribute('editor_component');
     const nativeImageComponent = tagName === 'img' && component === 'image_link';
     const oembedComponent = tagName === 'div' && component === 'oembed';
@@ -207,7 +231,7 @@ function visitElement(element) {
         return;
     }
 
-    for (const child of Array.from(element.children)) visitElement(child);
+    for (const child of Array.from(element.children)) visitElement(child, options);
 }
 
 function isBlockNode(node) {
@@ -295,11 +319,11 @@ function wrapInlineRuns(container, createEmpty = false) {
     }
 }
 
-export function normalizeForParse(html) {
+export function normalizeForParse(html, options = {}) {
     const template = document.createElement('template');
     template.innerHTML = String(html || '');
 
-    for (const element of Array.from(template.content.children)) visitElement(element);
+    for (const element of Array.from(template.content.children)) visitElement(element, options);
     extractTableCaptions(template.content);
     removeTableFormattingWhitespace(template.content);
     for (const paragraph of Array.from(template.content.querySelectorAll('p'))) splitParagraphAtBlocks(paragraph);

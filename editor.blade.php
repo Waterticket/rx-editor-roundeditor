@@ -10,7 +10,7 @@
     @endif
 @else
     @load('dist/roundeditor.css')
-    @load('dist/roundeditor.min.js', 'module')
+    @load('js/local-loader.js')
 @endif
 
 <div id="roundeditor_instance_{{ $editor_sequence }}"

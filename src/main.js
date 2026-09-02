@@ -11,6 +11,7 @@ import '../css/roundeditor.scss';
 import { AttachmentList } from './AttachmentList.js';
 import { createCKEditor4Facade } from './compat/CKEditor4Facade.js';
 import { createEditorHandle, installIntegrationGlobal } from './integration.js';
+import { createExtensionHost, prepareExtensions } from './extensions/host.js';
 import { updateEditorDocument } from './documentUpdate.js';
 import { handleImagePaste, imageFiles, uploadImagesAt } from './images.js';
 import { mediaSelectionPlugin } from './mediaSelection.js';
@@ -23,7 +24,6 @@ import { stickerNodeView } from './nodeviews/StickerView.js';
 import { tableNodeView } from './nodeviews/TableView.js';
 import { enableAutosave, restoreSavedDocument } from './rhymix/autosave.js';
 import { installComponentEditing } from './rhymix/component.js';
-import { normalizeForParse, parseDocument, parseSlice, schema, serializeDocument } from './schema/index.js';
 import { Fullscreen } from './ui/Fullscreen.js';
 import { SourceMode } from './ui/SourceMode.js';
 import { Toolbar } from './ui/Toolbar.js';
@@ -91,7 +91,7 @@ function ensureHiddenField(form, name, value) {
     return field;
 }
 
-function createPlugins(config) {
+function createPlugins(config, schema, extensionPlugins = []) {
     const plugins = [
         history(),
         keymap({
@@ -116,7 +116,7 @@ function createPlugins(config) {
         gapCursor(),
     ];
     if (config.oembedAvailable) plugins.splice(5, 0, oembedPlaceholderPlugin());
-    return plugins;
+    return [...plugins, ...extensionPlugins];
 }
 
 function handleMediaDrop(bridge, event, moved) {
@@ -150,15 +150,20 @@ function insertHtml(bridge, html) {
         bridge.sourceMode.focus();
         return bridge.sync();
     }
-    const parsed = parseDocument(html);
+    let request = { html: String(html || ''), source: 'legacy', metadata: undefined };
+    const transformed = bridge.extensionHost?.transformInsert(request);
+    if (transformed?.handled) return bridge.sync();
+    request = transformed || request;
+    html = request.html;
+    const parsed = bridge.schemaServices.parseDocument(html);
     const parsedParagraphs = Array.from({ length: parsed.childCount }, (_, index) => parsed.child(index));
     const insertionParagraphs = parsedParagraphs.filter(paragraph => !(
-        paragraph.type === schema.nodes.paragraph
+        paragraph.type === bridge.schema.nodes.paragraph
         && paragraph.attrs.unwrap
         && paragraph.childCount === 0
     ));
     const isMediaParagraph = paragraph => (
-        paragraph.type === schema.nodes.paragraph
+        paragraph.type === bridge.schema.nodes.paragraph
         && paragraph.childCount > 0
         && Array.from({ length: paragraph.childCount }, (_, index) => paragraph.child(index))
             .every(node => ['audio', 'image', 'video'].includes(node.type.name))
@@ -174,7 +179,7 @@ function insertHtml(bridge, html) {
                 paragraph.type.create({ ...paragraph.attrs, unwrap: false }, paragraph.child(index), paragraph.marks)
             ))
         ))), 0, 0)
-        : parseSlice(html);
+        : bridge.schemaServices.parseSlice(html);
     let transaction = bridge.view.state.tr.replaceSelection(slice);
     if (mediaParagraphs) {
         const temporaryMediaParagraphs = [];
@@ -194,7 +199,7 @@ function insertHtml(bridge, html) {
 function selectedHtml(bridge) {
     const sourceSelection = bridge.sourceMode?.selectedHtml();
     if (sourceSelection !== null && sourceSelection !== undefined) return sourceSelection;
-    return serializeDocument({ content: bridge.view.state.selection.content().content }, schema);
+    return bridge.schemaServices.serializeDocument({ content: bridge.view.state.selection.content().content });
 }
 
 function plainText(bridge, selected = false) {
@@ -339,7 +344,7 @@ function showError(wrapper, error) {
     console.error('[roundeditor] Initialization failed.', error);
 }
 
-function initialize(wrapper) {
+async function initialize(wrapper) {
     const config = readConfig(wrapper);
     loadContentCss(config.contentCss);
     const sequence = normalizeSequence(config.editorSequence || wrapper.dataset.editorSequence);
@@ -349,6 +354,12 @@ function initialize(wrapper) {
     const contentInput = findNamedControl(form, config.contentKeyName);
     if (!contentInput) throw new Error(`The Rhymix content field "${config.contentKeyName}" was not found.`);
 
+    const capabilities = new Set([
+        'content.readHTML', 'content.insertHTML', 'content.replaceDocument', 'selection.readHTML',
+        'selection.anchor', 'component.read', 'component.write', 'mode.source', 'ui.notification',
+        ...(config.allowUpload ? ['attachment.read', 'attachment.upload', 'attachment.delete'] : []),
+    ]);
+    const prepared = prepareExtensions(config, capabilities);
     const bridge = {
         wrapper,
         form,
@@ -365,6 +376,9 @@ function initialize(wrapper) {
         fullscreen: null,
         attachments: null,
         integration: null,
+        extensionHost: null,
+        schemaServices: prepared.schemaServices,
+        schema: prepared.schemaServices.schema,
         imageViews: new Set(),
         rebindControls() {
             const currentForm = this.wrapper.closest('form') || this.form;
@@ -385,20 +399,31 @@ function initialize(wrapper) {
             return plainText(this, selected);
         },
         serializeVisual() {
-            return serializeDocument(this.view.state.doc, schema);
+            return this.schemaServices.serializeDocument(this.view.state.doc);
         },
         prepareSubmit() {
             this.sourceMode?.commit();
             return this.sync();
         },
         updateDocument(html) {
-            updateEditorDocument(this.view, parseDocument(html));
+            updateEditorDocument(this.view, this.schemaServices.parseDocument(html));
         },
     };
+    bridge.integration = createEditorHandle(bridge, { register: false });
+    try {
+        bridge.extensionHost = createExtensionHost(bridge, prepared.records);
+    } catch (error) {
+        for (const record of [...prepared.records].reverse()) {
+            try { record.instance?.destroy?.(); } catch (_) {}
+            for (const resource of [...record.resources].reverse()) resource.release();
+        }
+        bridge.integration._destroy();
+        throw error;
+    }
     const initialData = restoreSavedDocument(bridge);
     const state = EditorState.create({
-        doc: parseDocument(initialData),
-        plugins: createPlugins(config),
+        doc: bridge.schemaServices.parseDocument(initialData),
+        plugins: createPlugins(config, bridge.schema, bridge.extensionHost.plugins),
     });
     bridge.view = new EditorView(wrapper.querySelector('.roundeditor__surface'), {
         state,
@@ -407,14 +432,16 @@ function initialize(wrapper) {
             'data-editor-sequence': String(sequence),
             spellcheck: 'false',
         },
-        transformPastedHTML: normalizeForParse,
+        transformPastedHTML: bridge.schemaServices.normalizeForParse,
         handlePaste: (view, event) => (
-            handleImagePaste(bridge, event)
+            bridge.extensionHost.handlePaste(event)
+            || handleImagePaste(bridge, event)
             || fireCompatibilityPaste(bridge, event)
             || handleOembedPaste(bridge, event)
         ),
         handleDrop: (view, event, slice, moved) => (
-            handleMediaDrop(bridge, event, moved)
+            bridge.extensionHost.handleDrop(event, moved)
+            || handleMediaDrop(bridge, event, moved)
             || bridge.compat?.fire('drop', { dataTransfer: { $: event.dataTransfer } }).stopped
         ),
         nodeViews: {
@@ -424,11 +451,13 @@ function initialize(wrapper) {
             video: videoNodeView(bridge),
             sticker: stickerNodeView(bridge),
             table: tableNodeView(bridge),
+            ...bridge.extensionHost.nodeViews,
         },
         dispatchTransaction(transaction) {
             const previousState = bridge.view.state;
             bridge.view.updateState(bridge.view.state.apply(transaction));
             bridge.integration?._mapTransaction(transaction);
+            bridge.extensionHost.afterTransaction([transaction], previousState, bridge.view.state);
             bridge.sync();
             bridge.attachments?.refreshUsageState();
             bridge.toolbar?.refresh(bridge.view.state);
@@ -452,7 +481,6 @@ function initialize(wrapper) {
     bridge.sourceMode = new SourceMode(bridge);
     bridge.fullscreen = new Fullscreen(bridge);
     if (config.allowUpload) bridge.attachments = new AttachmentList(bridge);
-    bridge.integration = createEditorHandle(bridge);
     bridge.editable.addEventListener('focus', () => {
         window.RoundEditor?._activate(bridge.integration);
         bridge.integration?._emit('focus', { editor: bridge.integration });
@@ -466,13 +494,23 @@ function initialize(wrapper) {
     ensureHiddenField(form, 'use_html', 'Y');
     applyContentStyles(bridge);
     publishBridges();
-    queueMicrotask(() => bridge.compat._markReady());
     installComponentEditing(bridge);
 
     form.addEventListener('submit', () => bridge.prepareSubmit(), true);
     bridge.sync();
     enableAutosave(bridge);
     resolveDocumentStickers(bridge).catch(error => console.warn('[roundeditor] Sticker resolution failed.', error));
+    try {
+        await bridge.extensionHost.ready();
+    } catch (error) {
+        bridge.extensionHost.destroy();
+        bridge.view.destroy(); bridge._viewDestroyed = true;
+        bridge.integration._destroy();
+        delete registry[sequence];
+        throw error;
+    }
+    bridge.integration._publish();
+    queueMicrotask(() => bridge.compat._markReady());
     wrapper.querySelector('.roundeditor__loading')?.remove();
     wrapper.classList.add('roundeditor--ready');
     bridge.integration?._emit('ready', { editor: bridge.integration });
@@ -480,21 +518,24 @@ function initialize(wrapper) {
 }
 
 function boot() {
+    window.RoundEditor?._extensionHost?.markEditorGenerationStarted();
     document.querySelectorAll('.roundeditor:not([data-roundeditor-started])').forEach(wrapper => {
         wrapper.setAttribute('data-roundeditor-started', 'true');
-        try {
-            initialize(wrapper);
-        } catch (error) {
-            showError(wrapper, error);
-        }
+        Promise.resolve().then(() => initialize(wrapper)).catch(error => showError(wrapper, error));
     });
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
-} else {
-    boot();
+function startBoot() {
+    Promise.resolve(window.RoundEditor?._extensionHost?.prepareFromDocument?.())
+        .then(boot)
+        .catch(error => document.querySelectorAll('.roundeditor:not([data-roundeditor-started])').forEach(wrapper => {
+            wrapper.setAttribute('data-roundeditor-started', 'true');
+            showError(wrapper, error);
+        }));
 }
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startBoot, { once: true });
+else startBoot();
 
 window.addEventListener('load', publishBridges);
 window.addEventListener('pageshow', () => {

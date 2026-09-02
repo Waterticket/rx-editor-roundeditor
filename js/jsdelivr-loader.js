@@ -86,6 +86,21 @@
         }
     }
 
+    function afterExtensionRegistration(callback) {
+        function start() {
+            var barrier = window.RoundEditor?._extensionHost?.prepareFromDocument?.() || Promise.resolve();
+            Promise.resolve(barrier).then(callback).catch(function (error) {
+                document.querySelectorAll('.roundeditor').forEach(function (wrapper) {
+                    wrapper.classList.add('roundeditor--error');
+                    var surface = wrapper.querySelector('.roundeditor__surface');
+                    if (surface) surface.textContent = 'roundeditor extension initialization failed.\n' + (error.message || error);
+                });
+            });
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
+        else start();
+    }
+
     function configureAttachmentIcons(url, prefix) {
         var selector = 'use[href*="attachment-icons.svg#"]';
 
@@ -192,7 +207,7 @@
         installCkeditorBootstrap();
         loadStylesheet(localCss);
         loadAttachmentIcons(localAttachmentIcons, localAttachmentIcons, function () {
-            loadModule(localJs);
+            afterExtensionRegistration(function () { loadModule(localJs); });
         });
         return;
     }
@@ -205,7 +220,7 @@
         cdnRoot.replace(/dist\/$/, 'assets/') + 'attachment-icons.svg',
         localAttachmentIcons,
         function () {
-            loadModule(cdnRoot + 'roundeditor.min.js', localJs);
+            afterExtensionRegistration(function () { loadModule(cdnRoot + 'roundeditor.min.js', localJs); });
         }
     );
 }());

@@ -1,21 +1,20 @@
 import { DOMSerializer } from 'prosemirror-model';
 import { NodeSelection } from 'prosemirror-state';
-import { parseSlice, schema } from '../schema/index.js';
 import { invalidateComponentDetails } from './componentPresentation.js';
 
 const COMPONENT_TYPES = new Set(['rhymixComponentBlock', 'rhymixComponentInline']);
 
-function componentName(node) {
+function componentName(node, bridge) {
     const template = document.createElement('template');
     if (COMPONENT_TYPES.has(node.type.name)) template.innerHTML = node.attrs.html;
-    else template.content.appendChild(DOMSerializer.fromSchema(schema).serializeNode(node));
+    else template.content.appendChild(DOMSerializer.fromSchema(bridge.schema).serializeNode(node));
     return template.content.querySelector('[editor_component]')?.getAttribute('editor_component') || '';
 }
 
-function proxyHtml(node) {
+function proxyHtml(node, bridge) {
     if (COMPONENT_TYPES.has(node.type.name)) return node.attrs.html;
     const container = document.createElement('div');
-    container.appendChild(DOMSerializer.fromSchema(schema).serializeNode(node));
+    container.appendChild(DOMSerializer.fromSchema(bridge.schema).serializeNode(node));
     return container.innerHTML;
 }
 
@@ -52,14 +51,14 @@ export function installComponentEditing(bridge) {
     bridge.editable.addEventListener('dblclick', event => {
         const match = componentAtEvent(bridge, event.target);
         if (!match) return;
-        const name = componentName(match.node);
+        const name = componentName(match.node, bridge);
         if (!name || !Object.prototype.hasOwnProperty.call(bridge.config.components || {}, name)) return;
         event.preventDefault();
         event.stopPropagation();
 
         const holder = document.createElement('div');
         holder.className = 'roundeditor__component-proxy';
-        holder.innerHTML = proxyHtml(match.node);
+        holder.innerHTML = proxyHtml(match.node, bridge);
         bridge.wrapper.appendChild(holder);
         window.editorPrevNode = holder.firstElementChild;
         bridge.view.dispatch(bridge.view.state.tr.setSelection(NodeSelection.create(bridge.view.state.doc, match.position)));
@@ -74,7 +73,7 @@ export function installComponentEditing(bridge) {
                 if (!holder.isConnected) return;
                 try {
                     invalidateComponentDetails(name, holder.querySelector('[editor_component]'));
-                    const slice = parseSlice(holder.innerHTML);
+                    const slice = bridge.schemaServices.parseSlice(holder.innerHTML);
                     const transaction = bridge.view.state.tr.replaceRange(
                         match.position,
                         match.position + match.node.nodeSize,

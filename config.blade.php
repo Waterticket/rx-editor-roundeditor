@@ -179,6 +179,73 @@ $roundeditorConfig = [
     'labels' => is_array($roundeditorLabels) ? $roundeditorLabels : [],
 ];
 
+// Extension approval must happen before the config is serialized. The trigger
+// itself is the trust boundary for entrypoint scripts; browser runtime assets
+// remain subject to their separate allowlist.
+$roundeditorExtensionContext = (object) [
+    'editor_sequence' => $roundeditorConfig['editorSequence'],
+    'module_srl' => $roundeditorConfig['moduleSrl'],
+    'upload_target_srl' => $roundeditorConfig['uploadTargetSrl'],
+    'mid' => $roundeditorConfig['mid'],
+    'extensions' => [],
+];
+$roundeditorExtensionResult = ModuleHandler::triggerCall(
+    'editor.roundeditor.extensions',
+    'before',
+    $roundeditorExtensionContext
+);
+$roundeditorExtensionScripts = [];
+$roundeditorApprovedExtensions = [];
+if ($roundeditorExtensionResult instanceof BaseObject && !$roundeditorExtensionResult->toBool()) {
+    $roundeditorConfig['extensionHostFailure'] = (string)($roundeditorExtensionResult->getMessage() ?: 'Extension approval trigger failed.');
+} else {
+    foreach (is_array($roundeditorExtensionContext->extensions ?? null) ? $roundeditorExtensionContext->extensions : [] as $roundeditorDescriptor) {
+        $roundeditorDescriptor = is_object($roundeditorDescriptor) ? get_object_vars($roundeditorDescriptor) : $roundeditorDescriptor;
+        if (!is_array($roundeditorDescriptor)) continue;
+        $roundeditorExtensionId = trim((string)($roundeditorDescriptor['id'] ?? ''));
+        $roundeditorExtensionScript = trim((string)($roundeditorDescriptor['script'] ?? ''));
+        if (!preg_match('/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/', $roundeditorExtensionId)) continue;
+        if (!preg_match('~^(?:https://|/|\./|\.\./)[^\x00-\x1F]+$~', $roundeditorExtensionScript)) continue;
+        if (!str_starts_with($roundeditorExtensionScript, 'https://')) {
+            $roundeditorExtensionScript = rtrim((string)\RX_BASEURL, '/') . '/' . ltrim($roundeditorExtensionScript, './');
+        }
+        $roundeditorExtensionMode = in_array(($roundeditorDescriptor['mode'] ?? 'extension'), ['extension', 'integration', 'both'], true)
+            ? $roundeditorDescriptor['mode'] : 'extension';
+        $roundeditorExtensionFormat = ($roundeditorDescriptor['format'] ?? 'classic') === 'module' ? 'module' : 'classic';
+        $roundeditorExtensionRequired = (bool)($roundeditorDescriptor['required'] ?? false);
+        $roundeditorExtensionPriority = max(-100, min(100, (int)($roundeditorDescriptor['priority'] ?? 0)));
+        $roundeditorExtensionScripts[] = [
+            'id' => $roundeditorExtensionId,
+            'script' => $roundeditorExtensionScript,
+            'mode' => $roundeditorExtensionMode,
+            'format' => $roundeditorExtensionFormat,
+            'required' => $roundeditorExtensionRequired,
+            'priority' => $roundeditorExtensionPriority,
+        ];
+        if ($roundeditorExtensionMode !== 'integration') {
+            $roundeditorApprovedExtensions[] = [
+                'id' => $roundeditorExtensionId,
+                'required' => $roundeditorExtensionRequired,
+                'config' => is_array($roundeditorDescriptor['config'] ?? null) || is_object($roundeditorDescriptor['config'] ?? null)
+                    ? $roundeditorDescriptor['config'] : (object)[],
+            ];
+        }
+    }
+    $roundeditorExtensionPriorities = array_column($roundeditorExtensionScripts, 'priority');
+    $roundeditorExtensionIds = array_column($roundeditorExtensionScripts, 'id');
+    array_multisort(
+        $roundeditorExtensionPriorities,
+        SORT_DESC,
+        SORT_NUMERIC,
+        $roundeditorExtensionIds,
+        SORT_ASC,
+        SORT_STRING,
+        $roundeditorExtensionScripts
+    );
+    $roundeditorConfig['extensionScripts'] = $roundeditorExtensionScripts;
+    $roundeditorConfig['approvedExtensions'] = $roundeditorApprovedExtensions;
+}
+
 $roundeditor_config_json = json_encode(
     $roundeditorConfig,
     JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
@@ -226,6 +293,17 @@ unset(
     $roundeditorComponentName,
     $roundeditorComponent,
     $roundeditorSavedDocument,
+    $roundeditorExtensionContext,
+    $roundeditorExtensionResult,
+    $roundeditorExtensionScripts,
+    $roundeditorApprovedExtensions,
+    $roundeditorDescriptor,
+    $roundeditorExtensionId,
+    $roundeditorExtensionScript,
+    $roundeditorExtensionMode,
+    $roundeditorExtensionFormat,
+    $roundeditorExtensionRequired,
+    $roundeditorExtensionPriority,
     $roundeditorConfig
 );
 

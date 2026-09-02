@@ -254,6 +254,29 @@ export function handleOembedPaste(bridge, event) {
     if (host && loadFailedHosts()[host]) return false;
 
     event.preventDefault();
+    if (bridge.extensionHost?.beginAsyncContent) {
+        const escaped = url.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('"', '&quot;');
+        const task = bridge.extensionHost.beginAsyncContent({
+            kind: 'rx.oembed',
+            placeholderHTML: `<p><a href="${escaped}">${escaped}</a></p>`,
+            originalHTML: `<p>${escaped}</p>`,
+            source: 'module:oembed',
+        });
+        queueOembedFetch(bridge, url, host).then(response => {
+            if ((response.kind === 'embed' || response.kind === 'card') && response.wrapped_html) {
+                if (task.alive) {
+                    task.replaceHTML(response.wrapped_html, { appendParagraph: true });
+                    forgetFailedHost(host);
+                    syncUploadTarget(bridge, response.upload_target_srl);
+                    if (response.file_srl) bridge.attachments?.refresh();
+                } else if (response.file_srl) abortAttachment(bridge, response.file_srl);
+                return;
+            }
+            if (host && !response.provider) rememberFailedHost(host);
+            if (task.alive) task.restoreOriginal();
+        });
+        return true;
+    }
     const placeholderId = insertPlaceholder(bridge, url);
     if (!placeholderId) return true;
 

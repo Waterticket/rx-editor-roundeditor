@@ -653,6 +653,39 @@ body.color_scheme_dark .roundeditor__attachments--auto {
     white-space: pre-wrap;
 }
 
+// A stored font-size mark has no DOM representation until text is entered,
+// so the browser's native caret remains at the editor's default size. The
+// widget supplies an immediate, document-neutral preview of the typing size.
+.roundeditor__surface .ProseMirror-focused:has(.roundeditor__caret-preview) {
+    caret-color: transparent;
+}
+
+.roundeditor__caret-preview {
+    display: none;
+    width: 0;
+    height: 1em;
+    border-left: 1px solid currentColor;
+    margin-left: -0.5px;
+    font-size: var(--roundeditor-caret-font-size);
+    line-height: 1;
+    vertical-align: text-bottom;
+    pointer-events: none;
+    animation: roundeditor-caret-blink 1.06s steps(1, end) infinite;
+}
+
+.roundeditor__surface .ProseMirror-focused .roundeditor__caret-preview {
+    display: inline-block;
+}
+
+@keyframes roundeditor-caret-blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .roundeditor__caret-preview { animation: none; }
+}
+
 .roundeditor__surface .ProseMirror blockquote {
     margin: 12px 0;
     padding: 8px 14px;

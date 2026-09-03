@@ -30,6 +30,7 @@ import { exitInlineNode, splitEditorEnter } from './ui/commands.js';
 import { uploadPlaceholderPlugin } from './uploadPlaceholders.js';
 import { tableEditingUiPlugin } from './table/TableEditingPlugin.js';
 import { uploadVideosAt, videoFiles } from './videos.js';
+import { caretPreviewPlugin } from './caretPreview.js';
 
 const registry = Object.create(null);
 let previousGlobals = null;
@@ -105,6 +106,7 @@ function createPlugins(config, schema, extensionPlugins = []) {
             Enter: splitEditorEnter,
         }),
         keymap(baseKeymap),
+        caretPreviewPlugin(),
         uploadPlaceholderPlugin(),
         mediaSelectionPlugin({ labels: config.labels }),
         columnResizing({ handleWidth: 6, cellMinWidth: 40, defaultCellMinWidth: 100 }),

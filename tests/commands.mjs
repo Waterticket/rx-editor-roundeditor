@@ -55,6 +55,12 @@ assert.equal(
 inline.run(clearFormatting);
 assert.equal(inline.html(), '<p>Hello</p>');
 
+const storedFontSize = editor('<p></p>');
+storedFontSize.run(setTextStyle(schema.marks.fontSize, '72px'));
+assert.equal(schema.marks.fontSize.isInSet(storedFontSize.state.storedMarks)?.attrs.value, '72px');
+storedFontSize.dispatch(storedFontSize.state.tr.insertText('크기'));
+assert.equal(storedFontSize.html(), '<p><span style="font-size:72px;">크기</span></p>');
+
 const paragraph = editor();
 paragraph.run(setTextblockAttrs({ align: 'center', lineHeight: '1.8' }));
 paragraph.run(changeIndent(1));

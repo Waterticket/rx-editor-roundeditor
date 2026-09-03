@@ -249,56 +249,6 @@ export const nodes = {
         parseDOM: [{ tag: 'li', getAttrs: element => ({ extra: extraAttrs(element) }) }],
         toDOM: node => ['li', domAttributes(node.attrs.extra), 0],
     },
-    sticker: {
-        inline: true,
-        group: 'inline',
-        atom: true,
-        draggable: true,
-        selectable: true,
-        attrs: {
-            stickerSrl: { default: null },
-            fileSrl: { default: null },
-            mediaType: { default: 'image' },
-            src: { default: '' },
-            videoSrc: { default: null },
-            title: { default: '' },
-            width: { default: 100 },
-            height: { default: 100 },
-            displayWidth: { default: '100px' },
-            displayHeight: { default: '100px' },
-            extra: { default: null },
-        },
-        parseDOM: [{
-            tag: 'img[data-rx-sticker]',
-            priority: 100,
-            getAttrs: element => {
-                const [stickerSrl, fileSrl] = String(element.getAttribute('data-rx-sticker') || '').split('|');
-                return {
-                    stickerSrl: stickerSrl || null,
-                    fileSrl: fileSrl || null,
-                    mediaType: element.getAttribute('data-rx-sticker-type') || 'image',
-                    src: element.getAttribute('src') || '',
-                    title: element.getAttribute('alt') || '',
-                    width: element.getAttribute('width') || 100,
-                    height: element.getAttribute('height') || 100,
-                    displayWidth: element.style.getPropertyValue('width') || `${element.getAttribute('width') || 100}px`,
-                    displayHeight: element.style.getPropertyValue('height') || `${element.getAttribute('height') || 100}px`,
-                    extra: extraAttrs(element, ['data-rx-sticker', 'data-rx-sticker-type', 'src', 'alt', 'width', 'height']),
-                };
-            },
-        }],
-        toDOM: node => ['img', mergeStyle(node.attrs.extra, {
-            width: node.attrs.displayWidth,
-            height: node.attrs.displayHeight,
-        }, {
-            src: node.attrs.src,
-            alt: node.attrs.title,
-            width: node.attrs.width,
-            height: node.attrs.height,
-            'data-rx-sticker': `${node.attrs.stickerSrl}|${node.attrs.fileSrl}`,
-            'data-rx-sticker-type': node.attrs.mediaType,
-        })],
-    },
     image: {
         inline: true,
         group: 'inline',
@@ -507,7 +457,13 @@ export const nodes = {
         selectable: true,
         draggable: true,
         attrs: { html: {}, extra: { default: null } },
-        parseDOM: [{ tag: RAW_INLINE_SELECTOR, getAttrs: rawAttrsFromDom }],
+        parseDOM: [{
+            tag: 'img[data-rx-sticker]',
+            priority: 90,
+            // Keep legacy sticker HTML losslessly when its extension is disabled.
+            // The sticker extension contributes the same selector at priority 100.
+            getAttrs: element => ({ html: element.outerHTML }),
+        }, { tag: RAW_INLINE_SELECTOR, getAttrs: rawAttrsFromDom }],
         toDOM: node => rawDomSpec('span', 'inline', node.attrs.html),
     },
     table: {

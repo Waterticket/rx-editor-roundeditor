@@ -32,6 +32,12 @@ const serialized = cleaned.map(html => serializeDocument(parseDocument(html), sc
 const cleanedAfterRoundTrip = cleanBatch(serialized);
 const editorCanonical = {};
 for (const [index, fixture] of fixtures.entries()) {
+    if (fixture.name === 'inline sticker') {
+        assert.match(serialized[index], /data-rx-sticker="12\|34"/, 'legacy sticker is preserved without its extension');
+        assert.equal(parseDocument(serialized[index]).firstChild.child(1).type.name, 'rawInline', 'legacy sticker uses the raw-inline fallback');
+        assert.match(cleanedAfterRoundTrip[index], /data-rx-sticker="12\|34"/, 'HTMLFilter preserves the legacy sticker fallback');
+        continue;
+    }
     const hasEditorPresentation = fixture.name === 'image' || fixture.name === 'table';
     const expected = editorCanonical[fixture.name] || (hasEditorPresentation ? cleanedAfterRoundTrip[index] : cleaned[index]);
     assert.equal(cleanedAfterRoundTrip[index], expected, `${fixture.name}: editor round trip changed clean HTML`);

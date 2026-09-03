@@ -125,7 +125,7 @@ const registration = window.RoundEditor.extensions.register({
             },
             keymap: { 'Mod-Shift-K': 'insertCard' },
             toolbar: [
-                { id: 'card', label: 'Card', command: 'insertCard', params: { title: 'Toolbar' }, group: 'insert' },
+                { id: 'card', label: 'Card', command: 'insertCard', params: { title: 'Toolbar' }, group: 'insert', icon: { type: 'svg', svg: '<path d="M4 12h16"/>' } },
                 { id: 'panel', label: 'Panel', command: 'openPanel', group: 'vendor-after-text', placement: { after: 'text' } },
             ],
             hooks: {
@@ -209,6 +209,7 @@ assert.match(markedHTML, /data-roundeditor-fallback="drop-mark"/);
 const unmarkedOffline = coreSchema.serializeDocument(coreSchema.parseDocument(markedHTML), coreSchema.schema);
 assert.equal(unmarkedOffline, '<p>Keep Both</p>');
 assert.equal(document.querySelector('[data-extension-toolbar-id="vendor.contract:card"]').getAttribute('aria-label'), 'Card');
+assert.match(document.querySelector('[data-extension-toolbar-id="vendor.contract:card"] svg').innerHTML, /path/);
 const defaultGroup = document.querySelector('[data-group="insert"]');
 const componentsGroup = document.querySelector('[data-group="components"]');
 const spacer = document.querySelector('.roundeditor__toolbar-spacer');

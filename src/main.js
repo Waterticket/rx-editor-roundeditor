@@ -20,7 +20,6 @@ import { imageNodeView } from './nodeviews/ImageView.js';
 import { audioNodeView } from './nodeviews/AudioView.js';
 import { rawNodeViews } from './nodeviews/RawView.js';
 import { videoNodeView } from './nodeviews/VideoView.js';
-import { stickerNodeView } from './nodeviews/StickerView.js';
 import { tableNodeView } from './nodeviews/TableView.js';
 import { enableAutosave, restoreSavedDocument } from './rhymix/autosave.js';
 import { installComponentEditing } from './rhymix/component.js';
@@ -30,7 +29,6 @@ import { Toolbar } from './ui/Toolbar.js';
 import { exitInlineNode, splitEditorEnter } from './ui/commands.js';
 import { uploadPlaceholderPlugin } from './uploadPlaceholders.js';
 import { tableEditingUiPlugin } from './table/TableEditingPlugin.js';
-import { resolveDocumentStickers } from './stickers.js';
 import { uploadVideosAt, videoFiles } from './videos.js';
 
 const registry = Object.create(null);
@@ -449,7 +447,6 @@ async function initialize(wrapper) {
             audio: audioNodeView(bridge),
             image: imageNodeView(bridge),
             video: videoNodeView(bridge),
-            sticker: stickerNodeView(bridge),
             table: tableNodeView(bridge),
             ...bridge.extensionHost.nodeViews,
         },
@@ -499,7 +496,6 @@ async function initialize(wrapper) {
     form.addEventListener('submit', () => bridge.prepareSubmit(), true);
     bridge.sync();
     enableAutosave(bridge);
-    resolveDocumentStickers(bridge).catch(error => console.warn('[roundeditor] Sticker resolution failed.', error));
     try {
         await bridge.extensionHost.ready();
     } catch (error) {

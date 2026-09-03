@@ -924,7 +924,7 @@ async function applyTemplate(editorSequence, html, overwrite = false) {
     });
 
     const options = {
-        source: 'module:ap-template',
+        source: 'module:sticker',
         history: 'record',
     };
 

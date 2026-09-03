@@ -2,7 +2,7 @@ import { NodeSelection, Plugin } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { insertBlankParagraphBefore, isNonTextItem, nonTextItemNeedsLeadingParagraph } from './mediaInsertion.js';
 
-const RANGE_HIGHLIGHTED_MEDIA = new Set(['audio', 'sticker', 'video']);
+const RANGE_HIGHLIGHTED_MEDIA = new Set(['audio', 'video']);
 const DRAGGABLE_MEDIA_SELECTOR = [
     '.roundeditor__media--image',
     '.roundeditor__media--video',

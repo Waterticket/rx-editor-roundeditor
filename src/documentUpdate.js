@@ -1,9 +1,5 @@
 import { EditorState } from 'prosemirror-state';
 
-function stickerKey(node) {
-    return `${node.attrs.stickerSrl || ''}|${node.attrs.fileSrl || ''}`;
-}
-
 function videoKey(node) {
     return `${node.attrs.fileSrl || ''}|${node.attrs.src || ''}`;
 }
@@ -24,39 +20,26 @@ function samePresentation(left, right, attributes) {
     ));
 }
 
-const STICKER_PRESENTATION_ATTRS = [
-    'stickerSrl', 'fileSrl', 'mediaType', 'src', 'title', 'width', 'height', 'displayWidth', 'displayHeight',
-];
-
 const VIDEO_PRESENTATION_ATTRS = [
     'src', 'poster', 'width', 'height', 'displayWidth', 'displayHeight', 'fileSrl', 'preload',
     'controls', 'muted', 'autoplay', 'loop', 'playsinline', 'align', 'display', 'marginLeft', 'marginRight',
 ];
 
 export function preserveTransientMedia(currentDoc, nextDoc) {
-    const currentStickers = new Map();
     const currentVideos = new Map();
     currentDoc.descendants(node => {
-        if (node.type.name === 'sticker') {
-            const key = stickerKey(node);
-            if (!currentStickers.has(key)) currentStickers.set(key, []);
-            currentStickers.get(key).push(node);
-        } else if (node.type.name === 'video') {
+        if (node.type.name === 'video') {
             const key = videoKey(node);
             if (!currentVideos.has(key)) currentVideos.set(key, []);
             currentVideos.get(key).push(node);
         }
     });
-    if (!currentStickers.size && !currentVideos.size) return nextDoc;
+    if (!currentVideos.size) return nextDoc;
 
     let transaction = EditorState.create({ doc: nextDoc }).tr;
     nextDoc.descendants((node, position) => {
         let matchingNode = null;
-        if (node.type.name === 'sticker') {
-            matchingNode = currentStickers.get(stickerKey(node))?.find(current => (
-                samePresentation(current, node, STICKER_PRESENTATION_ATTRS)
-            ));
-        } else if (node.type.name === 'video') {
+        if (node.type.name === 'video') {
             matchingNode = currentVideos.get(videoKey(node))?.find(current => (
                 samePresentation(current, node, VIDEO_PRESENTATION_ATTRS)
             ));

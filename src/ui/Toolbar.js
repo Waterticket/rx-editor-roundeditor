@@ -37,7 +37,6 @@ import {
 } from './commands.js';
 import { createLinkPanel } from './panels/LinkPanel.js';
 import { createTablePanel } from './panels/TablePanel.js';
-import { createStickerPanel } from './panels/StickerPanel.js';
 import { openComponent } from '../rhymix/component.js';
 import { componentToolbarIcon } from '../rhymix/componentPresentation.js';
 
@@ -51,8 +50,6 @@ const FALLBACK_LABELS = {
     alignLeft: 'Align left', alignCenter: 'Align center', alignRight: 'Align right',
     alignJustify: 'Justify', orderedList: 'Numbered list', bulletList: 'Bulleted list',
     outdent: 'Outdent', indent: 'Indent', quote: 'Block quote', horizontalRule: 'Horizontal rule',
-    sticker: 'Sticker', stickerPacks: 'Sticker packs', stickerRecent: 'Recent', stickerLoading: 'Loading stickers…',
-    stickerEmpty: 'No stickers are available.', stickerError: 'Could not load stickers.',
     undo: 'Undo', redo: 'Redo', selectAll: 'Select all',
     source: 'Edit HTML source', fullscreen: 'Fullscreen',
     help: 'Keyboard shortcuts', normal: 'Normal', code: 'Code', reset: 'Reset', custom: 'Custom',
@@ -168,9 +165,6 @@ export class Toolbar {
         const paragraph = this.addGroup('paragraph');
         paragraph.appendChild(this.moreButton('paragraph', 'paragraph'));
 
-        const sticker = this.addGroup('sticker');
-        sticker.appendChild(button('sticker', this.labels));
-
         if (this.bridge.config.enableComponent) {
             const components = this.addGroup('components');
             for (const [name, configuredTitle] of Object.entries(this.bridge.config.components || {})) {
@@ -230,6 +224,15 @@ export class Toolbar {
             element.title = String(item.label || item.id);
             element.setAttribute('aria-label', String(item.label || item.id));
             if (item.icon?.type === 'symbol') element.appendChild(uiIcon(item.icon.name));
+            else if (item.icon?.type === 'svg') {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.className.baseVal = 'roundeditor__icon';
+                svg.setAttribute('viewBox', '0 0 24 24');
+                svg.setAttribute('aria-hidden', 'true');
+                svg.setAttribute('focusable', 'false');
+                svg.innerHTML = String(item.icon.svg || '');
+                element.appendChild(svg);
+            }
             else if (item.icon?.type === 'url') {
                 const image = document.createElement('img'); image.src = item.icon.url; image.alt = ''; image.setAttribute('aria-hidden', 'true'); element.appendChild(image);
             } else {
@@ -502,9 +505,6 @@ export class Toolbar {
             this.tablePanel();
         } else if (name === 'specialCharacters') {
             this.characterPanel();
-        } else if (name === 'sticker') {
-            const panel = createStickerPanel(this.bridge, this.labels, () => this.closePanel());
-            this.openPanel(name, this.labels.sticker, panel);
         } else if (name === 'help') {
             const content = document.createElement('p');
             content.className = 'roundeditor__help';

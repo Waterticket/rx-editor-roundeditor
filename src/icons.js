@@ -39,7 +39,6 @@ const UI_ICONS = {
     indent: '<path d="M3 6h11M3 12h11M3 18h11M17 9l3 3-3 3"/>',
     quote: '<path d="M5 11h5v7H4v-6c0-4 2-6 6-7M15 11h5v7h-6v-6c0-4 2-6 6-7"/>',
     horizontalRule: '<path d="M4 12h16"/>',
-    sticker: '<circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r="1" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1" fill="currentColor" stroke="none"/><path d="M8 14.5c1 1.3 2.3 2 4 2s3-.7 4-2"/>',
     poll: '<rect x="4" y="12" width="4" height="8" rx="1" fill="currentColor" stroke="none"/><rect x="10" y="8" width="4" height="12" rx="1" fill="currentColor" stroke="none"/><rect x="16" y="4" width="4" height="16" rx="1" fill="currentColor" stroke="none"/>',
     undo: '<path d="M9 7 5 11l4 4M5 11h8a6 6 0 0 1 6 6"/>',
     redo: '<path d="m15 7 4 4-4 4M19 11h-8a6 6 0 0 0-6 6"/>',
